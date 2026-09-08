@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: pick-eat-backend
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pick_eat}
+    username: ${DB_USERNAME:${user.name}}
+    password: ${DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
