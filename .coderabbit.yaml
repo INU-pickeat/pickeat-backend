@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: ko-KR
+reviews:
+  profile: chill
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+      - develop
+  path_instructions:
+    - path: "**/*.java"
+      instructions: >-
+        Java 21과 Spring 프로젝트다. 공백 4칸, PascalCase 클래스명,
+        camelCase 변수·메서드명, 생성자 주입, Service 트랜잭션 경계,
+        Request DTO 입력 검증을 확인한다. Entity의 무분별한 Setter와 @Data,
+        민감정보 로깅을 지양한다. 버그·보안·테스트 누락을 우선 검토하고,
+        미래를 위한 불필요한 인터페이스나 추상화를 제안하지 않는다.
