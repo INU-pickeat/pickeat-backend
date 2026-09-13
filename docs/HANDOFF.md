@@ -1,5 +1,9 @@
 # 개발 인계 — 2026-09-11
 
+> 2026-09-13 업데이트: V1과 CI·Swagger 변경은 origin/develop의 PR #3, #4에 반영되어 있다.
+> 최신 서비스 결정은 [SERVICE_DECISIONS.md](SERVICE_DECISIONS.md)를 우선한다.
+> V2 SQL 및 공간·동행 스키마 테스트를 추가했다. 실제 식당 자료 입력은 아직 진행하지 않았다.
+
 ## 완료
 
 - Java 21 / Spring Boot 4.1.1 빌드 확인.
