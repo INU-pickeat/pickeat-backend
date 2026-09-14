@@ -29,13 +29,14 @@ Docker Desktop을 실행한 뒤 다음 명령을 사용한다.
 ./gradlew build
 ```
 
-Spring 통합 테스트는 `@Import(TestDatabaseConfig.class)`로 임시 PostgreSQL 18.6에
+Spring 통합 테스트는 `@Import(TestDatabaseConfig.class)`로 임시 PostgreSQL 18 / PostGIS 3.6에
 연결한다. Flyway도 임시 DB에 적용한다. Docker가 없으면 테스트는 실패하며
 개발 DB로 대체하거나 테스트를 건너뛰지 않는다. 첫 실행에는 이미지 다운로드가 필요하다.
 새 DB 통합 테스트에도 이 설정을 적용해야 한다. DB 없는 단위 테스트에는 필요 없다.
 Gradle 테스트에는 접속 불가능한 기본 DB 주소를 지정하여 컨테이너 설정 누락 시 실패하게 한다.
 IntelliJ에서도 테스트 실행 도구를 Gradle로 설정한다.
-현재 테스트 이미지에는 PostGIS가 없으므로 공간 검색 구현 시 PostGIS 테스트 환경을 추가한다.
+테스트 이미지는 `postgis/postgis:18-3.6`이다. amd64 이미지이므로 Apple Silicon에서는
+Docker의 amd64 에뮬레이션이 필요하며 실행이 더 느릴 수 있다.
 
 TDD: 실패하는 테스트 작성 → 최소 구현 → 테스트를 유지하며 리팩토링.
 
@@ -52,3 +53,12 @@ TDD: 실패하는 테스트 작성 → 최소 구현 → 테스트를 유지하�
 
 `src/main/resources/db/migration`의 버전별 SQL로 관리한다.
 적용된 마이그레이션은 수정하지 않고 다음 버전 파일을 추가한다.
+
+V2는 PostGIS 확장을 활성화하고 동행 적합도 5개(nullable boolean),
+`location geography(Point, 4326)` 및 GiST 인덱스를 추가한다.
+DB 서버에 PostGIS 패키지가 설치되어 있어야 한다. 확장 설치 권한이 없는 환경에서는
+관리자가 해당 DB에 PostGIS를 먼저 활성화한다. 앱 계정에 관리자 권한을 부여하지 않는다.
+`location`은 위도·경도로부터 자동 생성되므로 직접 입력하거나 수정하지 않는다.
+좌표 입력 순서는 애플리케이션 필드와 무관하게 PostGIS Point에서 경도, 위도다.
+반경 검색은 `ST_DWithin(location, 기준위치::geography, 5000)`을 사용한다.
+V2 자체는 추천 순위 계산이나 API를 구현하지 않는다.
