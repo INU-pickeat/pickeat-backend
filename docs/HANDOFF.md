@@ -1,4 +1,29 @@
-# 개발 인계 — 2026-09-11
+# 개발 인계
+
+## 2026-09-15 최신 상태
+
+- `feat/restaurant-persistence`에 전시용 Entity/Repository와 Google Places 후보 클라이언트를 구현했다.
+- Google 클라이언트는 좌표·명시적 정렬 기준으로 반경 5km, 식당 최대 20개를 조회한다.
+- 검색 결과를 DB에 저장하지 않는다. 전시용 DB 경로와 외부 탐색을 구분한다.
+- Google 키/실호출 검증, 음식 타입 매핑, 자체 가중치, 추천 HTTP API는 아직 남아 있다.
+- 오류 응답을 검색 결과 없음으로 숨기지 않으며 자동 재시도도 하지 않는다.
+- Google 모의 테스트 16개를 추가했다. Docker 실행 후 기존 DB/Swagger 14개와 합쳐 총 30개 통과, `./gradlew build` 성공.
+- Graphify 로컬 그래프 생성 완료(Java 중심, SQL 분석기 미설치). 영구 훅 설정을 의미하지 않는다.
+- Ponytail full 원칙 적용: 기존 Spring RestClient 사용, 추가 SDK/추상화 없음.
+- 최신 합의와 미정 항목은 [SERVICE_DECISIONS.md](SERVICE_DECISIONS.md)를 따른다.
+
+## 2026-09-14 기록
+
+- PR #5는 develop에 병합했고 개발 DB에는 Flyway V2 적용을 확인했다.
+- `feat/restaurant-persistence`에서 Entity·Repository와 테스트를 로컬 구현했다. 기존 9개와 신규 5개, 총 14개 테스트 통과.
+- 해당 저장·조회 구현은 아직 커밋·푸시하지 않았다. 작업 트리의 변경을 보존한다.
+- 식당 DB는 혜화 전시용이다. 확장 서비스는 외부 API 탐색과 자체 사용자 데이터 저장을 분리한다.
+- 다음 작업은 DB 검색을 최종 서비스로 확대하는 것이 아니라 Google Nearby Search 후보·필드·비용 검증이다.
+- 최신 합의와 미정 항목은 [SERVICE_DECISIONS.md](SERVICE_DECISIONS.md)를 따른다.
+
+아래는 과거 기록이며 현재 진행 상태가 아니다.
+
+## 2026-09-11 기록
 
 > 2026-09-13 업데이트: V1과 CI·Swagger 변경은 origin/develop의 PR #3, #4에 반영되어 있다.
 > 최신 서비스 결정은 [SERVICE_DECISIONS.md](SERVICE_DECISIONS.md)를 우선한다.
