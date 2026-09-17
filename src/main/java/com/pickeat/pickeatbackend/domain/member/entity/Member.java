@@ -1,4 +1,4 @@
-package com.pickeat.pickeatbackend.domain.user.entity;
+package com.pickeat.pickeatbackend.domain.member.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -17,10 +17,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "users")
+@Table(name = "members")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class User {
+public class Member {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,19 +32,18 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    private Gender gender;
-
-    @Column(nullable = false)
-    private Integer age;
+    @Column(nullable = false, length = 30)
+    private String nickname;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private Job job;
+    private LoginProvider loginProvider;
 
-    @Column(nullable = false)
-    private Integer tokenBalance;
+    @Column(length = 500)
+    private String profileImageUrl;
+
+    @Column(length = 100)
+    private String defaultRegion;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -53,19 +52,18 @@ public class User {
     private LocalDateTime updatedAt;
 
     @Builder
-    public User(String email, String password, Gender gender, Integer age, Job job) {
+    public Member(String email, String password, String nickname) {
         this.email = email;
         this.password = password;
-        this.gender = gender;
-        this.age = age;
-        this.job = job;
-        this.tokenBalance = 0;
+        this.nickname = nickname;
+        this.loginProvider = LoginProvider.LOCAL;
     }
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.updatedAt = now;
     }
 
     @PreUpdate
