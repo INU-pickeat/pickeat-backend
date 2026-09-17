@@ -1,5 +1,7 @@
 package com.pickeat.pickeatbackend.domain.user.controller;
 
+import com.pickeat.pickeatbackend.domain.user.dto.LoginRequest;
+import com.pickeat.pickeatbackend.domain.user.dto.LoginResponse;
 import com.pickeat.pickeatbackend.domain.user.dto.SignUpRequest;
 import com.pickeat.pickeatbackend.domain.user.dto.SignUpResponse;
 import com.pickeat.pickeatbackend.domain.user.service.UserService;
@@ -23,5 +25,10 @@ public class UserController {
     public ResponseEntity<SignUpResponse> signUp(@Valid @RequestBody SignUpRequest request) {
         Long userId = userService.signUp(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(new SignUpResponse(userId));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.ok(userService.login(request));
     }
 }
