@@ -35,3 +35,8 @@ out/
 
 ### VS Code ###
 .vscode/
+
+.claude/
+.serena/
+graphify-out/
+src/graphify-out/
