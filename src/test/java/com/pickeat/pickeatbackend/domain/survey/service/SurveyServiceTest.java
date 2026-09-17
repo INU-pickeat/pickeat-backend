@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.pickeat.pickeatbackend.domain.survey.dto.SurveyCreateRequest;
+import com.pickeat.pickeatbackend.domain.survey.dto.SurveyDetailResponse;
 import com.pickeat.pickeatbackend.domain.survey.entity.Survey;
 import com.pickeat.pickeatbackend.domain.survey.entity.SurveyCategory;
 import com.pickeat.pickeatbackend.domain.survey.repository.SurveyRepository;
@@ -77,5 +78,43 @@ class SurveyServiceTest {
         org.mockito.Mockito.verify(surveyRepository).save(captor.capture());
         assertThat(captor.getValue().getCreator()).isEqualTo(creator);
         assertThat(captor.getValue().getTitle()).isEqualTo("점심 뭐 먹지");
+    }
+
+    private Survey survey() {
+        return Survey.builder()
+                .creator(creator())
+                .title("점심 뭐 먹지")
+                .category(SurveyCategory.DAILY)
+                .startDate(LocalDate.of(2026, 9, 17))
+                .endDate(LocalDate.of(2026, 9, 20))
+                .build();
+    }
+
+    @Test
+    void 존재하지_않는_설문을_조회하면_예외가_발생한다() {
+        when(surveyRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> surveyService.getDetail(1L))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void 삭제된_설문을_조회하면_예외가_발생한다() {
+        Survey deleted = survey();
+        deleted.markAsDeleted();
+        when(surveyRepository.findById(1L)).thenReturn(Optional.of(deleted));
+
+        assertThatThrownBy(() -> surveyService.getDetail(1L))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void 설문을_조회하면_상세_정보를_반환한다() {
+        when(surveyRepository.findById(1L)).thenReturn(Optional.of(survey()));
+
+        SurveyDetailResponse response = surveyService.getDetail(1L);
+
+        assertThat(response.title()).isEqualTo("점심 뭐 먹지");
+        assertThat(response.category()).isEqualTo(SurveyCategory.DAILY);
     }
 }
