@@ -1,6 +1,7 @@
 package com.pickeat.pickeatbackend.domain.survey.service;
 
 import com.pickeat.pickeatbackend.domain.survey.dto.SurveyCreateRequest;
+import com.pickeat.pickeatbackend.domain.survey.dto.SurveyDetailResponse;
 import com.pickeat.pickeatbackend.domain.survey.entity.Survey;
 import com.pickeat.pickeatbackend.domain.survey.exception.SurveyErrorCode;
 import com.pickeat.pickeatbackend.domain.survey.repository.SurveyRepository;
@@ -40,5 +41,14 @@ public class SurveyService {
                 .build();
 
         return surveyRepository.save(survey).getId();
+    }
+
+    @Transactional(readOnly = true)
+    public SurveyDetailResponse getDetail(Long surveyId) {
+        Survey survey = surveyRepository.findById(surveyId)
+                .filter(found -> !found.isDeleted())
+                .orElseThrow(() -> new BusinessException(SurveyErrorCode.SURVEY_NOT_FOUND));
+
+        return SurveyDetailResponse.from(survey);
     }
 }

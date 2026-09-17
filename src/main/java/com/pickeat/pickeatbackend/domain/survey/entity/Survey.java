@@ -93,4 +93,8 @@ public class Survey {
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
+
+    public void markAsDeleted() {
+        this.isDeleted = true;
+    }
 }
