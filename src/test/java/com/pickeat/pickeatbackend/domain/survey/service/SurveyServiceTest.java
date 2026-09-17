@@ -3,13 +3,22 @@ package com.pickeat.pickeatbackend.domain.survey.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.pickeat.pickeatbackend.domain.survey.dto.QuestionCreateRequest;
 import com.pickeat.pickeatbackend.domain.survey.dto.SurveyCreateRequest;
 import com.pickeat.pickeatbackend.domain.survey.dto.SurveyDetailResponse;
 import com.pickeat.pickeatbackend.domain.survey.dto.SurveySummaryResponse;
+import com.pickeat.pickeatbackend.domain.survey.entity.Question;
+import com.pickeat.pickeatbackend.domain.survey.entity.QuestionOption;
+import com.pickeat.pickeatbackend.domain.survey.entity.QuestionType;
 import com.pickeat.pickeatbackend.domain.survey.entity.Survey;
 import com.pickeat.pickeatbackend.domain.survey.entity.SurveyCategory;
+import com.pickeat.pickeatbackend.domain.survey.repository.QuestionOptionRepository;
+import com.pickeat.pickeatbackend.domain.survey.repository.QuestionRepository;
 import com.pickeat.pickeatbackend.domain.survey.repository.SurveyRepository;
 import com.pickeat.pickeatbackend.domain.user.entity.Gender;
 import com.pickeat.pickeatbackend.domain.user.entity.Job;
@@ -38,6 +47,12 @@ class SurveyServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private QuestionRepository questionRepository;
+
+    @Mock
+    private QuestionOptionRepository questionOptionRepository;
+
     @InjectMocks
     private SurveyService surveyService;
 
@@ -51,14 +66,24 @@ class SurveyServiceTest {
                 .build();
     }
 
-    private SurveyCreateRequest request(LocalDate startDate, LocalDate endDate) {
-        return new SurveyCreateRequest("점심 뭐 먹지", null, null, SurveyCategory.DAILY, null, startDate, endDate);
+    private QuestionCreateRequest subjectiveQuestion() {
+        return new QuestionCreateRequest(QuestionType.SUBJECTIVE, "좋아하는 메뉴는?", false, false, null);
+    }
+
+    private QuestionCreateRequest multipleChoiceQuestion(List<String> options) {
+        return new QuestionCreateRequest(QuestionType.MULTIPLE_CHOICE, "선호하는 시간은?", true, false, options);
+    }
+
+    private SurveyCreateRequest request(LocalDate startDate, LocalDate endDate, List<QuestionCreateRequest> questions) {
+        return new SurveyCreateRequest(
+                "점심 뭐 먹지", null, null, SurveyCategory.DAILY, null, startDate, endDate, questions
+        );
     }
 
     @Test
     void 마감일이_시작일보다_빠르면_예외가_발생한다() {
         assertThatThrownBy(() -> surveyService.create(1L,
-                request(LocalDate.of(2026, 9, 20), LocalDate.of(2026, 9, 17))))
+                request(LocalDate.of(2026, 9, 20), LocalDate.of(2026, 9, 17), List.of(subjectiveQuestion()))))
                 .isInstanceOf(BusinessException.class);
     }
 
@@ -67,22 +92,38 @@ class SurveyServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> surveyService.create(1L,
-                request(LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 20))))
+                request(LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 20), List.of(subjectiveQuestion()))))
                 .isInstanceOf(BusinessException.class);
     }
 
     @Test
-    void 설문_생성에_성공하면_작성자가_설정된다() {
+    void 객관식_문항에_보기가_없으면_예외가_발생한다() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(creator()));
+
+        assertThatThrownBy(() -> surveyService.create(1L,
+                request(LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 20),
+                        List.of(multipleChoiceQuestion(List.of())))))
+                .isInstanceOf(BusinessException.class);
+
+        verify(questionOptionRepository, never()).save(any());
+    }
+
+    @Test
+    void 설문_생성에_성공하면_문항과_보기가_함께_저장된다() {
         User creator = creator();
         when(userRepository.findById(1L)).thenReturn(Optional.of(creator));
-        when(surveyRepository.save(any(Survey.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        surveyService.create(1L, request(LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 20)));
+        surveyService.create(1L, request(
+                LocalDate.of(2026, 9, 17), LocalDate.of(2026, 9, 20),
+                List.of(subjectiveQuestion(), multipleChoiceQuestion(List.of("아침", "점심", "저녁")))
+        ));
 
-        ArgumentCaptor<Survey> captor = ArgumentCaptor.forClass(Survey.class);
-        org.mockito.Mockito.verify(surveyRepository).save(captor.capture());
-        assertThat(captor.getValue().getCreator()).isEqualTo(creator);
-        assertThat(captor.getValue().getTitle()).isEqualTo("점심 뭐 먹지");
+        ArgumentCaptor<Survey> surveyCaptor = ArgumentCaptor.forClass(Survey.class);
+        verify(surveyRepository).save(surveyCaptor.capture());
+        assertThat(surveyCaptor.getValue().getCreator()).isEqualTo(creator);
+
+        verify(questionRepository, times(2)).save(any(Question.class));
+        verify(questionOptionRepository, times(3)).save(any(QuestionOption.class));
     }
 
     private Survey survey() {
@@ -114,13 +155,17 @@ class SurveyServiceTest {
     }
 
     @Test
-    void 설문을_조회하면_상세_정보를_반환한다() {
-        when(surveyRepository.findById(1L)).thenReturn(Optional.of(survey()));
+    void 설문을_조회하면_문항과_함께_상세_정보를_반환한다() {
+        Survey survey = survey();
+        when(surveyRepository.findById(1L)).thenReturn(Optional.of(survey));
+        when(questionRepository.findBySurveyOrderByQuestionOrder(survey)).thenReturn(List.of());
+        when(questionOptionRepository.findByQuestionInOrderByOptionOrder(List.of())).thenReturn(List.of());
 
         SurveyDetailResponse response = surveyService.getDetail(1L);
 
         assertThat(response.title()).isEqualTo("점심 뭐 먹지");
         assertThat(response.category()).isEqualTo(SurveyCategory.DAILY);
+        assertThat(response.questions()).isEmpty();
     }
 
     @Test
