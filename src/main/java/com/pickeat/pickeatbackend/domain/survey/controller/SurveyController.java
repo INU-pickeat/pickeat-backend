@@ -3,9 +3,14 @@ package com.pickeat.pickeatbackend.domain.survey.controller;
 import com.pickeat.pickeatbackend.domain.survey.dto.SurveyCreateRequest;
 import com.pickeat.pickeatbackend.domain.survey.dto.SurveyCreateResponse;
 import com.pickeat.pickeatbackend.domain.survey.dto.SurveyDetailResponse;
+import com.pickeat.pickeatbackend.domain.survey.dto.SurveySummaryResponse;
 import com.pickeat.pickeatbackend.domain.survey.service.SurveyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -35,5 +40,13 @@ public class SurveyController {
     @GetMapping("/{surveyId}")
     public ResponseEntity<SurveyDetailResponse> getDetail(@PathVariable Long surveyId) {
         return ResponseEntity.ok(surveyService.getDetail(surveyId));
+    }
+
+    @GetMapping
+    public ResponseEntity<Page<SurveySummaryResponse>> getList(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            Pageable pageable
+    ) {
+        return ResponseEntity.ok(surveyService.getList(pageable));
     }
 }

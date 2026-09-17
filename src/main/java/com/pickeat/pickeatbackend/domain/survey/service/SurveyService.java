@@ -2,6 +2,7 @@ package com.pickeat.pickeatbackend.domain.survey.service;
 
 import com.pickeat.pickeatbackend.domain.survey.dto.SurveyCreateRequest;
 import com.pickeat.pickeatbackend.domain.survey.dto.SurveyDetailResponse;
+import com.pickeat.pickeatbackend.domain.survey.dto.SurveySummaryResponse;
 import com.pickeat.pickeatbackend.domain.survey.entity.Survey;
 import com.pickeat.pickeatbackend.domain.survey.exception.SurveyErrorCode;
 import com.pickeat.pickeatbackend.domain.survey.repository.SurveyRepository;
@@ -10,6 +11,8 @@ import com.pickeat.pickeatbackend.domain.user.exception.UserErrorCode;
 import com.pickeat.pickeatbackend.domain.user.repository.UserRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,5 +53,11 @@ public class SurveyService {
                 .orElseThrow(() -> new BusinessException(SurveyErrorCode.SURVEY_NOT_FOUND));
 
         return SurveyDetailResponse.from(survey);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<SurveySummaryResponse> getList(Pageable pageable) {
+        return surveyRepository.findByIsDeletedFalse(pageable)
+                .map(SurveySummaryResponse::from);
     }
 }
