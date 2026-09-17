@@ -1,17 +1,16 @@
-package com.pickeat.pickeatbackend.domain.user.service;
+package com.pickeat.pickeatbackend.domain.member.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.pickeat.pickeatbackend.domain.user.dto.LoginRequest;
-import com.pickeat.pickeatbackend.domain.user.dto.LoginResponse;
-import com.pickeat.pickeatbackend.domain.user.dto.SignUpRequest;
-import com.pickeat.pickeatbackend.domain.user.entity.Gender;
-import com.pickeat.pickeatbackend.domain.user.entity.Job;
-import com.pickeat.pickeatbackend.domain.user.entity.User;
-import com.pickeat.pickeatbackend.domain.user.repository.UserRepository;
+import com.pickeat.pickeatbackend.domain.member.dto.LoginRequest;
+import com.pickeat.pickeatbackend.domain.member.dto.LoginResponse;
+import com.pickeat.pickeatbackend.domain.member.dto.SignUpRequest;
+import com.pickeat.pickeatbackend.domain.member.entity.Member;
+import com.pickeat.pickeatbackend.domain.member.repository.MemberRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import com.pickeat.pickeatbackend.global.security.jwt.JwtTokenProvider;
 import java.util.Optional;
@@ -24,10 +23,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
-class UserServiceTest {
+class MemberServiceTest {
 
     @Mock
-    private UserRepository userRepository;
+    private MemberRepository memberRepository;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -36,67 +35,65 @@ class UserServiceTest {
     private JwtTokenProvider jwtTokenProvider;
 
     @InjectMocks
-    private UserService userService;
+    private MemberService memberService;
 
     private SignUpRequest request() {
-        return new SignUpRequest("test@pickeat.com", "password123", Gender.FEMALE, 24, Job.UNIVERSITY_STUDENT);
+        return new SignUpRequest("test@pickeat.com", "password123", "픽잇러");
     }
 
-    private User savedUser() {
-        return User.builder()
+    private Member savedMember() {
+        return Member.builder()
                 .email("test@pickeat.com")
                 .password("encoded-password")
-                .gender(Gender.FEMALE)
-                .age(24)
-                .job(Job.UNIVERSITY_STUDENT)
+                .nickname("픽잇러")
                 .build();
     }
 
     @Test
     void 이미_가입된_이메일이면_예외가_발생한다() {
-        when(userRepository.existsByEmail("test@pickeat.com")).thenReturn(true);
+        when(memberRepository.existsByEmail("test@pickeat.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> userService.signUp(request()))
+        assertThatThrownBy(() -> memberService.signUp(request()))
                 .isInstanceOf(BusinessException.class);
     }
 
     @Test
     void 회원가입에_성공하면_비밀번호는_암호화되어_저장된다() {
-        when(userRepository.existsByEmail("test@pickeat.com")).thenReturn(false);
+        when(memberRepository.existsByEmail("test@pickeat.com")).thenReturn(false);
         when(passwordEncoder.encode("password123")).thenReturn("encoded-password");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(memberRepository.save(any(Member.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        userService.signUp(request());
+        memberService.signUp(request());
 
-        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-        org.mockito.Mockito.verify(userRepository).save(captor.capture());
+        ArgumentCaptor<Member> captor = ArgumentCaptor.forClass(Member.class);
+        verify(memberRepository).save(captor.capture());
         assertThat(captor.getValue().getPassword()).isEqualTo("encoded-password");
     }
 
     @Test
     void 존재하지_않는_이메일로_로그인하면_예외가_발생한다() {
-        when(userRepository.findByEmail("test@pickeat.com")).thenReturn(Optional.empty());
+        when(memberRepository.findByEmail("test@pickeat.com")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.login(new LoginRequest("test@pickeat.com", "password123")))
+        assertThatThrownBy(() -> memberService.login(new LoginRequest("test@pickeat.com", "password123")))
                 .isInstanceOf(BusinessException.class);
     }
 
     @Test
     void 비밀번호가_틀리면_예외가_발생한다() {
-        when(userRepository.findByEmail("test@pickeat.com")).thenReturn(Optional.of(savedUser()));
+        when(memberRepository.findByEmail("test@pickeat.com")).thenReturn(Optional.of(savedMember()));
         when(passwordEncoder.matches("wrong-password", "encoded-password")).thenReturn(false);
 
-        assertThatThrownBy(() -> userService.login(new LoginRequest("test@pickeat.com", "wrong-password")))
+        assertThatThrownBy(() -> memberService.login(new LoginRequest("test@pickeat.com", "wrong-password")))
                 .isInstanceOf(BusinessException.class);
     }
 
     @Test
     void 로그인에_성공하면_액세스_토큰을_반환한다() {
-        when(userRepository.findByEmail("test@pickeat.com")).thenReturn(Optional.of(savedUser()));
+        when(memberRepository.findByEmail("test@pickeat.com")).thenReturn(Optional.of(savedMember()));
         when(passwordEncoder.matches("password123", "encoded-password")).thenReturn(true);
         when(jwtTokenProvider.createAccessToken(any())).thenReturn("access-token");
 
-        LoginResponse response = userService.login(new LoginRequest("test@pickeat.com", "password123"));
+        LoginResponse response = memberService.login(new LoginRequest("test@pickeat.com", "password123"));
 
         assertThat(response.accessToken()).isEqualTo("access-token");
     }

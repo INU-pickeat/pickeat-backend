@@ -1,4 +1,4 @@
-package com.pickeat.pickeatbackend.domain.user.dto;
+package com.pickeat.pickeatbackend.domain.member.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
