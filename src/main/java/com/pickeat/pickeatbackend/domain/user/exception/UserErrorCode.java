@@ -1,0 +1,17 @@
+package com.pickeat.pickeatbackend.domain.user.exception;
+
+import com.pickeat.pickeatbackend.global.exception.BaseErrorCode;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+
+@Getter
+@RequiredArgsConstructor
+public enum UserErrorCode implements BaseErrorCode {
+
+    DUPLICATE_EMAIL("USER_001", "이미 가입된 이메일입니다.", HttpStatus.CONFLICT);
+
+    private final String code;
+    private final String message;
+    private final HttpStatus status;
+}
