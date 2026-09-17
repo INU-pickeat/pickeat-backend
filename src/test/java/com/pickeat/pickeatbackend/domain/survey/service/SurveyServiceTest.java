@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.pickeat.pickeatbackend.domain.survey.dto.SurveyCreateRequest;
 import com.pickeat.pickeatbackend.domain.survey.dto.SurveyDetailResponse;
+import com.pickeat.pickeatbackend.domain.survey.dto.SurveySummaryResponse;
 import com.pickeat.pickeatbackend.domain.survey.entity.Survey;
 import com.pickeat.pickeatbackend.domain.survey.entity.SurveyCategory;
 import com.pickeat.pickeatbackend.domain.survey.repository.SurveyRepository;
@@ -16,6 +17,7 @@ import com.pickeat.pickeatbackend.domain.user.entity.User;
 import com.pickeat.pickeatbackend.domain.user.repository.UserRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +25,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class SurveyServiceTest {
@@ -116,5 +121,17 @@ class SurveyServiceTest {
 
         assertThat(response.title()).isEqualTo("점심 뭐 먹지");
         assertThat(response.category()).isEqualTo(SurveyCategory.DAILY);
+    }
+
+    @Test
+    void 설문_목록을_조회하면_삭제되지_않은_설문만_요약으로_반환한다() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(surveyRepository.findByIsDeletedFalse(pageable))
+                .thenReturn(new PageImpl<>(List.of(survey()), pageable, 1));
+
+        List<SurveySummaryResponse> content = surveyService.getList(pageable).getContent();
+
+        assertThat(content).hasSize(1);
+        assertThat(content.get(0).title()).isEqualTo("점심 뭐 먹지");
     }
 }
