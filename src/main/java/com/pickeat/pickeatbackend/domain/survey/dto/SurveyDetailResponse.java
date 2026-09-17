@@ -4,6 +4,7 @@ import com.pickeat.pickeatbackend.domain.survey.entity.Survey;
 import com.pickeat.pickeatbackend.domain.survey.entity.SurveyCategory;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record SurveyDetailResponse(
         Long id,
@@ -16,10 +17,11 @@ public record SurveyDetailResponse(
         LocalDate startDate,
         LocalDate endDate,
         boolean sharedToArchive,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        List<QuestionResponse> questions
 ) {
 
-    public static SurveyDetailResponse from(Survey survey) {
+    public static SurveyDetailResponse from(Survey survey, List<QuestionResponse> questions) {
         return new SurveyDetailResponse(
                 survey.getId(),
                 survey.getCreator().getId(),
@@ -31,7 +33,8 @@ public record SurveyDetailResponse(
                 survey.getStartDate(),
                 survey.getEndDate(),
                 survey.isSharedToArchive(),
-                survey.getCreatedAt()
+                survey.getCreatedAt(),
+                questions
         );
     }
 }
