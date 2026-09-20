@@ -21,6 +21,14 @@
 - 큐레이션 필드(`suitable_for_*`)는 내부 편집 값이라 Google 갱신이 절대 건드리지 않는다.
 - 이번 응답에 유형이 없거나 매핑되지 않으면(`FoodCategory.fromGooglePrimaryType()` 결과 없음) 기존 `food_category`를 그대로 유지한다 — 애매한 응답 하나 때문에 이미 알고 있는 분류를 지우지 않는다.
 
+### 외부 지도 링크 URL 형식 (M1-5, 2026-09-20)
+
+네이버·카카오 모두 우리가 갖고 있는 Google Place ID로 바로 열리는 링크를 지원하지 않는다. 두 서비스 다 이름 검색에 의존하는데, 동명 지점(체인점 등) 오매칭을 줄이려고 좌표를 지도 중심/핀 좌표로 함께 넘긴다.
+
+- 카카오맵: `https://map.kakao.com/link/map/{이름},{위도},{경도}` — 카카오가 공식 지원하는 "핀 공유" 링크 형식으로, 좌표가 핀 위치를 직접 결정한다.
+- 네이버지도: `https://map.naver.com/p/search/{이름}?c={경도},{위도},15,0,0,0,dh` — 검색 결과 자체는 이름 기준이지만 `c` 파라미터로 지도 중심을 좌표에 고정한다. 네이버는 카카오만큼 좌표 전용 핀 링크를 공식 제공하지 않아 차선책이다.
+- 이름은 경로 세그먼트라 `URLEncoder`의 `+`(공백)를 `%20`으로 치환해서 인코딩한다.
+
 ### Google primaryType → FoodCategory 매핑 (M1-2, 2026-09-20 검증)
 
 연남·한남·서촌·신사·논현 5곳에서 실제 `searchNearby` 호출로 얻은 약 99개 표본(반경 800m, `POPULARITY` 정렬)으로 검증했다. 코드의 `FoodCategory.fromGooglePrimaryType()`과 항상 동일하게 유지한다.
@@ -61,5 +69,5 @@
 
 ## 구현 현황
 
-- 구현 완료: Member 회원가입·로그인, JWT 필터, Restaurant 영속성 모델, PostGIS 위치 컬럼과 인덱스, 동행 적합도 플래그, CI 데이터베이스 서비스, 식당 상세 조회 API, Google Places 클라이언트, Google primaryType 카테고리 매핑, Google Restaurant upsert·갱신 정책, PostGIS 5km 반경 후보 조회.
-- 다음 작업: 외부 지도 링크 API, 추천 점수 계산과 세션 API.
+- 구현 완료: Member 회원가입·로그인, JWT 필터, Restaurant 영속성 모델, PostGIS 위치 컬럼과 인덱스, 동행 적합도 플래그, CI 데이터베이스 서비스, 식당 상세 조회 API, Google Places 클라이언트, Google primaryType 카테고리 매핑, Google Restaurant upsert·갱신 정책, PostGIS 5km 반경 후보 조회, 외부 지도 링크 API. → M1 Restaurant 마일스톤 완료.
+- 다음 작업: 추천 점수 계산과 세션 API (M2).

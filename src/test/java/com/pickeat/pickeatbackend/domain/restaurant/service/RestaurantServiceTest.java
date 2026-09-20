@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.pickeat.pickeatbackend.domain.restaurant.client.GooglePlaceResponse;
+import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantNavigationLinksResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
@@ -35,6 +36,28 @@ class RestaurantServiceTest {
 
         assertThatThrownBy(() -> restaurantService.getRestaurant(1L))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void 존재하지_않는_식당의_지도_링크를_조회하면_예외가_발생한다() {
+        when(restaurantRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> restaurantService.getNavigationLinks(1L))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void 지도_링크_조회에_성공한다() {
+        Restaurant restaurant = Restaurant.builder()
+                .name("테스트 식당")
+                .latitude(37.58)
+                .longitude(127.0)
+                .build();
+        when(restaurantRepository.findById(1L)).thenReturn(Optional.of(restaurant));
+
+        RestaurantNavigationLinksResponse response = restaurantService.getNavigationLinks(1L);
+
+        assertThat(response.kakaoMapUrl()).contains("37.58,127.0");
     }
 
     @Test

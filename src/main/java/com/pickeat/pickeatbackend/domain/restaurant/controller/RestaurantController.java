@@ -1,5 +1,6 @@
 package com.pickeat.pickeatbackend.domain.restaurant.controller;
 
+import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantNavigationLinksResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.service.RestaurantService;
 import lombok.RequiredArgsConstructor;
@@ -19,5 +20,10 @@ public class RestaurantController {
     @GetMapping("/{restaurantId}")
     public ResponseEntity<RestaurantResponse> getRestaurant(@PathVariable Long restaurantId) {
         return ResponseEntity.ok(restaurantService.getRestaurant(restaurantId));
+    }
+
+    @GetMapping("/{restaurantId}/navigation-links")
+    public ResponseEntity<RestaurantNavigationLinksResponse> getNavigationLinks(@PathVariable Long restaurantId) {
+        return ResponseEntity.ok(restaurantService.getNavigationLinks(restaurantId));
     }
 }
