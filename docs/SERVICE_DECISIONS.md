@@ -14,6 +14,13 @@
 - 큐레이션 데이터는 초기 탐색 경험 전용이다: 연남·한남·서촌·신사·논현 각 5곳씩 총 25곳.
 - Google 평점과 향후 Pick Eat 자체 평점은 의미와 갱신 정책이 달라서 분리해서 관리한다.
 
+### Google upsert 정책 (M1-3, 2026-09-20)
+
+- `google_place_id` 기준으로 조회 후 있으면 갱신, 없으면 생성한다 — 동일 Place ID로 중복 레코드가 생기지 않는다.
+- 외부 필드(이름·주소·좌표·평점·평점 수)는 매 upsert마다 최신 응답 값으로 덮어쓰고 `external_data_refreshed_at`을 갱신한다.
+- 큐레이션 필드(`suitable_for_*`)는 내부 편집 값이라 Google 갱신이 절대 건드리지 않는다.
+- 이번 응답에 유형이 없거나 매핑되지 않으면(`FoodCategory.fromGooglePrimaryType()` 결과 없음) 기존 `food_category`를 그대로 유지한다 — 애매한 응답 하나 때문에 이미 알고 있는 분류를 지우지 않는다.
+
 ### Google primaryType → FoodCategory 매핑 (M1-2, 2026-09-20 검증)
 
 연남·한남·서촌·신사·논현 5곳에서 실제 `searchNearby` 호출로 얻은 약 99개 표본(반경 800m, `POPULARITY` 정렬)으로 검증했다. 코드의 `FoodCategory.fromGooglePrimaryType()`과 항상 동일하게 유지한다.
@@ -53,5 +60,5 @@
 
 ## 구현 현황
 
-- 구현 완료: Member 회원가입·로그인, JWT 필터, Restaurant 영속성 모델, PostGIS 위치 컬럼과 인덱스, 동행 적합도 플래그, CI 데이터베이스 서비스, 식당 상세 조회 API, Google Places 클라이언트, Google primaryType 카테고리 매핑.
-- 다음 작업: Google Restaurant upsert/갱신 정책, 5km 반경 레포지토리 조회, 외부 지도 링크 API, 추천 점수 계산과 세션 API.
+- 구현 완료: Member 회원가입·로그인, JWT 필터, Restaurant 영속성 모델, PostGIS 위치 컬럼과 인덱스, 동행 적합도 플래그, CI 데이터베이스 서비스, 식당 상세 조회 API, Google Places 클라이언트, Google primaryType 카테고리 매핑, Google Restaurant upsert·갱신 정책.
+- 다음 작업: 5km 반경 레포지토리 조회, 외부 지도 링크 API, 추천 점수 계산과 세션 API.
