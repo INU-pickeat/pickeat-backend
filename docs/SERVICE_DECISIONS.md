@@ -77,5 +77,7 @@
 
 ## 구현 현황
 
-- 구현 완료: Member 회원가입·로그인, JWT 필터, Restaurant 영속성 모델, PostGIS 위치 컬럼과 인덱스, 동행 적합도 플래그, CI 데이터베이스 서비스, 식당 상세 조회 API, Google Places 클라이언트, Google primaryType 카테고리 매핑, Google Restaurant upsert·갱신 정책, PostGIS 5km 반경 후보 조회, 외부 지도 링크 API. → M1 Restaurant 마일스톤 완료.
-- 다음 작업: 추천 점수 계산과 세션 API (M2).
+- 구현 완료: Member 회원가입·로그인, JWT 필터, Restaurant 영속성 모델, PostGIS 위치 컬럼과 인덱스, 동행 적합도 플래그, CI 데이터베이스 서비스, 식당 상세 조회 API, Google Places 클라이언트(카테고리별 `includedTypes` 선처리 포함), Google primaryType 카테고리 매핑, Google Restaurant upsert·갱신 정책, PostGIS 5km 반경 후보 조회, 외부 지도 링크 API. → **M1 Restaurant 마일스톤 완료 (2026-09-20).**
+- 다음 작업: M2 추천 점수 계산과 세션 API. 착수 전 아래 두 가지를 먼저 정해야 한다.
+  1. 평점 보정 공식·거리 정규화·동행 적합 가산점 수치 (ADR로 고정)
+  2. 추천 후보 조회 방식 — 매 요청 실시간 Google 호출 vs 우리 DB(`findWithinRadius`) 누적 조회 vs 하이브리드(DB 우선, 부족할 때만 Google 호출). 위 "Google Nearby Search 카테고리 선처리" 절 참고.
