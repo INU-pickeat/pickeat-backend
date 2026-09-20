@@ -10,7 +10,8 @@ public record GooglePlaceResponse(
     Double rating,
     Integer userRatingCount,
     String googleMapsUri,
-    List<Attribution> attributions
+    List<Attribution> attributions,
+    String primaryType
 ) {
     public record DisplayName(String text, String languageCode) {
     }
