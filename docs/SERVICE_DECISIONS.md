@@ -45,6 +45,7 @@
 
 - 검색 반경은 5km로 고정하고 직선 거리를 사용한다.
 - 후보가 5개 미만이어도 반경을 자동으로 넓히지 않는다.
+- 조회는 `RestaurantRepository.findWithinRadius()`(M1-4, 2026-09-20)가 담당한다. `ST_DWithin(location, point, radius)`로 GiST 인덱스(`restaurants_location_gist_idx`)를 태울 수 있는 형태를 쓰고, 거리순 정렬 결과를 반환한다. 반경은 호출자가 넘긴 값 그대로만 쓰고 메서드 내부에서 넓히지 않는다.
 - 음식 카테고리는 한식·일식·중식·양식·카페/디저트 5종이다.
 - 요청에는 음식 카테고리를 1개 이상, 동행 유형은 정확히 1개 포함할 수 있다.
 - 동행 적합도는 제외 필터가 아니라 점수 가산 요소다.
@@ -60,5 +61,5 @@
 
 ## 구현 현황
 
-- 구현 완료: Member 회원가입·로그인, JWT 필터, Restaurant 영속성 모델, PostGIS 위치 컬럼과 인덱스, 동행 적합도 플래그, CI 데이터베이스 서비스, 식당 상세 조회 API, Google Places 클라이언트, Google primaryType 카테고리 매핑, Google Restaurant upsert·갱신 정책.
-- 다음 작업: 5km 반경 레포지토리 조회, 외부 지도 링크 API, 추천 점수 계산과 세션 API.
+- 구현 완료: Member 회원가입·로그인, JWT 필터, Restaurant 영속성 모델, PostGIS 위치 컬럼과 인덱스, 동행 적합도 플래그, CI 데이터베이스 서비스, 식당 상세 조회 API, Google Places 클라이언트, Google primaryType 카테고리 매핑, Google Restaurant upsert·갱신 정책, PostGIS 5km 반경 후보 조회.
+- 다음 작업: 외부 지도 링크 API, 추천 점수 계산과 세션 API.
