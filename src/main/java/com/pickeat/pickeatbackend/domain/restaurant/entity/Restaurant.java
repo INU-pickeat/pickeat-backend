@@ -115,6 +115,26 @@ public class Restaurant {
         this.suitableForGroupDinner = suitableForGroupDinner;
     }
 
+    // 큐레이션 적합도 필드(suitableFor*)는 내부 편집 값이라 Google 갱신으로 덮어쓰지 않는다.
+    public void updateFromGoogle(
+            String name,
+            FoodCategory foodCategory,
+            String address,
+            Double latitude,
+            Double longitude,
+            BigDecimal externalRating,
+            Integer externalRatingCount
+    ) {
+        this.name = Objects.requireNonNull(name, "식당명은 필수입니다.");
+        this.foodCategory = foodCategory;
+        this.address = address;
+        this.latitude = Objects.requireNonNull(latitude, "위도는 필수입니다.");
+        this.longitude = Objects.requireNonNull(longitude, "경도는 필수입니다.");
+        this.externalRating = externalRating;
+        this.externalRatingCount = externalRatingCount;
+        this.externalDataRefreshedAt = Instant.now();
+    }
+
     @PrePersist
     protected void onCreate() {
         Instant now = Instant.now();
