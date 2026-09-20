@@ -1,6 +1,7 @@
 package com.pickeat.pickeatbackend.domain.restaurant.service;
 
 import com.pickeat.pickeatbackend.domain.restaurant.client.GooglePlaceResponse;
+import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantNavigationLinksResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.DataProvider;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
@@ -23,6 +24,13 @@ public class RestaurantService {
     public RestaurantResponse getRestaurant(Long restaurantId) {
         return restaurantRepository.findById(restaurantId)
                 .map(RestaurantResponse::from)
+                .orElseThrow(() -> new BusinessException(RestaurantErrorCode.RESTAURANT_NOT_FOUND));
+    }
+
+    @Transactional(readOnly = true)
+    public RestaurantNavigationLinksResponse getNavigationLinks(Long restaurantId) {
+        return restaurantRepository.findById(restaurantId)
+                .map(RestaurantNavigationLinksResponse::from)
                 .orElseThrow(() -> new BusinessException(RestaurantErrorCode.RESTAURANT_NOT_FOUND));
     }
 

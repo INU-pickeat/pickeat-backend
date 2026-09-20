@@ -37,6 +37,12 @@ class PickEatBackendApplicationTests {
     }
 
     @Test
+    void 식당_지도_링크_조회는_토큰_없이_요청할_수_있다() throws Exception {
+        mockMvc.perform(get("/api/v1/restaurants/999999/navigation-links"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void 기본_프로필에서는_API_문서를_노출하지_않는다() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isUnauthorized());
