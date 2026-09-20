@@ -1,14 +1,18 @@
 package com.pickeat.pickeatbackend.domain.restaurant.entity;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.ColumnResult;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityResult;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.NamedNativeQuery;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
+import jakarta.persistence.SqlResultSetMapping;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -22,6 +26,21 @@ import lombok.NoArgsConstructor;
 @Table(name = "restaurants")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@SqlResultSetMapping(
+        name = "Restaurant.withDistance",
+        entities = @EntityResult(entityClass = Restaurant.class),
+        columns = @ColumnResult(name = "distance_meters", type = Double.class)
+)
+@NamedNativeQuery(
+        name = "Restaurant.findWithinRadius",
+        resultSetMapping = "Restaurant.withDistance",
+        query = """
+                SELECT r.*, ST_Distance(r.location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography) AS distance_meters
+                FROM restaurants r
+                WHERE ST_DWithin(r.location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
+                ORDER BY distance_meters ASC
+                """
+)
 public class Restaurant {
 
     @Id
