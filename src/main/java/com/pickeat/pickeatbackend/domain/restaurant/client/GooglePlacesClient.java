@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,21 +34,25 @@ public class GooglePlacesClient {
         this.apiKey = apiKey;
     }
 
+    // 카테고리 필터가 있으면 FoodCategory.toGooglePrimaryTypes()로 뒤집은 구체적인 Google 하위 타입을
+    // 넘겨서 Google 서버에서 선처리시킨다. 카테고리가 없으면 호출자가 Set.of("restaurant")를 넘긴다.
     public List<GooglePlaceResponse> findNearbyRestaurants(
-        double latitude, double longitude, RankPreference rankPreference
+        double latitude, double longitude, RankPreference rankPreference, Set<String> includedTypes
     ) {
         if (!Double.isFinite(latitude) || latitude < -90 || latitude > 90
             || !Double.isFinite(longitude) || longitude < -180 || longitude > 180) {
             throw new IllegalArgumentException("유효한 위도와 경도가 필요합니다.");
         }
         Objects.requireNonNull(rankPreference, "Google 후보 정렬 기준이 필요합니다.");
+        if (includedTypes == null || includedTypes.isEmpty()) {
+            throw new IllegalArgumentException("Google에 요청할 장소 유형이 최소 1개 필요합니다.");
+        }
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("GOOGLE_PLACES_API_KEY 설정이 필요합니다.");
         }
 
-        // Google의 restaurant 하위 타입을 폭넓게 받아온 뒤 FoodCategory.fromGooglePrimaryType()으로 분류한다.
         Map<String, Object> request = Map.of(
-            "includedTypes", List.of("restaurant"),
+            "includedTypes", List.copyOf(includedTypes),
             "maxResultCount", 20,
             "rankPreference", rankPreference.name(),
             "languageCode", "ko",

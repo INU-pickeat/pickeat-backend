@@ -3,12 +3,30 @@ package com.pickeat.pickeatbackend.domain.restaurant.entity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Optional;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class FoodCategoryTest {
+
+    @Test
+    void 카테고리로_Google_유형_목록을_역으로_찾는다() {
+        Set<String> types = FoodCategory.toGooglePrimaryTypes(Set.of(FoodCategory.KOREAN));
+
+        assertThat(types).containsExactlyInAnyOrder(
+                "korean_restaurant", "korean_barbecue_restaurant", "chicken_restaurant",
+                "chicken_wings_restaurant", "seafood_restaurant", "noodle_shop");
+    }
+
+    @Test
+    void 여러_카테고리를_합쳐서_Google_유형_목록을_찾는다() {
+        Set<String> types = FoodCategory.toGooglePrimaryTypes(Set.of(FoodCategory.CHINESE, FoodCategory.CAFE_DESSERT));
+
+        assertThat(types).containsExactlyInAnyOrder("chinese_restaurant", "cafe", "dessert_shop");
+    }
 
     @ParameterizedTest
     @CsvSource({

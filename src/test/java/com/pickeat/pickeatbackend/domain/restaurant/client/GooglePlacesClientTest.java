@@ -1,6 +1,7 @@
 package com.pickeat.pickeatbackend.domain.restaurant.client;
 
 import java.io.IOException;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -17,10 +18,13 @@ import org.springframework.web.client.RestClientException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class GooglePlacesClientTest {
+
+    private static final Set<String> RESTAURANT_TYPE = Set.of("restaurant");
 
     private MockRestServiceServer server;
     private GooglePlacesClient client;
@@ -50,7 +54,7 @@ class GooglePlacesClientTest {
                 "attributions":[{"provider":"Example","providerUri":"https://example.com"}]}]}
                 """, MediaType.APPLICATION_JSON));
 
-        var places = client.findNearbyRestaurants(37.58, 127.0, GooglePlacesClient.RankPreference.POPULARITY);
+        var places = client.findNearbyRestaurants(37.58, 127.0, GooglePlacesClient.RankPreference.POPULARITY, RESTAURANT_TYPE);
 
         assertThat(places).hasSize(1);
         assertThat(places.getFirst().id()).isEqualTo("test-place");
@@ -60,11 +64,32 @@ class GooglePlacesClientTest {
         server.verify();
     }
 
+    @Test
+    void 카테고리별_구체적인_Google_타입을_그대로_전달한다() {
+        Set<String> koreanTypes = Set.of("korean_restaurant", "korean_barbecue_restaurant");
+        server.expect(anything())
+            .andExpect(jsonPath("$.includedTypes", containsInAnyOrder("korean_restaurant", "korean_barbecue_restaurant")))
+            .andRespond(withSuccess("{\"places\":[]}", MediaType.APPLICATION_JSON));
+
+        client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, koreanTypes);
+
+        server.verify();
+    }
+
+    @Test
+    void 요청_유형이_비어있으면_Google을_호출하지_않고_실패한다() {
+        assertThatThrownBy(() -> client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, Set.of()))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, null))
+            .isInstanceOf(IllegalArgumentException.class);
+        server.verify();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"{}", "{\"places\":[]}"})
     void acceptsSuccessfulEmptyResults(String body) {
         server.expect(anything()).andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
-        assertThat(client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE)).isEmpty();
+        assertThat(client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, RESTAURANT_TYPE)).isEmpty();
         server.verify();
     }
 
@@ -76,7 +101,7 @@ class GooglePlacesClientTest {
         server.expect(anything())
             .andExpect(jsonPath("$.rankPreference").value("DISTANCE"))
             .andRespond(withSuccess(placesJson, MediaType.APPLICATION_JSON));
-        var places = client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE);
+        var places = client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, RESTAURANT_TYPE);
         assertThat(places).hasSize(20);
         assertThat(places.getLast().id()).isEqualTo("place-19");
         server.verify();
@@ -85,7 +110,7 @@ class GooglePlacesClientTest {
     @Test
     void preservesUnknownRatingInsteadOfInventingZero() {
         server.expect(anything()).andRespond(withSuccess("{\"places\":[{\"id\":\"unrated\"}]}", MediaType.APPLICATION_JSON));
-        var places = client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE);
+        var places = client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, RESTAURANT_TYPE);
         assertThat(places.getFirst().rating()).isNull();
         assertThat(places.getFirst().userRatingCount()).isNull();
         server.verify();
@@ -95,7 +120,7 @@ class GooglePlacesClientTest {
     @ValueSource(ints = {400, 401, 403, 429, 500, 503})
     void propagatesHttpFailureWithoutRetryOrEmptyFallback(int status) {
         server.expect(anything()).andRespond(withStatus(HttpStatus.valueOf(status)));
-        assertThatThrownBy(() -> client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE))
+        assertThatThrownBy(() -> client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, RESTAURANT_TYPE))
             .isInstanceOf(RestClientException.class);
         server.verify();
     }
@@ -103,7 +128,7 @@ class GooglePlacesClientTest {
     @Test
     void propagatesNetworkFailure() {
         server.expect(anything()).andRespond(withException(new IOException("timeout")));
-        assertThatThrownBy(() -> client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE))
+        assertThatThrownBy(() -> client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, RESTAURANT_TYPE))
             .isInstanceOf(RestClientException.class);
         server.verify();
     }
@@ -111,7 +136,7 @@ class GooglePlacesClientTest {
     @Test
     void rejectsMissingBody() {
         server.expect(anything()).andRespond(withStatus(HttpStatus.NO_CONTENT));
-        assertThatThrownBy(() -> client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE))
+        assertThatThrownBy(() -> client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, RESTAURANT_TYPE))
             .isInstanceOf(IllegalStateException.class);
         server.verify();
     }
@@ -119,7 +144,7 @@ class GooglePlacesClientTest {
     @Test
     void rejectsMalformedJson() {
         server.expect(anything()).andRespond(withSuccess("not json", MediaType.APPLICATION_JSON));
-        assertThatThrownBy(() -> client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE))
+        assertThatThrownBy(() -> client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, RESTAURANT_TYPE))
             .isInstanceOf(RestClientException.class);
         server.verify();
     }
@@ -127,19 +152,19 @@ class GooglePlacesClientTest {
     @Test
     void rejectsInvalidInputBeforeCallingGoogle() {
         for (double latitude : new double[] {91, -91, Double.NaN, Double.POSITIVE_INFINITY}) {
-            assertThatThrownBy(() -> client.findNearbyRestaurants(latitude, 0, GooglePlacesClient.RankPreference.DISTANCE))
+            assertThatThrownBy(() -> client.findNearbyRestaurants(latitude, 0, GooglePlacesClient.RankPreference.DISTANCE, RESTAURANT_TYPE))
                 .isInstanceOf(IllegalArgumentException.class);
         }
-        assertThatThrownBy(() -> client.findNearbyRestaurants(0, 181, GooglePlacesClient.RankPreference.DISTANCE))
+        assertThatThrownBy(() -> client.findNearbyRestaurants(0, 181, GooglePlacesClient.RankPreference.DISTANCE, RESTAURANT_TYPE))
             .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> client.findNearbyRestaurants(0, 0, null)).isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> client.findNearbyRestaurants(0, 0, null, RESTAURANT_TYPE)).isInstanceOf(NullPointerException.class);
         server.verify();
     }
 
     @Test
     void missingKeyDoesNotPreventConstructionButRejectsSearch() {
         var unconfigured = new GooglePlacesClient(RestClient.builder(), "");
-        assertThatThrownBy(() -> unconfigured.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE))
+        assertThatThrownBy(() -> unconfigured.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, RESTAURANT_TYPE))
             .isInstanceOf(IllegalStateException.class).hasMessageContaining("GOOGLE_PLACES_API_KEY");
     }
 }
