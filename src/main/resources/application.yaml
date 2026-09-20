@@ -17,6 +17,10 @@ jwt:
   secret: ${JWT_SECRET:pickeat-local-dev-secret-please-change-in-production}
   access-token-validity-ms: ${JWT_ACCESS_TOKEN_VALIDITY_MS:1800000}
 
+google:
+  places:
+    api-key: ${GOOGLE_PLACES_API_KEY:}
+
 springdoc:
   api-docs:
     enabled: false
