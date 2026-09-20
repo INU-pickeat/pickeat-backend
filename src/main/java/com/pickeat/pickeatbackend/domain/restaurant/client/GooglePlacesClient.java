@@ -17,7 +17,8 @@ import org.springframework.web.client.RestClient;
 public class GooglePlacesClient {
 
     static final String FIELD_MASK = "places.id,places.displayName,places.formattedAddress,"
-        + "places.location,places.rating,places.userRatingCount,places.googleMapsUri,places.attributions";
+        + "places.location,places.rating,places.userRatingCount,places.googleMapsUri,places.attributions,"
+        + "places.primaryType";
 
     private final RestClient restClient;
     private final String apiKey;
@@ -44,7 +45,7 @@ public class GooglePlacesClient {
             throw new IllegalStateException("GOOGLE_PLACES_API_KEY 설정이 필요합니다.");
         }
 
-        // 최종 음식 분류 매핑 확정 전에는 식당 전체를 대상으로 후보만 조회한다.
+        // Google의 restaurant 하위 타입을 폭넓게 받아온 뒤 FoodCategory.fromGooglePrimaryType()으로 분류한다.
         Map<String, Object> request = Map.of(
             "includedTypes", List.of("restaurant"),
             "maxResultCount", 20,
