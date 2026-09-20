@@ -14,6 +14,14 @@
 - 큐레이션 데이터는 초기 탐색 경험 전용이다: 연남·한남·서촌·신사·논현 각 5곳씩 총 25곳.
 - Google 평점과 향후 Pick Eat 자체 평점은 의미와 갱신 정책이 달라서 분리해서 관리한다.
 
+### Google Nearby Search 카테고리 선처리 (2026-09-20)
+
+`GooglePlacesClient.findNearbyRestaurants()`는 이제 `includedTypes`를 호출자가 넘긴다. 추천 요청에 카테고리가 있으면 `FoodCategory.toGooglePrimaryTypes()`(M1-2 매핑표의 역방향)로 구체적인 Google 하위 타입 목록을 만들어 넘기고, 카테고리가 없으면 `Set.of("restaurant")`로 광범위하게 요청한다.
+
+- Google Nearby Search는 한 번 호출에 최대 20개까지만 반환하고, 이건 "반경 안 전체를 찾은 뒤 자르는" 게 아니라 Google이 자기 랭킹(`POPULARITY`/`DISTANCE`) 기준으로 골라주는 상위 20개다.
+- `includedTypes`를 카테고리에 맞게 좁히면 이 20개 슬롯이 hotel·halal_restaurant처럼 어차피 제외할 타입에 낭비되지 않고 관련 있는 후보로 채워진다.
+- 추천 후보를 매 요청마다 Google에 실시간으로 물어볼지, 우리 DB(M1-4 5km 조회)에 쌓인 데이터로 채울지는 아직 미정 — M2 구현 시 결정한다.
+
 ### Google upsert 정책 (M1-3, 2026-09-20)
 
 - `google_place_id` 기준으로 조회 후 있으면 갱신, 없으면 생성한다 — 동일 Place ID로 중복 레코드가 생기지 않는다.

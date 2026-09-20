@@ -2,6 +2,8 @@ package com.pickeat.pickeatbackend.domain.restaurant.entity;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public enum FoodCategory {
     KOREAN,
@@ -36,5 +38,13 @@ public enum FoodCategory {
             return Optional.empty();
         }
         return Optional.ofNullable(GOOGLE_PRIMARY_TYPE_MAPPING.get(primaryType));
+    }
+
+    // Google Nearby Search의 includedTypes로 그대로 넘겨서 서버 쪽에서 선처리시킨다.
+    public static Set<String> toGooglePrimaryTypes(Set<FoodCategory> categories) {
+        return GOOGLE_PRIMARY_TYPE_MAPPING.entrySet().stream()
+                .filter(entry -> categories.contains(entry.getValue()))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toUnmodifiableSet());
     }
 }
