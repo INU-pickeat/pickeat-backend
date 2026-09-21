@@ -3,6 +3,7 @@ package com.pickeat.pickeatbackend;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -18,13 +19,15 @@ class RecommendationSchemaIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    void recommendation_마이그레이션이_적용된다() {
+    @DisplayName("recommendation 마이그레이션이 적용된다")
+    void appliesRecommendationMigration() {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT success FROM flyway_schema_history WHERE version = '7'", Boolean.class)).isTrue();
     }
 
     @Test
-    void 세션과_카테고리와_후보를_저장하고_조회한다() {
+    @DisplayName("세션과 카테고리와 후보를 저장하고 조회한다")
+    void savesAndReadsSessionWithCategoriesAndCandidate() {
         Long memberId = insertMember();
         Long restaurantId = insertRestaurant();
         Long sessionId = insertSession(memberId);
@@ -47,7 +50,8 @@ class RecommendationSchemaIntegrationTest {
     }
 
     @Test
-    void 순위가_1_5_범위를_벗어나면_거부된다() {
+    @DisplayName("순위가 1~5 범위를 벗어나면 거부된다")
+    void rejectsRankOutsideOneToFiveRange() {
         Long memberId = insertMember();
         Long restaurantId = insertRestaurant();
         Long sessionId = insertSession(memberId);
@@ -62,7 +66,8 @@ class RecommendationSchemaIntegrationTest {
     }
 
     @Test
-    void 같은_세션에_같은_식당이_두_번_추천되면_거부된다() {
+    @DisplayName("같은 세션에 같은 식당이 두 번 추천되면 거부된다")
+    void rejectsDuplicateRestaurantInSameSession() {
         Long memberId = insertMember();
         Long restaurantId = insertRestaurant();
         Long sessionId = insertSession(memberId);

@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,7 +24,8 @@ class PickEatBackendApplicationTests {
     }
 
     @Test
-    void 인증_API는_토큰_없이_요청할_수_있다() throws Exception {
+    @DisplayName("인증 API는 토큰 없이 요청할 수 있다")
+    void allowsAuthApiWithoutToken() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
@@ -31,19 +33,22 @@ class PickEatBackendApplicationTests {
     }
 
     @Test
-    void 일반_API는_인증이_필요하다() throws Exception {
+    @DisplayName("일반 API는 인증이 필요하다")
+    void requiresAuthenticationForGeneralApi() throws Exception {
         mockMvc.perform(get("/api/v1/members/me"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void 식당_지도_링크_조회는_토큰_없이_요청할_수_있다() throws Exception {
+    @DisplayName("식당 지도 링크 조회는 토큰 없이 요청할 수 있다")
+    void allowsRestaurantNavigationLinksWithoutToken() throws Exception {
         mockMvc.perform(get("/api/v1/restaurants/999999/navigation-links"))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    void 기본_프로필에서는_API_문서를_노출하지_않는다() throws Exception {
+    @DisplayName("기본 프로필에서는 API 문서를 노출하지 않는다")
+    void hidesApiDocsOnDefaultProfile() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isUnauthorized());
     }

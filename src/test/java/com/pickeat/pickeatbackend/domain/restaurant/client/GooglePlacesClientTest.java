@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -65,7 +66,8 @@ class GooglePlacesClientTest {
     }
 
     @Test
-    void 카테고리별_구체적인_Google_타입을_그대로_전달한다() {
+    @DisplayName("카테고리별 구체적인 Google 타입을 그대로 전달한다")
+    void passesSpecificGoogleTypesPerCategory() {
         Set<String> koreanTypes = Set.of("korean_restaurant", "korean_barbecue_restaurant");
         server.expect(anything())
             .andExpect(jsonPath("$.includedTypes", containsInAnyOrder("korean_restaurant", "korean_barbecue_restaurant")))
@@ -77,7 +79,8 @@ class GooglePlacesClientTest {
     }
 
     @Test
-    void 요청_유형이_비어있으면_Google을_호출하지_않고_실패한다() {
+    @DisplayName("요청 유형이 비어있으면 Google을 호출하지 않고 실패한다")
+    void failsBeforeCallingGoogleWhenIncludedTypesEmpty() {
         assertThatThrownBy(() -> client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, Set.of()))
             .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, null))

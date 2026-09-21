@@ -3,12 +3,14 @@ package com.pickeat.pickeatbackend.domain.restaurant.dto;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class RestaurantNavigationLinksResponseTest {
 
     @Test
-    void 좌표를_지도_링크에_포함한다() {
+    @DisplayName("좌표를 지도 링크에 포함한다")
+    void includesCoordinatesInMapLinks() {
         Restaurant restaurant = Restaurant.builder()
                 .name("맛있는 식당")
                 .latitude(37.5665)
@@ -22,7 +24,8 @@ class RestaurantNavigationLinksResponseTest {
     }
 
     @Test
-    void 이름에_공백과_쉼표가_있어도_경로에_안전하게_인코딩된다() {
+    @DisplayName("이름에 공백과 쉼표가 있어도 경로에 안전하게 인코딩된다")
+    void encodesNameSafelyWhenContainingSpacesAndCommas() {
         Restaurant restaurant = Restaurant.builder()
                 .name("맛있는, 식당 2호점")
                 .latitude(37.0)

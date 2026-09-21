@@ -14,11 +14,28 @@ public class RecommendationScoreCalculator {
     private static final double DISTANCE_WEIGHT = 0.4;
     private static final double COMPANION_MATCH_BONUS = 0.1;
 
-    public double calculate(BigDecimal externalRating, double distanceMeters, boolean companionMatch) {
+    public ScoreBreakdown calculate(BigDecimal externalRating, double distanceMeters, boolean companionMatch) {
         double ratingScore = externalRating == null ? 0.0 : externalRating.doubleValue() / MAX_RATING;
         double distanceScore = 1.0 - (distanceMeters / SEARCH_RADIUS_METERS);
+
+        double ratingContribution = RATING_WEIGHT * ratingScore;
+        double distanceContribution = DISTANCE_WEIGHT * distanceScore;
         double companionBonus = companionMatch ? COMPANION_MATCH_BONUS : 0.0;
 
-        return RATING_WEIGHT * ratingScore + DISTANCE_WEIGHT * distanceScore + companionBonus;
+        return new ScoreBreakdown(
+                ratingContribution,
+                distanceContribution,
+                companionBonus,
+                ratingContribution + distanceContribution + companionBonus
+        );
+    }
+
+    // recommendation_candidates 컬럼과 1:1 대응 — 세션 조회 시 재계산 없이 그대로 복원한다.
+    public record ScoreBreakdown(
+            double ratingContribution,
+            double distanceContribution,
+            double companionBonus,
+            double totalScore
+    ) {
     }
 }
