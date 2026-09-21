@@ -28,8 +28,10 @@ PickEat 프로젝트의 백엔드 서버입니다.
 ### 2. 서버 실행
 
 ```bash
-./gradlew bootRun
+./gradlew bootRun --args='--spring.profiles.active=local'
 ```
+
+Swagger UI는 `local` 프로필에서만 활성화됩니다. API 문서 없이 기본 프로필로 실행하려면 `./gradlew bootRun`을 사용합니다.
 
 ### 3. API 테스트 (Swagger UI)
 
@@ -51,7 +53,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 
 ## 현재 구현 범위
 
-**M1 Restaurant 마일스톤 완료 (2026-09-20). 다음은 M2 추천.**
+**M1 Restaurant 마일스톤 완료 (2026-09-20). M2 추천 진행 중.**
 
 - Member 회원가입·로그인과 JWT 인증 (`POST /api/v1/auth/signup`, `/login`)
 - 식당 상세 조회 (`GET /api/v1/restaurants/{id}`) — 인증 불필요, 공유 링크 대응
@@ -59,12 +61,14 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - Google Places 연동: `GooglePlacesClient`(Nearby Search, 카테고리별 `includedTypes` 선처리), Google Place ID 기준 upsert·갱신 정책, primaryType → 5개 음식 카테고리 매핑
 - PostGIS `geography(Point, 4326)` 기반 5km 반경 후보 조회 (`RestaurantRepository.findWithinRadius`, GiST 인덱스)
 - 데이트·친구·가족·혼밥·회식 적합도 3상태(`true`/`false`/`NULL`, 큐레이션 전용 — Google 갱신이 건드리지 않음)
+- M2 ADR 확정, 추천 요청 DTO(`RecommendationRequest`), 점수 계산기(`RecommendationScoreCalculator`), 세션·후보 스키마(V7 마이그레이션)
+- Top 5 추천 생성·세션 조회 API (`POST`/`GET /api/v1/recommendations`) — 실시간 Google 호출 + upsert 후 점수순 정렬(ADR-M2-2 Option A)
 
-**M2에서 결정해야 할 것** (착수 전 확정 필요):
-- 평점 보정 공식·거리 가중치, 동행 적합 가산점 수치
-- 추천 후보 조회 방식: 매 요청 실시간 Google 호출 vs 우리 DB 누적 조회 vs 하이브리드
+**다음 할 일 (M2.5):** 초기 탐색 스팟 — 5개 지역 코드, 25개 식당·노출 순서 DB 시드, 탐색 조회 API. 진행 순서·ADR 확정 내용은 [`docs/SERVICE_DECISIONS.md`](docs/SERVICE_DECISIONS.md)의 "구현 현황" 체크리스트 참고.
 
-Pick, 후기·피드, 탐색 스팟은 M2 이후 작업입니다.
+M2 완료 직후에는 초기 탐색 스팟을 구현합니다. 성수동·연남동·신사동·서촌·을지로3가 5개 지역과 지역별 5곳(총 25곳)을 운영자 선정 `CURATED` 데이터로 DB에 직접 시드합니다. 실제 Picker 행동 데이터가 쌓이기 전까지 자동 인기 집계나 실시간 순위는 구현하지 않습니다.
+
+이 고정 25곳은 탐색 화면용이며 M2 위치 기반 추천의 후보 정책을 대신하지 않습니다. 이후 Pick, 후기·피드와 행동 데이터가 충분해지면 동적 인기맛집으로 확장합니다.
 
 제품 범위와 데이터 원본 결정, 결정 이력은 [`docs/SERVICE_DECISIONS.md`](docs/SERVICE_DECISIONS.md)에 기록합니다.
 
