@@ -27,6 +27,7 @@ import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -123,6 +124,55 @@ class RecommendationServiceTest {
     }
 
     @Test
+    @DisplayName("조건을 만족하는 후보가 없으면 빈 목록을 반환한다")
+    void returnsEmptyItemsWhenNoCandidateMatches() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 5000.0)).thenReturn(List.of());
+
+        RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
+
+        assertThat(response.items()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("후보가 5개보다 적으면 조회된 후보만 반환한다")
+    void returnsAllCandidatesWhenFewerThanFiveExist() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        List<RestaurantCandidate> candidates = IntStream.rangeClosed(1, 4)
+                .mapToObj(i -> new RestaurantCandidate(restaurant(FoodCategory.KOREAN, i, null), i * 100))
+                .toList();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 5000.0)).thenReturn(candidates);
+
+        RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
+
+        assertThat(response.items()).hasSize(4);
+        assertThat(response.items()).extracting(RecommendationResponse.Item::rank)
+                .containsExactly(1, 2, 3, 4);
+    }
+
+    @Test
+    @DisplayName("후보가 5개보다 많으면 점수가 높은 상위 5개만 반환한다")
+    void returnsOnlyTopFiveWhenMoreThanFiveCandidatesExist() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        List<RestaurantCandidate> candidates = IntStream.rangeClosed(0, 5)
+                .mapToObj(i -> new RestaurantCandidate(restaurant(FoodCategory.KOREAN, i, null), 1000))
+                .toList();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 5000.0)).thenReturn(candidates);
+
+        RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
+
+        assertThat(response.items()).hasSize(5);
+        assertThat(response.items()).extracting(RecommendationResponse.Item::rank)
+                .containsExactly(1, 2, 3, 4, 5);
+        assertThat(response.items()).extracting(RecommendationResponse.Item::score)
+                .isSortedAccordingTo(java.util.Comparator.reverseOrder());
+        assertThat(response.items().get(4).score()).isGreaterThan(0.32);
+    }
+
+    @Test
     @DisplayName("동행 적합 식당이 불일치 식당보다 높은 점수를 받는다")
     void scoresCompanionMatchHigherThanMismatch() {
         stubPersistence();
@@ -158,11 +208,7 @@ class RecommendationServiceTest {
     @Test
     @DisplayName("세션 주인이 아니면 예외가 발생한다")
     void throwsWhenSessionOwnerMismatch() {
-        when(member.getId()).thenReturn(2L);
-        RecommendationSession session = RecommendationSession.builder()
-                .member(member).companionType(CompanionType.DATE).latitude(37.5).longitude(127.0)
-                .foodCategories(Set.of(FoodCategory.KOREAN)).build();
-        when(sessionRepository.findById(10L)).thenReturn(Optional.of(session));
+        when(sessionRepository.findByIdAndMemberId(10L, 1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> recommendationService.getSession(10L, 1L))
                 .isInstanceOf(BusinessException.class);
@@ -171,7 +217,7 @@ class RecommendationServiceTest {
     @Test
     @DisplayName("존재하지 않는 세션이면 예외가 발생한다")
     void throwsWhenSessionNotFound() {
-        when(sessionRepository.findById(10L)).thenReturn(Optional.empty());
+        when(sessionRepository.findByIdAndMemberId(10L, 1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> recommendationService.getSession(10L, 1L))
                 .isInstanceOf(BusinessException.class);

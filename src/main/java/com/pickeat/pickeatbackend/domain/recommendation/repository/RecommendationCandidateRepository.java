@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface RecommendationCandidateRepository extends JpaRepository<RecommendationCandidate, Long> {
 
     List<RecommendationCandidate> findBySessionIdOrderByResultRankAsc(Long sessionId);
+
+    boolean existsBySessionIdAndRestaurantId(Long sessionId, Long restaurantId);
 }
