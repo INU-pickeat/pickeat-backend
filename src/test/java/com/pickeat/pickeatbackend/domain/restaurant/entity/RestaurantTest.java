@@ -2,12 +2,14 @@ package com.pickeat.pickeatbackend.domain.restaurant.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class RestaurantTest {
 
     @Test
-    void 공급자를_지정하지_않으면_GOOGLE로_초기화된다() {
+    @DisplayName("공급자를 지정하지 않으면 GOOGLE로 초기화된다")
+    void defaultsToGoogleWhenProviderNotSpecified() {
         Restaurant restaurant = Restaurant.builder()
                 .name("픽잇 식당")
                 .latitude(37.58)
@@ -18,7 +20,8 @@ class RestaurantTest {
     }
 
     @Test
-    void 동행_적합도는_미확인_NULL을_유지한다() {
+    @DisplayName("동행 적합도는 미확인 NULL을 유지한다")
+    void keepsCompanionSuitabilityNullWhenUnset() {
         Restaurant restaurant = Restaurant.builder()
                 .name("픽잇 식당")
                 .latitude(37.58)
