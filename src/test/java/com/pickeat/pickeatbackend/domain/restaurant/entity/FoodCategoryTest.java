@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Optional;
 import java.util.Set;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -13,7 +14,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 class FoodCategoryTest {
 
     @Test
-    void 카테고리로_Google_유형_목록을_역으로_찾는다() {
+    @DisplayName("카테고리로 Google 유형 목록을 역으로 찾는다")
+    void resolvesGooglePrimaryTypesFromCategory() {
         Set<String> types = FoodCategory.toGooglePrimaryTypes(Set.of(FoodCategory.KOREAN));
 
         assertThat(types).containsExactlyInAnyOrder(
@@ -22,13 +24,15 @@ class FoodCategoryTest {
     }
 
     @Test
-    void 여러_카테고리를_합쳐서_Google_유형_목록을_찾는다() {
+    @DisplayName("여러 카테고리를 합쳐서 Google 유형 목록을 찾는다")
+    void resolvesGooglePrimaryTypesFromMultipleCategories() {
         Set<String> types = FoodCategory.toGooglePrimaryTypes(Set.of(FoodCategory.CHINESE, FoodCategory.CAFE_DESSERT));
 
         assertThat(types).containsExactlyInAnyOrder("chinese_restaurant", "cafe", "dessert_shop");
     }
 
     @ParameterizedTest
+    @DisplayName("매핑된 Google 유형은 해당 카테고리로 변환된다")
     @CsvSource({
             "korean_restaurant, KOREAN",
             "korean_barbecue_restaurant, KOREAN",
@@ -48,11 +52,12 @@ class FoodCategoryTest {
             "cafe, CAFE_DESSERT",
             "dessert_shop, CAFE_DESSERT"
     })
-    void 매핑된_Google_유형은_해당_카테고리로_변환된다(String primaryType, FoodCategory expected) {
+    void mapsGooglePrimaryTypeToFoodCategory(String primaryType, FoodCategory expected) {
         assertThat(FoodCategory.fromGooglePrimaryType(primaryType)).contains(expected);
     }
 
     @ParameterizedTest
+    @DisplayName("매핑되지 않는 유형은 제외된다")
     @ValueSource(strings = {
             "restaurant",
             "hotel",
@@ -65,13 +70,14 @@ class FoodCategoryTest {
             "asian_fusion_restaurant",
             "meal_takeaway"
     })
-    void 매핑되지_않는_유형은_제외된다(String primaryType) {
+    void excludesUnmappedGooglePrimaryType(String primaryType) {
         assertThat(FoodCategory.fromGooglePrimaryType(primaryType)).isEqualTo(Optional.empty());
     }
 
     @ParameterizedTest
+    @DisplayName("null이나 빈 문자열도 제외된다")
     @NullAndEmptySource
-    void null이나_빈_문자열도_제외된다(String primaryType) {
+    void excludesNullOrBlankPrimaryType(String primaryType) {
         assertThat(FoodCategory.fromGooglePrimaryType(primaryType)).isEqualTo(Optional.empty());
     }
 }

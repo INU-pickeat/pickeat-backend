@@ -15,6 +15,7 @@ import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -31,7 +32,8 @@ class RestaurantServiceTest {
     private RestaurantService restaurantService;
 
     @Test
-    void 존재하지_않는_식당이면_예외가_발생한다() {
+    @DisplayName("존재하지 않는 식당이면 예외가 발생한다")
+    void throwsWhenRestaurantNotFound() {
         when(restaurantRepository.findById(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> restaurantService.getRestaurant(1L))
@@ -39,7 +41,8 @@ class RestaurantServiceTest {
     }
 
     @Test
-    void 존재하지_않는_식당의_지도_링크를_조회하면_예외가_발생한다() {
+    @DisplayName("존재하지 않는 식당의 지도 링크를 조회하면 예외가 발생한다")
+    void throwsWhenNavigationLinksRestaurantNotFound() {
         when(restaurantRepository.findById(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> restaurantService.getNavigationLinks(1L))
@@ -47,7 +50,8 @@ class RestaurantServiceTest {
     }
 
     @Test
-    void 지도_링크_조회에_성공한다() {
+    @DisplayName("지도 링크 조회에 성공한다")
+    void returnsNavigationLinks() {
         Restaurant restaurant = Restaurant.builder()
                 .name("테스트 식당")
                 .latitude(37.58)
@@ -61,7 +65,8 @@ class RestaurantServiceTest {
     }
 
     @Test
-    void 식당_상세_조회에_성공한다() {
+    @DisplayName("식당 상세 조회에 성공한다")
+    void returnsRestaurantDetail() {
         Restaurant restaurant = Restaurant.builder()
                 .name("테스트 식당")
                 .foodCategory(FoodCategory.KOREAN)
@@ -91,7 +96,8 @@ class RestaurantServiceTest {
     }
 
     @Test
-    void 신규_식당이면_새로_생성해서_저장한다() {
+    @DisplayName("신규 식당이면 새로 생성해서 저장한다")
+    void createsNewRestaurantWhenNotExisting() {
         when(restaurantRepository.findByGooglePlaceId("place-1")).thenReturn(Optional.empty());
         when(restaurantRepository.save(any(Restaurant.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -104,7 +110,8 @@ class RestaurantServiceTest {
     }
 
     @Test
-    void 기존_식당이면_큐레이션_필드는_유지한_채_외부_필드만_갱신한다() {
+    @DisplayName("기존 식당이면 큐레이션 필드는 유지한 채 외부 필드만 갱신한다")
+    void updatesExternalFieldsButKeepsCurationFieldsForExistingRestaurant() {
         Restaurant existing = Restaurant.builder()
                 .googlePlaceId("place-1")
                 .name("옛날 이름")
@@ -124,7 +131,8 @@ class RestaurantServiceTest {
     }
 
     @Test
-    void 유형이나_평점이_없는_부분_데이터도_기존_분류를_유지한_채_갱신된다() {
+    @DisplayName("유형이나 평점이 없는 부분 데이터도 기존 분류를 유지한 채 갱신된다")
+    void keepsExistingFoodCategoryWhenGoogleDataIsPartial() {
         Restaurant existing = Restaurant.builder()
                 .googlePlaceId("place-1")
                 .name("옛날 이름")

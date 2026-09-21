@@ -3,6 +3,7 @@ package com.pickeat.pickeatbackend.domain.restaurant.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,7 +24,8 @@ class RestaurantRepositoryIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    void 반경_5km_밖의_식당은_제외되고_안쪽은_포함된다() {
+    @DisplayName("반경 5km 밖의 식당은 제외되고 안쪽은 포함된다")
+    void excludesRestaurantsOutsideFiveKilometerRadius() {
         double[] inside = pointAtDistance(4999);
         double[] outside = pointAtDistance(5001);
         insertRestaurant("경계_안쪽", inside[0], inside[1]);
@@ -36,7 +38,8 @@ class RestaurantRepositoryIntegrationTest {
     }
 
     @Test
-    void 가까운_식당부터_거리순으로_정렬된다() {
+    @DisplayName("가까운 식당부터 거리순으로 정렬된다")
+    void ordersRestaurantsByDistanceAscending() {
         double[] far = pointAtDistance(4000);
         double[] near = pointAtDistance(1000);
         insertRestaurant("먼_식당", far[0], far[1]);
@@ -51,7 +54,8 @@ class RestaurantRepositoryIntegrationTest {
     }
 
     @Test
-    void 반경_안에_후보가_없어도_자동으로_넓히지_않는다() {
+    @DisplayName("반경 안에 후보가 없어도 자동으로 넓히지 않는다")
+    void doesNotAutoExpandRadiusWhenNoCandidates() {
         double[] withinFiveKm = pointAtDistance(3000);
         insertRestaurant("5km_이내_식당", withinFiveKm[0], withinFiveKm[1]);
 
