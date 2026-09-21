@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -88,7 +89,8 @@ class RecommendationServiceTest {
     }
 
     @Test
-    void 요청_카테고리와_다른_식당은_후보에서_제외된다() {
+    @DisplayName("요청 카테고리와 다른 식당은 후보에서 제외된다")
+    void excludesRestaurantsNotMatchingRequestedCategory() {
         stubPersistence();
         stubEmptyGoogleSearch();
         RestaurantCandidate matching = new RestaurantCandidate(restaurant(FoodCategory.KOREAN, 4.0, null), 1000);
@@ -102,7 +104,8 @@ class RecommendationServiceTest {
     }
 
     @Test
-    void 점수_내림차순으로_정렬되고_순위가_매겨진다() {
+    @DisplayName("점수 내림차순으로 정렬되고 순위가 매겨진다")
+    void ranksCandidatesByScoreDescending() {
         stubPersistence();
         stubEmptyGoogleSearch();
         RestaurantCandidate closeHighRated = new RestaurantCandidate(restaurant(FoodCategory.KOREAN, 5.0, null), 0);
@@ -120,7 +123,8 @@ class RecommendationServiceTest {
     }
 
     @Test
-    void 동행_적합_식당이_불일치_식당보다_높은_점수를_받는다() {
+    @DisplayName("동행 적합 식당이 불일치 식당보다 높은 점수를 받는다")
+    void scoresCompanionMatchHigherThanMismatch() {
         stubPersistence();
         stubEmptyGoogleSearch();
         RestaurantCandidate suitable = new RestaurantCandidate(restaurant(FoodCategory.KOREAN, 3.0, true), 1000);
@@ -135,7 +139,8 @@ class RecommendationServiceTest {
     }
 
     @Test
-    void Google_검색_결과는_모두_upsert된다() {
+    @DisplayName("Google 검색 결과는 모두 upsert된다")
+    void upsertsAllGoogleSearchResults() {
         stubPersistence();
         GooglePlaceResponse place = new GooglePlaceResponse(
                 "place-1", new GooglePlaceResponse.DisplayName("맛집", "ko"), "주소",
@@ -151,7 +156,8 @@ class RecommendationServiceTest {
     }
 
     @Test
-    void 세션_주인이_아니면_예외가_발생한다() {
+    @DisplayName("세션 주인이 아니면 예외가 발생한다")
+    void throwsWhenSessionOwnerMismatch() {
         when(member.getId()).thenReturn(2L);
         RecommendationSession session = RecommendationSession.builder()
                 .member(member).companionType(CompanionType.DATE).latitude(37.5).longitude(127.0)
@@ -163,7 +169,8 @@ class RecommendationServiceTest {
     }
 
     @Test
-    void 존재하지_않는_세션이면_예외가_발생한다() {
+    @DisplayName("존재하지 않는 세션이면 예외가 발생한다")
+    void throwsWhenSessionNotFound() {
         when(sessionRepository.findById(10L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> recommendationService.getSession(10L, 1L))
