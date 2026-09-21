@@ -1,0 +1,77 @@
+name: Backend CD
+
+on:
+  workflow_run:
+    workflows: [Backend CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    if: >-
+      ${{
+        vars.DEPLOY_ENABLED == 'true' &&
+        (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+
+    steps:
+      - name: Check out verified revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build executable jar
+        run: ./gradlew bootJar --console=plain
+
+      - name: Configure SSH
+        env:
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
+        run: |
+          test -n "$EC2_SSH_PRIVATE_KEY"
+          test -n "$EC2_KNOWN_HOSTS"
+          install -d -m 700 "$HOME/.ssh"
+          install -m 600 /dev/null "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$EC2_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$EC2_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+      - name: Upload release
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          RELEASE_ID: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          test -n "$EC2_HOST"
+          test -n "$EC2_USER"
+          scp build/libs/pick-eat-backend.jar "$EC2_USER@$EC2_HOST:/tmp/pick-eat-backend-$RELEASE_ID.jar"
+          scp deploy/ec2/deploy.sh "$EC2_USER@$EC2_HOST:/tmp/pickeat-deploy-$RELEASE_ID.sh"
+
+      - name: Activate release and verify health
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          RELEASE_ID: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          ssh "$EC2_USER@$EC2_HOST" \
+            "chmod 700 /tmp/pickeat-deploy-$RELEASE_ID.sh && /tmp/pickeat-deploy-$RELEASE_ID.sh /tmp/pick-eat-backend-$RELEASE_ID.jar $RELEASE_ID"

@@ -75,8 +75,7 @@ public class RecommendationService {
 
     @Transactional(readOnly = true)
     public RecommendationResponse getSession(Long sessionId, Long memberId) {
-        RecommendationSession session = sessionRepository.findById(sessionId)
-                .filter(found -> found.getMember().getId().equals(memberId))
+        RecommendationSession session = sessionRepository.findByIdAndMemberId(sessionId, memberId)
                 .orElseThrow(() -> new BusinessException(RecommendationErrorCode.SESSION_NOT_FOUND));
 
         List<RecommendationCandidate> candidates = candidateRepository.findBySessionIdOrderByResultRankAsc(sessionId);

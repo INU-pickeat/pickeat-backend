@@ -1,0 +1,21 @@
+[Unit]
+Description=Pick Eat Backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__DEPLOY_USER__
+Group=__DEPLOY_GROUP__
+WorkingDirectory=/opt/pickeat/current
+EnvironmentFile=/etc/pickeat/pickeat.env
+ExecStart=/usr/bin/java -jar /opt/pickeat/current/app.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
