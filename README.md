@@ -62,8 +62,9 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - PostGIS `geography(Point, 4326)` 기반 5km 반경 후보 조회 (`RestaurantRepository.findWithinRadius`, GiST 인덱스)
 - 데이트·친구·가족·혼밥·회식 적합도 3상태(`true`/`false`/`NULL`, 큐레이션 전용 — Google 갱신이 건드리지 않음)
 - M2 ADR 확정, 추천 요청 DTO(`RecommendationRequest`), 점수 계산기(`RecommendationScoreCalculator`), 세션·후보 스키마(V7 마이그레이션)
+- Top 5 추천 생성·세션 조회 API (`POST`/`GET /api/v1/recommendations`) — 실시간 Google 호출 + upsert 후 점수순 정렬(ADR-M2-2 Option A)
 
-**다음 할 일 (M2-4~5):** Top 5 추천 서비스와 추천 생성·세션 조회 API. 진행 순서·ADR 확정 내용은 [`docs/SERVICE_DECISIONS.md`](docs/SERVICE_DECISIONS.md)의 "구현 현황" 체크리스트 참고.
+**다음 할 일 (M2.5):** 초기 탐색 스팟 — 5개 지역 코드, 25개 식당·노출 순서 DB 시드, 탐색 조회 API. 진행 순서·ADR 확정 내용은 [`docs/SERVICE_DECISIONS.md`](docs/SERVICE_DECISIONS.md)의 "구현 현황" 체크리스트 참고.
 
 M2 완료 직후에는 초기 탐색 스팟을 구현합니다. 성수동·연남동·신사동·서촌·을지로3가 5개 지역과 지역별 5곳(총 25곳)을 운영자 선정 `CURATED` 데이터로 DB에 직접 시드합니다. 실제 Picker 행동 데이터가 쌓이기 전까지 자동 인기 집계나 실시간 순위는 구현하지 않습니다.
 
