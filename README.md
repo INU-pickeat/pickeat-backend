@@ -63,11 +63,11 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - PostGIS `geography(Point, 4326)` 기반 5km 반경 후보 조회 (`RestaurantRepository.findWithinRadius`, GiST 인덱스)
 - 데이트·친구·가족·혼밥·회식 적합도 3상태(`true`/`false`/`NULL`, 큐레이션 전용 — Google 갱신이 건드리지 않음)
 - M2 ADR 확정, 추천 요청 DTO(`RecommendationRequest`), 점수 계산기(`RecommendationScoreCalculator`), 세션·후보 스키마(V7 마이그레이션)
-- Top 5 추천 생성·세션 조회 API (`POST`/`GET /api/v1/recommendations`) — 실시간 Google 호출 + upsert 후 점수순 정렬(ADR-M2-2 Option A)
+- 추천 생성·세션 조회 API (`POST`/`GET /api/v1/recommendations`) — DB 우선, 부족할 때만 Google 호출·upsert 하이브리드 조회. 선택적 가격대 필터(`priceRange`)를 지원하며 상위 10개를 세션 후보로 저장하고 상위 5개만 응답한다
 - Pick 생성·상태 변경 API (`POST /api/v1/picks`, `PATCH /api/v1/picks/{pickId}`) — 추천 세션에 실제 노출된 후보만 선택 가능
 - 내 Pick 목록·지도 API (`GET /api/v1/me/picks`, `GET /api/v1/me/picks/map`) — 본인 데이터만 조회, 취소 Pick은 지도에서 제외
 
-**다음 할 일:** 2026-09-22 기획서 갱신으로 음식 카테고리(5→7종)·동행 유형(친구는 단체에 통합한 6종)·선택적 가격대 필터·추천 점수 공식·재추천 제외 사유·Pick 집계/지도·Member 프로필 등 다수 항목이 코드와 어긋난 상태입니다. 확정 계약과 순서는 [`docs/SERVICE_DECISIONS.md`](docs/SERVICE_DECISIONS.md)의 "2026-09-22 기획서 갱신 — 구현 필요 백로그"를 확인하세요. 기존 M2.5(초기 탐색 스팟)는 기획자의 최종 ZIP 확정 전까지 별도로 보류 상태입니다.
+**다음 할 일:** 2026-09-22 기획서 갱신으로 추천 점수 공식·재추천 제외 사유·Pick 집계/지도·Member 프로필 등 다수 항목이 코드와 어긋난 상태입니다. 음식 카테고리(7종)·동행 유형(6종)·가격대 필터는 반영을 완료했습니다. 확정 계약과 순서는 [`docs/SERVICE_DECISIONS.md`](docs/SERVICE_DECISIONS.md)의 "2026-09-22 기획서 갱신 — 구현 필요 백로그"를 확인하세요. 기존 M2.5(초기 탐색 스팟)는 기획자의 최종 ZIP 확정 전까지 별도로 보류 상태입니다.
 
 M2 완료 직후에는 초기 탐색 스팟을 구현합니다. 성수동·연남동·신사동·서촌·을지로3가 5개 지역과 지역별 5곳(총 25곳)을 운영자 선정 `CURATED` 데이터로 DB에 직접 시드합니다. 실제 Picker 행동 데이터가 쌓이기 전까지 자동 인기 집계나 실시간 순위는 구현하지 않습니다.
 
@@ -79,7 +79,7 @@ M2 완료 직후에는 초기 탐색 스팟을 구현합니다. 성수동·연�
 
 1. 문서 계약 정합성 정리
 2. M1 데이터 확장 — 카테고리·동행 신호·Google 가격대
-3. M2 계약 개편 — 가격 필터·새 점수·재추천·응답
+3. M2 계약 개편 — 새 점수 공식·재추천 제외 사유·응답 계약 (가격 필터·DB 우선 하이브리드는 완료)
 4. M3 계약 개편 — 동행 스냅샷·최근 Pick 집계·REVIEWED 전용 지도
 5. 기획 ZIP 기준 25개 식당 확정 후 M2.5 초기 탐색 스팟 구현
 6. AWS EC2 배포와 GitHub Actions CD 활성화

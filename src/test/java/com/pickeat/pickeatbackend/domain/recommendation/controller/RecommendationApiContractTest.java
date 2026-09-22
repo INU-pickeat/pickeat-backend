@@ -123,6 +123,48 @@ class RecommendationApiContractTest {
         verify(recommendationService, never()).recommend(any(), any());
     }
 
+    @Test
+    @DisplayName("가격대를 포함한 추천 요청도 201을 반환한다")
+    void createsRecommendationWithPriceRange() throws Exception {
+        when(recommendationService.recommend(any(RecommendationRequest.class), eq(MEMBER_ID)))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/recommendations")
+                        .header("Authorization", authorizationHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "foodCategories": ["KOREAN"],
+                                  "companionType": "DATE",
+                                  "priceRange": {"min": 10000, "max": 30000},
+                                  "latitude": 37.5,
+                                  "longitude": 127.0
+                                }
+                                """))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("가격 하한이 상한보다 크면 공통 입력 오류 계약을 반환한다")
+    void rejectsPriceRangeMinGreaterThanMaxWithGlobalErrorContract() throws Exception {
+        mockMvc.perform(post("/api/v1/recommendations")
+                        .header("Authorization", authorizationHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "foodCategories": ["KOREAN"],
+                                  "companionType": "DATE",
+                                  "priceRange": {"min": 30000, "max": 10000},
+                                  "latitude": 37.5,
+                                  "longitude": 127.0
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+
+        verify(recommendationService, never()).recommend(any(), any());
+    }
+
     private String validRequest() {
         return """
                 {

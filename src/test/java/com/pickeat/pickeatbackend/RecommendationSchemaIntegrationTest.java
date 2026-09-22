@@ -50,8 +50,34 @@ class RecommendationSchemaIntegrationTest {
     }
 
     @Test
-    @DisplayName("순위가 1~5 범위를 벗어나면 거부된다")
-    void rejectsRankOutsideOneToFiveRange() {
+    @DisplayName("V10 마이그레이션이 적용된다")
+    void appliesPriceRangeMigration() {
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT success FROM flyway_schema_history WHERE version = '10'", Boolean.class)).isTrue();
+    }
+
+    @Test
+    @DisplayName("순위가 1~10 범위 안이면 대체 후보로 저장된다")
+    void allowsRankUpToTenForAlternateCandidates() {
+        Long memberId = insertMember();
+        Long restaurantId = insertRestaurant();
+        Long sessionId = insertSession(memberId);
+
+        jdbcTemplate.update("""
+                INSERT INTO recommendation_candidates
+                    (session_id, restaurant_id, result_rank, distance_meters,
+                     rating_contribution, distance_contribution, companion_bonus, total_score)
+                VALUES (?, ?, 10, 500, 0.6, 0.36, 0.1, 1.06)
+                """, sessionId, restaurantId);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT result_rank FROM recommendation_candidates WHERE session_id = ?",
+                Integer.class, sessionId)).isEqualTo(10);
+    }
+
+    @Test
+    @DisplayName("순위가 1~10 범위를 벗어나면 거부된다")
+    void rejectsRankOutsideOneToTenRange() {
         Long memberId = insertMember();
         Long restaurantId = insertRestaurant();
         Long sessionId = insertSession(memberId);
@@ -60,9 +86,39 @@ class RecommendationSchemaIntegrationTest {
                 INSERT INTO recommendation_candidates
                     (session_id, restaurant_id, result_rank, distance_meters,
                      rating_contribution, distance_contribution, companion_bonus, total_score)
-                VALUES (?, ?, 6, 500, 0.6, 0.36, 0.1, 1.06)
+                VALUES (?, ?, 11, 500, 0.6, 0.36, 0.1, 1.06)
                 """, sessionId, restaurantId))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("세션의 가격대 하한이 상한보다 크면 거부된다")
+    void rejectsSessionPriceRangeMinGreaterThanMax() {
+        Long memberId = insertMember();
+
+        assertThatThrownBy(() -> jdbcTemplate.update("""
+                INSERT INTO recommendation_sessions
+                    (member_id, companion_type, latitude, longitude, price_range_min, price_range_max)
+                VALUES (?, 'DATE', 37.58, 127.0, 30000, 10000)
+                """, memberId))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("세션에 가격대를 저장하고 조회한다")
+    void savesAndReadsSessionPriceRange() {
+        Long memberId = insertMember();
+
+        Long sessionId = jdbcTemplate.queryForObject("""
+                INSERT INTO recommendation_sessions
+                    (member_id, companion_type, latitude, longitude, price_range_min, price_range_max)
+                VALUES (?, 'DATE', 37.58, 127.0, 10000, 30000)
+                RETURNING id
+                """, Long.class, memberId);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT price_range_max FROM recommendation_sessions WHERE id = ?",
+                Integer.class, sessionId)).isEqualTo(30000);
     }
 
     @Test

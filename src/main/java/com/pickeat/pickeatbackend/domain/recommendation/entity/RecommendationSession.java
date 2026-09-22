@@ -16,6 +16,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -48,6 +49,12 @@ public class RecommendationSession {
     @Column(nullable = false)
     private Double longitude;
 
+    @Column(precision = 19, scale = 2)
+    private BigDecimal priceRangeMin;
+
+    @Column(precision = 19, scale = 2)
+    private BigDecimal priceRangeMax;
+
     @ElementCollection
     @CollectionTable(name = "recommendation_session_food_categories", joinColumns = @JoinColumn(name = "session_id"))
     @Enumerated(EnumType.STRING)
@@ -63,12 +70,16 @@ public class RecommendationSession {
             CompanionType companionType,
             Double latitude,
             Double longitude,
+            BigDecimal priceRangeMin,
+            BigDecimal priceRangeMax,
             Set<FoodCategory> foodCategories
     ) {
         this.member = member;
         this.companionType = companionType;
         this.latitude = latitude;
         this.longitude = longitude;
+        this.priceRangeMin = priceRangeMin;
+        this.priceRangeMax = priceRangeMax;
         this.foodCategories = new LinkedHashSet<>(foodCategories);
     }
 

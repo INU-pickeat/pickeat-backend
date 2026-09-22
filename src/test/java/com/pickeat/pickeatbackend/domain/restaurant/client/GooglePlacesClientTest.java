@@ -44,7 +44,7 @@ class GooglePlacesClientTest {
             .andExpect(header("X-Goog-Api-Key", "test-key"))
             .andExpect(header("X-Goog-FieldMask", GooglePlacesClient.FIELD_MASK))
             .andExpect(content().json("""
-                {"includedTypes":["restaurant"],"maxResultCount":20,"rankPreference":"POPULARITY",
+                {"includedPrimaryTypes":["restaurant"],"maxResultCount":20,"rankPreference":"POPULARITY",
                  "languageCode":"ko","locationRestriction":{"circle":{
                  "center":{"latitude":37.58,"longitude":127.0},"radius":5000.0}}}
                 """))
@@ -70,7 +70,7 @@ class GooglePlacesClientTest {
     void passesSpecificGoogleTypesPerCategory() {
         Set<String> koreanTypes = Set.of("korean_restaurant", "korean_barbecue_restaurant");
         server.expect(anything())
-            .andExpect(jsonPath("$.includedTypes", containsInAnyOrder("korean_restaurant", "korean_barbecue_restaurant")))
+            .andExpect(jsonPath("$.includedPrimaryTypes", containsInAnyOrder("korean_restaurant", "korean_barbecue_restaurant")))
             .andRespond(withSuccess("{\"places\":[]}", MediaType.APPLICATION_JSON));
 
         client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, koreanTypes);
@@ -85,6 +85,20 @@ class GooglePlacesClientTest {
             .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, null))
             .isInstanceOf(IllegalArgumentException.class);
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("Google 제한인 50개를 넘는 주 유형 요청은 호출 전에 거부한다")
+    void rejectsMoreThanFiftyPrimaryTypes() {
+        Set<String> tooManyTypes = IntStream.rangeClosed(1, 51)
+                .mapToObj(index -> "type-" + index)
+                .collect(Collectors.toSet());
+
+        assertThatThrownBy(() -> client.findNearbyRestaurants(
+                0, 0, GooglePlacesClient.RankPreference.DISTANCE, tooManyTypes))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("50개");
         server.verify();
     }
 
@@ -116,6 +130,29 @@ class GooglePlacesClientTest {
         var places = client.findNearbyRestaurants(0, 0, GooglePlacesClient.RankPreference.DISTANCE, RESTAURANT_TYPE);
         assertThat(places.getFirst().rating()).isNull();
         assertThat(places.getFirst().userRatingCount()).isNull();
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("가격 범위와 동행 적합 신호를 손실 없이 역직렬화한다")
+    void parsesPriceRangeAndCompanionSignals() {
+        server.expect(anything()).andRespond(withSuccess("""
+                {"places":[{"id":"place-1","priceRange":{
+                  "startPrice":{"currencyCode":"KRW","units":"10000","nanos":0},
+                  "endPrice":{"currencyCode":"KRW","units":"25000","nanos":0}},
+                  "goodForChildren":true,"goodForGroups":true,
+                  "menuForChildren":false,"allowsDogs":true}]}
+                """, MediaType.APPLICATION_JSON));
+
+        GooglePlaceResponse place = client.findNearbyRestaurants(
+                0, 0, GooglePlacesClient.RankPreference.DISTANCE, RESTAURANT_TYPE).getFirst();
+
+        assertThat(place.priceRange().startPrice().amount()).isEqualByComparingTo("10000");
+        assertThat(place.priceRange().endPrice().amount()).isEqualByComparingTo("25000");
+        assertThat(place.goodForChildren()).isTrue();
+        assertThat(place.goodForGroups()).isTrue();
+        assertThat(place.menuForChildren()).isFalse();
+        assertThat(place.allowsDogs()).isTrue();
         server.verify();
     }
 

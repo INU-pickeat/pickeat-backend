@@ -16,12 +16,16 @@ public record RestaurantResponse(
         BigDecimal externalRating,
         Integer externalRatingCount,
         String priceLevel,
+        BigDecimal priceRangeStart,
+        BigDecimal priceRangeEnd,
+        String priceCurrencyCode,
         String representativeImageUrl,
         Boolean suitableForDate,
-        Boolean suitableForFriends,
         Boolean suitableForFamily,
+        Boolean suitableForChildren,
         Boolean suitableForSolo,
-        Boolean suitableForGroupDinner
+        Boolean suitableForGroup,
+        Boolean suitableForDogs
 ) {
 
     public static RestaurantResponse from(Restaurant restaurant) {
@@ -37,12 +41,16 @@ public record RestaurantResponse(
                 restaurant.getExternalRating(),
                 restaurant.getExternalRatingCount(),
                 restaurant.getPriceLevel(),
+                restaurant.getPriceRangeStart(),
+                restaurant.getPriceRangeEnd(),
+                restaurant.getPriceCurrencyCode(),
                 restaurant.getRepresentativeImageUrl(),
                 restaurant.getSuitableForDate(),
-                restaurant.getSuitableForFriends(),
                 restaurant.getSuitableForFamily(),
+                restaurant.getSuitableForChildren(),
                 restaurant.getSuitableForSolo(),
-                restaurant.getSuitableForGroupDinner()
+                restaurant.getSuitableForGroup(),
+                restaurant.getSuitableForDogs()
         );
     }
 }

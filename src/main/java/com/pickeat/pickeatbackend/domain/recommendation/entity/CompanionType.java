@@ -2,8 +2,9 @@ package com.pickeat.pickeatbackend.domain.recommendation.entity;
 
 public enum CompanionType {
     DATE,
-    FRIENDS,
     FAMILY,
+    CHILDREN,
     SOLO,
-    GROUP_DINNER
+    GROUP,
+    DOG
 }
