@@ -1,13 +1,16 @@
 package com.pickeat.pickeatbackend.domain.recommendation.service;
 
 import com.pickeat.pickeatbackend.domain.member.repository.MemberRepository;
+import com.pickeat.pickeatbackend.domain.recommendation.dto.RecommendationExclusionRequest;
 import com.pickeat.pickeatbackend.domain.recommendation.dto.RecommendationRequest;
 import com.pickeat.pickeatbackend.domain.recommendation.dto.RecommendationResponse;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.RecommendationCandidate;
+import com.pickeat.pickeatbackend.domain.recommendation.entity.RecommendationExclusion;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.RecommendationSession;
 import com.pickeat.pickeatbackend.domain.recommendation.exception.RecommendationErrorCode;
 import com.pickeat.pickeatbackend.domain.recommendation.repository.RecommendationCandidateRepository;
+import com.pickeat.pickeatbackend.domain.recommendation.repository.RecommendationExclusionRepository;
 import com.pickeat.pickeatbackend.domain.recommendation.repository.RecommendationSessionRepository;
 import com.pickeat.pickeatbackend.domain.restaurant.client.GooglePlaceResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.client.GooglePlacesClient;
@@ -24,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -47,6 +51,7 @@ public class RecommendationService {
     private final RecommendationScoreCalculator scoreCalculator;
     private final RecommendationSessionRepository sessionRepository;
     private final RecommendationCandidateRepository candidateRepository;
+    private final RecommendationExclusionRepository exclusionRepository;
     private final MemberRepository memberRepository;
 
     @Transactional
@@ -128,9 +133,41 @@ public class RecommendationService {
         RecommendationSession session = sessionRepository.findByIdAndMemberId(sessionId, memberId)
                 .orElseThrow(() -> new BusinessException(RecommendationErrorCode.SESSION_NOT_FOUND));
 
-        List<RecommendationCandidate> candidates = topRanked(
-                candidateRepository.findBySessionIdOrderByResultRankAsc(sessionId));
-        return RecommendationResponse.of(session.getId(), candidates);
+        return RecommendationResponse.of(session.getId(), visibleCandidates(sessionId));
+    }
+
+    // 제외는 해당 세션 안에서만 유효하다(영구 차단 아님). 대체 후보는 세션 생성 시 저장해 둔
+    // 상위 10개 중 6~10위에서만 채우며, 소진되면 반경을 넓히지 않고 5개보다 적게 노출한다.
+    @Transactional
+    public RecommendationResponse exclude(Long sessionId, Long memberId, RecommendationExclusionRequest request) {
+        RecommendationSession session = sessionRepository.findByIdAndMemberId(sessionId, memberId)
+                .orElseThrow(() -> new BusinessException(RecommendationErrorCode.SESSION_NOT_FOUND));
+
+        Long restaurantId = request.restaurantId();
+        if (!candidateRepository.existsBySessionIdAndRestaurantId(sessionId, restaurantId)) {
+            throw new BusinessException(RecommendationErrorCode.CANDIDATE_NOT_FOUND);
+        }
+
+        if (!exclusionRepository.existsBySessionIdAndRestaurantId(sessionId, restaurantId)) {
+            exclusionRepository.save(RecommendationExclusion.builder()
+                    .session(session)
+                    .restaurant(restaurantRepository.getReferenceById(restaurantId))
+                    .reason(request.reason())
+                    .build());
+        }
+
+        return RecommendationResponse.of(session.getId(), visibleCandidates(sessionId));
+    }
+
+    private List<RecommendationCandidate> visibleCandidates(Long sessionId) {
+        Set<Long> excludedRestaurantIds = exclusionRepository.findBySessionId(sessionId).stream()
+                .map(exclusion -> exclusion.getRestaurant().getId())
+                .collect(Collectors.toSet());
+
+        return candidateRepository.findBySessionIdOrderByResultRankAsc(sessionId).stream()
+                .filter(candidate -> !excludedRestaurantIds.contains(candidate.getRestaurant().getId()))
+                .limit(TOP_RESULT_COUNT)
+                .toList();
     }
 
     private ScoredCandidate score(RestaurantCandidate candidate, CompanionType companionType) {

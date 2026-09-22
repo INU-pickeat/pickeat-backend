@@ -13,13 +13,17 @@ import static org.mockito.Mockito.when;
 
 import com.pickeat.pickeatbackend.domain.member.entity.Member;
 import com.pickeat.pickeatbackend.domain.member.repository.MemberRepository;
+import com.pickeat.pickeatbackend.domain.recommendation.dto.RecommendationExclusionRequest;
 import com.pickeat.pickeatbackend.domain.recommendation.dto.RecommendationRequest;
 import com.pickeat.pickeatbackend.domain.recommendation.dto.RecommendationRequest.PriceRange;
 import com.pickeat.pickeatbackend.domain.recommendation.dto.RecommendationResponse;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
+import com.pickeat.pickeatbackend.domain.recommendation.entity.ExclusionReason;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.RecommendationCandidate;
+import com.pickeat.pickeatbackend.domain.recommendation.entity.RecommendationExclusion;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.RecommendationSession;
 import com.pickeat.pickeatbackend.domain.recommendation.repository.RecommendationCandidateRepository;
+import com.pickeat.pickeatbackend.domain.recommendation.repository.RecommendationExclusionRepository;
 import com.pickeat.pickeatbackend.domain.recommendation.repository.RecommendationSessionRepository;
 import com.pickeat.pickeatbackend.domain.restaurant.client.GooglePlaceResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.client.GooglePlacesClient;
@@ -41,6 +45,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class RecommendationServiceTest {
@@ -56,6 +61,8 @@ class RecommendationServiceTest {
     @Mock
     private RecommendationCandidateRepository candidateRepository;
     @Mock
+    private RecommendationExclusionRepository exclusionRepository;
+    @Mock
     private MemberRepository memberRepository;
     @Mock
     private Member member;
@@ -65,8 +72,8 @@ class RecommendationServiceTest {
     @BeforeEach
     void setUp() {
         recommendationService = new RecommendationService(
-                googlePlacesClient, restaurantService, restaurantRepository,
-                new RecommendationScoreCalculator(), sessionRepository, candidateRepository, memberRepository);
+                googlePlacesClient, restaurantService, restaurantRepository, new RecommendationScoreCalculator(),
+                sessionRepository, candidateRepository, exclusionRepository, memberRepository);
     }
 
     private RecommendationRequest request(CompanionType companionType) {
@@ -99,6 +106,45 @@ class RecommendationServiceTest {
                 .priceRangeStart(priceRangeStart)
                 .priceRangeEnd(priceRangeEnd)
                 .build();
+    }
+
+    private Restaurant restaurantWithId(Long id, String name) {
+        Restaurant restaurant = Restaurant.builder()
+                .name(name)
+                .foodCategory(FoodCategory.KOREAN)
+                .latitude(37.5)
+                .longitude(127.0)
+                .externalRating(BigDecimal.valueOf(4.0))
+                .build();
+        ReflectionTestUtils.setField(restaurant, "id", id);
+        return restaurant;
+    }
+
+    private RecommendationCandidate candidate(Restaurant restaurant, int resultRank) {
+        return RecommendationCandidate.builder()
+                .restaurant(restaurant)
+                .resultRank(resultRank)
+                .distanceMeters(100.0)
+                .ratingContribution(0.5)
+                .distanceContribution(0.3)
+                .companionBonus(0.0)
+                .totalScore(0.8)
+                .build();
+    }
+
+    private RecommendationExclusion exclusionOf(Restaurant restaurant) {
+        return RecommendationExclusion.builder()
+                .restaurant(restaurant)
+                .reason(ExclusionReason.WANT_DIFFERENT)
+                .build();
+    }
+
+    private RecommendationSession sessionWithId(Long id) {
+        RecommendationSession session = RecommendationSession.builder()
+                .member(member).companionType(CompanionType.DATE).latitude(37.5).longitude(127.0)
+                .foodCategories(Set.of(FoodCategory.KOREAN)).build();
+        ReflectionTestUtils.setField(session, "id", id);
+        return session;
     }
 
     private void stubPersistence() {
@@ -266,6 +312,92 @@ class RecommendationServiceTest {
 
         assertThatThrownBy(() -> recommendationService.getSession(10L, 1L))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("제외 대상 세션이 없으면 예외가 발생한다")
+    void throwsWhenExcludingFromMissingSession() {
+        when(sessionRepository.findByIdAndMemberId(10L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> recommendationService.exclude(
+                10L, 1L, new RecommendationExclusionRequest(100L, ExclusionReason.WANT_DIFFERENT)))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("세션 후보에 없는 식당을 제외하려 하면 예외가 발생한다")
+    void throwsWhenExcludingRestaurantNotInSessionCandidates() {
+        when(sessionRepository.findByIdAndMemberId(10L, 1L)).thenReturn(Optional.of(sessionWithId(10L)));
+        when(candidateRepository.existsBySessionIdAndRestaurantId(10L, 100L)).thenReturn(false);
+
+        assertThatThrownBy(() -> recommendationService.exclude(
+                10L, 1L, new RecommendationExclusionRequest(100L, ExclusionReason.WANT_DIFFERENT)))
+                .isInstanceOf(BusinessException.class);
+
+        verify(exclusionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("제외한 식당은 다음 순위 후보로 대체되어 노출된다")
+    void promotesNextCandidateWhenRestaurantExcluded() {
+        RecommendationSession session = sessionWithId(10L);
+        when(sessionRepository.findByIdAndMemberId(10L, 1L)).thenReturn(Optional.of(session));
+        when(candidateRepository.existsBySessionIdAndRestaurantId(10L, 1L)).thenReturn(true);
+        when(exclusionRepository.existsBySessionIdAndRestaurantId(10L, 1L)).thenReturn(false);
+
+        List<RecommendationCandidate> stored = IntStream.rangeClosed(1, 6)
+                .mapToObj(i -> candidate(restaurantWithId((long) i, "식당" + i), i))
+                .toList();
+        when(candidateRepository.findBySessionIdOrderByResultRankAsc(10L)).thenReturn(stored);
+        // save() 이후 다시 조회했을 때 방금 제외한 식당이 보이는 상태를 흉내낸다(Mock이라 save가 저장소 상태를 바꾸지 않는다).
+        when(exclusionRepository.findBySessionId(10L))
+                .thenReturn(List.of(exclusionOf(stored.get(0).getRestaurant())));
+
+        RecommendationResponse response = recommendationService.exclude(
+                10L, 1L, new RecommendationExclusionRequest(1L, ExclusionReason.DISTANCE_TOO_FAR));
+
+        verify(exclusionRepository).save(any(RecommendationExclusion.class));
+        assertThat(response.items()).hasSize(5);
+        assertThat(response.items().get(0).restaurantId()).isEqualTo(2L);
+        assertThat(response.items().get(0).rank()).isEqualTo(1);
+        assertThat(response.items()).extracting(RecommendationResponse.Item::restaurantId)
+                .doesNotContain(1L);
+    }
+
+    @Test
+    @DisplayName("이미 제외한 식당을 다시 제외해도 중복 저장하지 않는다")
+    void isIdempotentWhenRestaurantAlreadyExcluded() {
+        RecommendationSession session = sessionWithId(10L);
+        when(sessionRepository.findByIdAndMemberId(10L, 1L)).thenReturn(Optional.of(session));
+        when(candidateRepository.existsBySessionIdAndRestaurantId(10L, 1L)).thenReturn(true);
+        when(exclusionRepository.existsBySessionIdAndRestaurantId(10L, 1L)).thenReturn(true);
+        when(candidateRepository.findBySessionIdOrderByResultRankAsc(10L)).thenReturn(List.of());
+        when(exclusionRepository.findBySessionId(10L)).thenReturn(List.of());
+
+        recommendationService.exclude(10L, 1L, new RecommendationExclusionRequest(1L, ExclusionReason.WANT_DIFFERENT));
+
+        verify(exclusionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("대체 후보가 소진되면 5개보다 적게 노출한다")
+    void returnsFewerThanFiveWhenNoAlternatesRemain() {
+        RecommendationSession session = sessionWithId(10L);
+        when(sessionRepository.findByIdAndMemberId(10L, 1L)).thenReturn(Optional.of(session));
+        when(candidateRepository.existsBySessionIdAndRestaurantId(10L, 1L)).thenReturn(true);
+        when(exclusionRepository.existsBySessionIdAndRestaurantId(10L, 1L)).thenReturn(false);
+
+        List<RecommendationCandidate> stored = IntStream.rangeClosed(1, 5)
+                .mapToObj(i -> candidate(restaurantWithId((long) i, "식당" + i), i))
+                .toList();
+        when(candidateRepository.findBySessionIdOrderByResultRankAsc(10L)).thenReturn(stored);
+        when(exclusionRepository.findBySessionId(10L))
+                .thenReturn(List.of(exclusionOf(stored.get(0).getRestaurant())));
+
+        RecommendationResponse response = recommendationService.exclude(
+                10L, 1L, new RecommendationExclusionRequest(1L, ExclusionReason.PRICE_TOO_HIGH));
+
+        assertThat(response.items()).hasSize(4);
     }
 
     @Test

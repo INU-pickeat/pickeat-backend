@@ -9,7 +9,8 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum RecommendationErrorCode implements BaseErrorCode {
 
-    SESSION_NOT_FOUND("RECOMMENDATION_001", "존재하지 않는 추천 세션입니다.", HttpStatus.NOT_FOUND);
+    SESSION_NOT_FOUND("RECOMMENDATION_001", "존재하지 않는 추천 세션입니다.", HttpStatus.NOT_FOUND),
+    CANDIDATE_NOT_FOUND("RECOMMENDATION_002", "세션 후보에 없는 식당입니다.", HttpStatus.NOT_FOUND);
 
     private final String code;
     private final String message;

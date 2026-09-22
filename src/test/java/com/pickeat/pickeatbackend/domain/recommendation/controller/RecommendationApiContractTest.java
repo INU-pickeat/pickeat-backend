@@ -165,6 +165,58 @@ class RecommendationApiContractTest {
         verify(recommendationService, never()).recommend(any(), any());
     }
 
+    @Test
+    @DisplayName("제외 API는 인증이 필요하다")
+    void requiresAuthenticationToExclude() throws Exception {
+        mockMvc.perform(post("/api/v1/recommendations/{sessionId}/exclusions", SESSION_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validExclusionRequest()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("제외 API는 201과 대체된 세션 응답 계약을 반환한다")
+    void excludesRestaurantWithDocumentedResponseContract() throws Exception {
+        when(recommendationService.exclude(eq(SESSION_ID), eq(MEMBER_ID), any())).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/recommendations/{sessionId}/exclusions", SESSION_ID)
+                        .header("Authorization", authorizationHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validExclusionRequest()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.sessionId").value(SESSION_ID))
+                .andExpect(jsonPath("$.items[0].restaurantId").value(10));
+
+        verify(recommendationService).exclude(eq(SESSION_ID), eq(MEMBER_ID), any());
+    }
+
+    @Test
+    @DisplayName("제외 사유가 없으면 공통 입력 오류 계약을 반환한다")
+    void rejectsExclusionWithoutReasonWithGlobalErrorContract() throws Exception {
+        mockMvc.perform(post("/api/v1/recommendations/{sessionId}/exclusions", SESSION_ID)
+                        .header("Authorization", authorizationHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "restaurantId": 10,
+                                  "reason": null
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+
+        verify(recommendationService, never()).exclude(any(), any(), any());
+    }
+
+    private String validExclusionRequest() {
+        return """
+                {
+                  "restaurantId": 10,
+                  "reason": "DISTANCE_TOO_FAR"
+                }
+                """;
+    }
+
     private String validRequest() {
         return """
                 {

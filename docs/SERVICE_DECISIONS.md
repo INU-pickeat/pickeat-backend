@@ -118,7 +118,7 @@
   7. [ ] **M2 계약 개편.** 7개 음식 카테고리, 6개 동행 유형, 가격대 필터, 새 점수 공식, 재추천·제외 사유, 응답 계약을 반영한다.
      - [x] 가격대 필터 + DB 우선·Google 보충 하이브리드 조회. → 아래 "M2 가격 필터 + DB 우선 하이브리드 구현 결과" 참고.
      - [x] 새 점수 공식(평점 정규화 3.0~5.0 클램프, 0.7/0.3, 가산점 0.1). → 아래 "M2 점수 공식 재구현 결과" 참고.
-     - [ ] 재추천(다시 추천) + 제외 사유
+     - [x] 재추천(다시 추천) + 제외 사유. → 아래 "M2 재추천 + 제외 사유 구현 결과" 참고.
      - [ ] 제네릭 `restaurant` 보완 분류, 데이트 프랜차이즈 제외(브랜드 목록 준비 전까지 보류)
   8. [ ] **M3 계약 개편.** Pick 동행 스냅샷, 기간별 식당 집계 목록, REVIEWED 전용 지도를 반영한다. 기존 생성·상태 전이·권한 검증은 유지한다.
   9. [ ] **M2.5: 초기 탐색 스팟.** 5개 지역 코드, 25개 식당·노출 순서 DB 시드, 탐색 조회 API를 구현한다. 기획 ZIP 수신 전까지 보류한다.
@@ -157,6 +157,16 @@
 - `RecommendationScoreCalculatorTest`에 평점 3.0 미만이 3.0과 동일하게 0점 처리되는 클램프 경계 테스트를 추가했다.
 - 전체 테스트 165개가 통과한다.
 
+### M2 재추천 + 제외 사유 구현 결과 (2026-09-22)
+
+- `POST /api/v1/recommendations/{sessionId}/exclusions` API를 추가했다. 요청은 `restaurantId`와 `reason`(`DISTANCE_TOO_FAR`/`PRICE_TOO_HIGH`/`MENU_UNSATISFACTORY`/`ATMOSPHERE_MISMATCH`/`WANT_DIFFERENT`) 둘 다 필수이며, 응답은 대체 후보가 반영된 `RecommendationResponse`(상위 5개)다. 인증 필요, 세션 소유자가 아니면 404.
+- `RecommendationExclusion` 엔티티(세션·식당·사유·제외 일시)와 V11 마이그레이션을 추가했다. `(session_id, restaurant_id)` 유니크 제약으로 같은 세션 내 중복 제외를 막는다.
+- 제외 대상이 해당 세션의 저장된 후보(1~10위)가 아니면 `RECOMMENDATION_002`(404)로 거부한다. 이미 제외한 식당을 다시 제외하면 새 레코드를 만들지 않고 멱등하게 현재 상태만 반환한다.
+- 노출 목록은 세션에 저장된 1~10위 후보 중 제외되지 않은 것만 순서대로 최대 5개 뽑아 구성한다. 대체 후보가 소진되면(10위까지 다 제외) 반경을 넓히지 않고 5개보다 적게 노출한다.
+- 제외는 해당 세션 안에서만 유효하다(영구 차단 아님) — 다른 세션이나 이후 추천에는 영향을 주지 않는다.
+- `RecommendationResponse.Item.rank`의 의미를 세션 저장 순위(1~10, 불변)에서 현재 노출 목록 안에서의 위치(항상 1부터 연속)로 바꿨다. 제외로 빈 자리가 생기면 다음 대체 후보가 그 자리의 순위를 그대로 이어받는다. `recommend`/`getSession` 기존 응답 계약은 동일하게 유지된다(제외 이력이 없으면 결과가 같다).
+- 단위·API 계약·Flyway 통합 테스트를 추가해 전체 테스트 180개가 통과한다.
+
 ### 2026-09-22 기획서 갱신 — 구현 필요 백로그
 
 Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 134개 테스트 통과 시점)와 스펙 사이 gap이다. 문서 정합성을 먼저 맞춘 뒤 M1 데이터 확장 → M2 계약 개편 → M3 계약 개편 순서로 진행한다.
@@ -165,7 +175,7 @@ Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 1
 - [x] **동행 유형 5종 → 6종.** `DATE`, `FAMILY`, `CHILDREN`, `SOLO`, `GROUP`, `DOG`로 개편했다. Google 신호는 가족=goodForChildren AND goodForGroups, 아이=goodForChildren OR menuForChildren, 단체=goodForGroups, 반려견=allowsDogs로 채우며 기존 수동 값은 덮어쓰지 않는다.
 - [x] **가격대(신규 선택 필터).** V9의 `priceRange` 금액·통화 저장에 이어, 추천 요청 DTO의 생략/NULL 계약과 일부 겹침 필터까지 구현했다. → "M2 가격 필터 + DB 우선 하이브리드 구현 결과" 참고.
 - [x] **추천 점수 공식 재구현.** 기존 구현(원시 평점, w1=0.6/w2=0.4)을 스펙 확정본(평점 정규화 3.0~5.0 클램프, 0.7/0.3, 가산점 0.1)으로 교체했다.
-- [ ] **재추천(다시 추천) + 제외 사유.** `RecommendationExclusion` 엔티티, enum(`DISTANCE_TOO_FAR`/`PRICE_TOO_HIGH`/`MENU_UNSATISFACTORY`/`ATMOSPHERE_MISMATCH`/`WANT_DIFFERENT`), `POST /api/v1/recommendations/{sessionId}/exclusions`.
+- [x] **재추천(다시 추천) + 제외 사유.** `RecommendationExclusion` 엔티티, enum(`DISTANCE_TOO_FAR`/`PRICE_TOO_HIGH`/`MENU_UNSATISFACTORY`/`ATMOSPHERE_MISMATCH`/`WANT_DIFFERENT`), `POST /api/v1/recommendations/{sessionId}/exclusions`. → "M2 재추천 + 제외 사유 구현 결과" 참고.
 - [ ] **Pick 지도·캘린더.** 둘 다 REVIEWED만 노출한다. 캘린더는 Phase 2 Review 구현과 함께 진행하며 날짜당 대표 이미지 1개와 기록 개수 점을 제공한다. Review 전까지 지도 결과가 비어 있는 것은 정상이다.
 - [ ] **최근 Pick 목록.** `GET /api/v1/me/picks?period=week|month` — SELECTED + REVIEWED를 식당별로 그룹화하고 `pickCount`와 `latestPickedAt`을 제공한다. CANCELED는 제외한다.
 - [ ] **Pick 동행 스냅샷.** Pick 생성 시 추천 세션의 동행 유형을 Pick에 복사해 이후 변경과 무관한 기록으로 보존한다.

@@ -144,6 +144,63 @@ class RecommendationSchemaIntegrationTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    @Test
+    @DisplayName("V11 마이그레이션이 적용된다")
+    void appliesExclusionMigration() {
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT success FROM flyway_schema_history WHERE version = '11'", Boolean.class)).isTrue();
+    }
+
+    @Test
+    @DisplayName("제외 사유를 저장하고 조회한다")
+    void savesAndReadsExclusionReason() {
+        Long memberId = insertMember();
+        Long restaurantId = insertRestaurant();
+        Long sessionId = insertSession(memberId);
+
+        jdbcTemplate.update("""
+                INSERT INTO recommendation_exclusions (session_id, restaurant_id, reason)
+                VALUES (?, ?, 'DISTANCE_TOO_FAR')
+                """, sessionId, restaurantId);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT reason FROM recommendation_exclusions WHERE session_id = ?",
+                String.class, sessionId)).isEqualTo("DISTANCE_TOO_FAR");
+    }
+
+    @Test
+    @DisplayName("같은 세션에서 같은 식당을 두 번 제외하면 거부된다")
+    void rejectsDuplicateExclusionInSameSession() {
+        Long memberId = insertMember();
+        Long restaurantId = insertRestaurant();
+        Long sessionId = insertSession(memberId);
+
+        jdbcTemplate.update("""
+                INSERT INTO recommendation_exclusions (session_id, restaurant_id, reason)
+                VALUES (?, ?, 'PRICE_TOO_HIGH')
+                """, sessionId, restaurantId);
+
+        assertThatThrownBy(() -> jdbcTemplate.update("""
+                INSERT INTO recommendation_exclusions (session_id, restaurant_id, reason)
+                VALUES (?, ?, 'WANT_DIFFERENT')
+                """, sessionId, restaurantId))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("정의되지 않은 제외 사유는 거부된다")
+    void rejectsUnknownExclusionReason() {
+        Long memberId = insertMember();
+        Long restaurantId = insertRestaurant();
+        Long sessionId = insertSession(memberId);
+
+        assertThatThrownBy(() -> jdbcTemplate.update("""
+                INSERT INTO recommendation_exclusions (session_id, restaurant_id, reason)
+                VALUES (?, ?, 'NOT_A_REAL_REASON')
+                """, sessionId, restaurantId))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
     private Long insertMember() {
         return jdbcTemplate.queryForObject("""
                 INSERT INTO members (email, password, nickname, login_provider, created_at, updated_at)
