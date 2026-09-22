@@ -120,7 +120,7 @@
      - [x] 새 점수 공식(평점 정규화 3.0~5.0 클램프, 0.7/0.3, 가산점 0.1). → 아래 "M2 점수 공식 재구현 결과" 참고.
      - [x] 재추천(다시 추천) + 제외 사유. → 아래 "M2 재추천 + 제외 사유 구현 결과" 참고.
      - [ ] 제네릭 `restaurant` 보완 분류, 데이트 프랜차이즈 제외(브랜드 목록 준비 전까지 보류)
-  8. [ ] **M3 계약 개편.** Pick 동행 스냅샷, 기간별 식당 집계 목록, REVIEWED 전용 지도를 반영한다. 기존 생성·상태 전이·권한 검증은 유지한다.
+  8. [x] **M3 계약 개편.** Pick 동행 스냅샷, 기간별 식당 집계 목록, REVIEWED 전용 지도를 반영했다. 기존 생성·상태 전이·권한 검증은 유지한다. Pick 캘린더는 Phase 2(Review 구현)로 보류. → "M3 계약 개편 구현 결과" 참고.
   9. [ ] **M2.5: 초기 탐색 스팟.** 5개 지역 코드, 25개 식당·노출 순서 DB 시드, 탐색 조회 API를 구현한다. 기획 ZIP 수신 전까지 보류한다.
   10. [ ] **배포/CD.** GitHub Actions CD·systemd·헬스체크·자동 롤백 구성은 완료. EC2·운영 DB 생성, Secrets 등록, HTTPS 연결과 최초 실배포가 남아 있다.
   11. [ ] 프론트엔드 연동 MVP E2E를 검증한다.
@@ -167,6 +167,14 @@
 - `RecommendationResponse.Item.rank`의 의미를 세션 저장 순위(1~10, 불변)에서 현재 노출 목록 안에서의 위치(항상 1부터 연속)로 바꿨다. 제외로 빈 자리가 생기면 다음 대체 후보가 그 자리의 순위를 그대로 이어받는다. `recommend`/`getSession` 기존 응답 계약은 동일하게 유지된다(제외 이력이 없으면 결과가 같다).
 - 단위·API 계약·Flyway 통합 테스트를 추가해 전체 테스트 180개가 통과한다.
 
+### M3 계약 개편 구현 결과 (2026-09-22)
+
+- **Pick 동행 스냅샷.** `Pick`에 `companion_type` 컬럼을 추가하고(V12), 생성 시 추천 세션의 `companionType`을 그대로 복사해 저장한다. 이후 세션이 바뀌어도 이미 생성된 Pick의 값은 변하지 않는다. 기존 행은 연결된 세션의 현재 `companion_type`으로 백필했다.
+- **Pick 지도 REVIEWED 전용.** 기존 "CANCELED만 제외"에서 "REVIEWED만 노출"로 바꿨다(`findByMemberIdAndStatusOrderBySelectedAtDescIdDesc`). `PickMapResponse.Item`에 스냅샷된 `companionType`을 추가해 지도 팝업에 표시할 수 있게 했다. Review 기능이 아직 없어 REVIEWED Pick이 생기기 전까지는 지도 결과가 비어 있는 것이 정상이다.
+- **최근 Pick 목록 개편.** `GET /api/v1/me/picks`의 계약을 페이지 조회에서 `period=week|month` 필수 쿼리 파라미터 기반 식당별 집계로 완전히 교체했다(기존 `page`/`size`, `PickListResponse`는 제거). SELECTED + REVIEWED만 집계하고 CANCELED는 제외하며, 식당별로 `pickCount`와 `latestPickedAt`을 반환한다. `period`는 `week`(최근 7일)·`month`(최근 30일) 롤링 윈도우로 해석했다 — 기획서에 "일주일 기준"/"한 달 기준"의 정확한 경계(캘린더 월 vs 롤링 30일)가 명시되어 있지 않아 내린 구현 판단이며, 기획자 확인이 필요하면 조정한다. `period`가 `week`/`month`가 아니면 `GLOBAL_001`로 거부한다.
+- **Pick 캘린더는 범위 밖.** 기획서에 "캘린더는 Phase 2 Review 구현과 함께 진행"이라고 명시되어 있고, 대표 이미지 출처가 리뷰 사진인데 Review 모듈이 아직 없어 이번 작업에서 구현하지 않았다.
+- 단위·API 계약·Flyway 통합 테스트를 갱신해 전체 테스트 184개가 통과한다.
+
 ### 2026-09-22 기획서 갱신 — 구현 필요 백로그
 
 Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 134개 테스트 통과 시점)와 스펙 사이 gap이다. 문서 정합성을 먼저 맞춘 뒤 M1 데이터 확장 → M2 계약 개편 → M3 계약 개편 순서로 진행한다.
@@ -176,9 +184,9 @@ Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 1
 - [x] **가격대(신규 선택 필터).** V9의 `priceRange` 금액·통화 저장에 이어, 추천 요청 DTO의 생략/NULL 계약과 일부 겹침 필터까지 구현했다. → "M2 가격 필터 + DB 우선 하이브리드 구현 결과" 참고.
 - [x] **추천 점수 공식 재구현.** 기존 구현(원시 평점, w1=0.6/w2=0.4)을 스펙 확정본(평점 정규화 3.0~5.0 클램프, 0.7/0.3, 가산점 0.1)으로 교체했다.
 - [x] **재추천(다시 추천) + 제외 사유.** `RecommendationExclusion` 엔티티, enum(`DISTANCE_TOO_FAR`/`PRICE_TOO_HIGH`/`MENU_UNSATISFACTORY`/`ATMOSPHERE_MISMATCH`/`WANT_DIFFERENT`), `POST /api/v1/recommendations/{sessionId}/exclusions`. → "M2 재추천 + 제외 사유 구현 결과" 참고.
-- [ ] **Pick 지도·캘린더.** 둘 다 REVIEWED만 노출한다. 캘린더는 Phase 2 Review 구현과 함께 진행하며 날짜당 대표 이미지 1개와 기록 개수 점을 제공한다. Review 전까지 지도 결과가 비어 있는 것은 정상이다.
-- [ ] **최근 Pick 목록.** `GET /api/v1/me/picks?period=week|month` — SELECTED + REVIEWED를 식당별로 그룹화하고 `pickCount`와 `latestPickedAt`을 제공한다. CANCELED는 제외한다.
-- [ ] **Pick 동행 스냅샷.** Pick 생성 시 추천 세션의 동행 유형을 Pick에 복사해 이후 변경과 무관한 기록으로 보존한다.
+- [x] **Pick 지도.** REVIEWED만 노출하도록 반영했다. 캘린더는 Phase 2 Review 구현과 함께 진행하며 이번 범위에서 제외했다(Review 전까지 지도 결과가 비어 있는 것은 정상). → "M3 계약 개편 구현 결과" 참고.
+- [x] **최근 Pick 목록.** `GET /api/v1/me/picks?period=week|month` — SELECTED + REVIEWED를 식당별로 그룹화하고 `pickCount`와 `latestPickedAt`을 제공한다. CANCELED는 제외한다.
+- [x] **Pick 동행 스냅샷.** Pick 생성 시 추천 세션의 동행 유형을 Pick에 복사해 이후 변경과 무관한 기록으로 보존한다.
 - [ ] **Member 프로필 확장.** 자기소개(bio) 필드, `GET /api/v1/me`, `PATCH /api/v1/me`를 사용한다. 다른 사용자용 리소스가 필요할 때만 `/api/v1/members/{memberId}`를 추가한다.
 - [ ] **세션 ID 유지.** 추천 세션의 내부·API 식별자는 현재의 `Long`을 유지한다. 외부 공유가 필요해지면 별도 UUID 공개 식별자를 추가한다.
 - [ ] **인기맛집 지역 재확인 필요.** 기획서 9/29번 지역(성수동·연남동·신사동·서촌·을지로3가)과 M1-2 실제 검증 지역(연남·한남·서촌·신사·논현)이 다름 — 기획자가 최종 목록을 정리해 주기로 스펙에 명시됨. M2.5 착수 전 확인.
@@ -196,8 +204,7 @@ Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 1
 - 추천 세션당 최종 Pick은 하나만 허용한다. 같은 식당은 서로 다른 추천 세션에서 다시 Pick할 수 있다.
 - Pick 대상은 요청한 회원이 소유한 추천 세션에 실제 후보로 저장된 식당이어야 한다. 다른 회원의 세션·Pick은 404로 처리해 존재 여부를 노출하지 않는다.
 - 상태는 `SELECTED`, `REVIEWED`, `CANCELED` 세 가지다. `SELECTED`에서 `REVIEWED` 또는 `CANCELED`로만 전환하며, 같은 상태 요청은 멱등 처리하고 종료 상태는 되돌리지 않는다.
-- `REVIEWED` 전환 시 `visited_at`을 기록한다. 현재 코드는 `CANCELED`만 지도에서 제외하지만 목표 계약은 REVIEWED만 지도에 노출하는 것이다.
-- 현재 목록은 `selected_at DESC, id DESC`의 페이지 조회다. 목표 계약은 week/month 기간 필터와 SELECTED + REVIEWED 식당별 집계다.
+- `REVIEWED` 전환 시 `visited_at`을 기록한다. (2026-09-22 개편으로 지도는 REVIEWED 전용, 목록은 기간별 집계로 바뀌었다 — 아래 "M3 계약 개편 구현 결과" 참고.)
 - API는 `POST /api/v1/picks`, `PATCH /api/v1/picks/{pickId}`, `GET /api/v1/me/picks`, `GET /api/v1/me/picks/map` 네 개이며 모두 JWT 인증이 필요하다.
 - Flyway V8에 `picks` 테이블, 추천 세션 유일 제약, 회원별 최신순·상태·식당 인덱스를 추가했다.
 - 엔티티 상태 전이, 서비스 권한·중복·후보 검증, DB 제약, JWT 및 JSON 계약을 포함해 전체 테스트 134개가 통과한다.

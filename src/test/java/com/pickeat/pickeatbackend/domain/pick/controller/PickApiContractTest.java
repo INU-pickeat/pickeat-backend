@@ -1,7 +1,6 @@
 package com.pickeat.pickeatbackend.domain.pick.controller;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -13,12 +12,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.pickeat.pickeatbackend.domain.pick.dto.CreatePickRequest;
-import com.pickeat.pickeatbackend.domain.pick.dto.PickListResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickMapResponse;
+import com.pickeat.pickeatbackend.domain.pick.dto.PickPeriod;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickStatusUpdateRequest;
+import com.pickeat.pickeatbackend.domain.pick.dto.RecentPicksResponse;
 import com.pickeat.pickeatbackend.domain.pick.entity.PickStatus;
+import com.pickeat.pickeatbackend.domain.pick.repository.RestaurantPickSummary;
 import com.pickeat.pickeatbackend.domain.pick.service.PickService;
+import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
 import com.pickeat.pickeatbackend.global.security.jwt.JwtTokenProvider;
 import java.time.Instant;
 import java.util.List;
@@ -99,26 +101,27 @@ class PickApiContractTest {
     }
 
     @Test
-    @DisplayName("내 Pick 목록 API는 페이지 메타데이터를 반환한다")
-    void getsMyPickListWithPaginationContract() throws Exception {
-        PickListResponse response = new PickListResponse(List.of(selectedResponse), 0, 20, 1, 1);
-        when(pickService.getMyPicks(MEMBER_ID, 0, 20)).thenReturn(response);
+    @DisplayName("내 최근 Pick 목록 API는 식당별 집계 계약을 반환한다")
+    void getsMyRecentPicksWithRestaurantSummaryContract() throws Exception {
+        RecentPicksResponse response = new RecentPicksResponse(List.of(
+                new RecentPicksResponse.Item(10L, "테스트 식당", 3L, SELECTED_AT)));
+        when(pickService.getMyPicks(MEMBER_ID, PickPeriod.WEEK)).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/me/picks")
-                        .header("Authorization", authorizationHeader))
+                        .header("Authorization", authorizationHeader)
+                        .param("period", "week"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items.length()").value(1))
-                .andExpect(jsonPath("$.page").value(0))
-                .andExpect(jsonPath("$.size").value(20))
-                .andExpect(jsonPath("$.totalElements").value(1))
-                .andExpect(jsonPath("$.totalPages").value(1));
+                .andExpect(jsonPath("$.restaurants.length()").value(1))
+                .andExpect(jsonPath("$.restaurants[0].restaurantId").value(10))
+                .andExpect(jsonPath("$.restaurants[0].pickCount").value(3))
+                .andExpect(jsonPath("$.restaurants[0].latestPickedAt").value("2026-09-21T10:00:00Z"));
     }
 
     @Test
-    @DisplayName("내 Pick 지도 API는 좌표 계약을 반환한다")
+    @DisplayName("내 Pick 지도 API는 좌표와 동행 유형 계약을 반환한다")
     void getsMyPickMapWithCoordinateContract() throws Exception {
         PickMapResponse response = new PickMapResponse(List.of(
-                new PickMapResponse.Item(PICK_ID, 10L, "테스트 식당", 37.5, 127.0, PickStatus.SELECTED)));
+                new PickMapResponse.Item(PICK_ID, 10L, "테스트 식당", 37.5, 127.0, PickStatus.REVIEWED, CompanionType.SOLO)));
         when(pickService.getMyPickMap(MEMBER_ID)).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/me/picks/map")
@@ -126,7 +129,8 @@ class PickApiContractTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.picks[0].pickId").value(PICK_ID))
                 .andExpect(jsonPath("$.picks[0].latitude").value(37.5))
-                .andExpect(jsonPath("$.picks[0].longitude").value(127.0));
+                .andExpect(jsonPath("$.picks[0].longitude").value(127.0))
+                .andExpect(jsonPath("$.picks[0].companionType").value("SOLO"));
     }
 
     @Test
@@ -143,16 +147,15 @@ class PickApiContractTest {
     }
 
     @Test
-    @DisplayName("잘못된 목록 페이지 조건은 공통 입력 오류를 반환한다")
-    void rejectsInvalidPagination() throws Exception {
+    @DisplayName("잘못된 기간 조건은 공통 입력 오류를 반환한다")
+    void rejectsInvalidPeriod() throws Exception {
         mockMvc.perform(get("/api/v1/me/picks")
                         .header("Authorization", authorizationHeader)
-                        .param("page", "-1")
-                        .param("size", "101"))
+                        .param("period", "year"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("GLOBAL_001"));
 
-        verify(pickService, never()).getMyPicks(any(), anyInt(), anyInt());
+        verify(pickService, never()).getMyPicks(any(), any());
     }
 
     private String validCreateRequest() {

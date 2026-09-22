@@ -2,6 +2,7 @@ package com.pickeat.pickeatbackend.domain.pick.entity;
 
 import com.pickeat.pickeatbackend.domain.member.entity.Member;
 import com.pickeat.pickeatbackend.domain.pick.exception.PickErrorCode;
+import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.RecommendationSession;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
@@ -47,6 +48,11 @@ public class Pick {
     @JoinColumn(name = "recommendation_session_id", nullable = false, unique = true)
     private RecommendationSession recommendationSession;
 
+    // Pick 생성 시점의 추천 세션 동행 유형 스냅샷. 이후 세션이 바뀌어도 이 값은 변하지 않는다.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "companion_type", nullable = false, length = 20)
+    private CompanionType companionType;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private PickStatus status;
@@ -60,10 +66,12 @@ public class Pick {
     private Instant updatedAt;
 
     @Builder
-    public Pick(Member member, Restaurant restaurant, RecommendationSession recommendationSession) {
+    public Pick(Member member, Restaurant restaurant, RecommendationSession recommendationSession,
+                CompanionType companionType) {
         this.member = member;
         this.restaurant = restaurant;
         this.recommendationSession = recommendationSession;
+        this.companionType = companionType;
         this.status = PickStatus.SELECTED;
     }
 
