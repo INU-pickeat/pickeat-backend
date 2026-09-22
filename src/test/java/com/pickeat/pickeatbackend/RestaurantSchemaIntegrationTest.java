@@ -23,6 +23,8 @@ class RestaurantSchemaIntegrationTest {
                 "SELECT success FROM flyway_schema_history WHERE version = '5'", Boolean.class)).isTrue();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT success FROM flyway_schema_history WHERE version = '6'", Boolean.class)).isTrue();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT success FROM flyway_schema_history WHERE version = '9'", Boolean.class)).isTrue();
         assertThat(jdbcTemplate.queryForObject("""
                 SELECT indexdef FROM pg_indexes
                 WHERE schemaname = 'public' AND indexname = 'restaurants_location_gist_idx'
@@ -49,5 +51,30 @@ class RestaurantSchemaIntegrationTest {
                 SELECT ST_DWithin(location, ST_Project(location, 5001, 0), 5000)
                 FROM restaurants WHERE id = ?
                 """, Boolean.class, id)).isFalse();
+    }
+
+    @Test
+    @DisplayName("확장된 음식 카테고리와 동행 유형을 저장한다")
+    void storesExpandedCategoriesAndCompanionTypes() {
+        Long memberId = jdbcTemplate.queryForObject("""
+                INSERT INTO members (email, password, nickname, created_at, updated_at)
+                VALUES ('schema-v9@example.com', 'encoded', 'schema-v9', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                RETURNING id
+                """, Long.class);
+        Long sessionId = jdbcTemplate.queryForObject("""
+                INSERT INTO recommendation_sessions (member_id, companion_type, latitude, longitude)
+                VALUES (?, 'DOG', 37.5, 127.0)
+                RETURNING id
+                """, Long.class, memberId);
+
+        jdbcTemplate.update("""
+                INSERT INTO recommendation_session_food_categories (session_id, food_category)
+                VALUES (?, 'PUB_BAR'), (?, 'OTHER')
+                """, sessionId, sessionId);
+
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM recommendation_session_food_categories
+                WHERE session_id = ?
+                """, Integer.class, sessionId)).isEqualTo(2);
     }
 }

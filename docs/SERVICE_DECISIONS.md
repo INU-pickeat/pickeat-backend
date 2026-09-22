@@ -124,7 +124,7 @@
 ### M2 ADR 확정 결과 (2026-09-21, 2026-09-22 개편으로 일부 폐기)
 
 - **점수 계산 공식(현행 목표):** Google 평점을 `(rating - 3.0) / 2.0`으로 정규화하고 0~1로 제한한다. 거리 점수는 `1 - distance/5000`, 가중치는 `rating=0.7`, `distance=0.3`, 동행 적합 가산점은 `0.1`이다. 기존 코드의 `rating/5`, `0.6/0.4` 공식은 폐기한다.
-- **추천 후보 조회 방식:** 매 요청 실시간 Google Nearby Search 호출 + 결과를 `upsertFromGoogle`로 DB에 반영. API 비용이 부담되거나 DB 지역 커버리지가 충분해지면 "DB 우선, 부족할 때만 Google" 하이브리드로 전환.
+- **추천 후보 조회 방식(목표 계약):** DB에서 5km 이내 유효 후보를 먼저 조회하고, 카테고리·가격·데이트 프랜차이즈 필터를 통과한 후보가 10개 미만일 때만 Google Places로 보충한다. 상위 5개는 노출하고 나머지 5개는 대체 후보로 유지한다. 현재 `RecommendationService`의 매 요청 Google 호출은 후속 M2 개편에서 이 흐름으로 교체한다.
 
 ### M2-4~5 구현 결과 (2026-09-21)
 
@@ -140,9 +140,9 @@
 
 Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 134개 테스트 통과 시점)와 스펙 사이 gap이다. 문서 정합성을 먼저 맞춘 뒤 M1 데이터 확장 → M2 계약 개편 → M3 계약 개편 순서로 진행한다.
 
-- [ ] **음식 카테고리 5종 → 7종.** 펍·와인·술집, 기타 추가. `irish_pub`을 WESTERN에서 펍으로 재분류, JAPANESE에 `japanese_izakaya_restaurant` 추가. "기타"는 6개 카테고리 밖 Food/Drink 타입 전부(`cat_cafe`/`dog_cafe` 제외) — 기존 "미매핑은 제외" 정책을 뒤집으므로 `FoodCategory` enum·매핑·검증 전반 재작업.
-- [ ] **동행 유형 5종 → 6종.** "데이트·친구·가족·혼밥·회식" → "데이트·가족과 함께·아이와 함께·혼밥·단체·반려견과 함께". `FRIENDS`는 삭제하고 `GROUP`에 포함한다. Google 신호 매핑(가족=goodForChildren AND goodForGroups, 아이=goodForChildren OR menuForChildren, 단체=goodForGroups, 반려견=allowsDogs, 데이트·혼밥은 수동 태깅 필요) 반영.
-- [ ] **가격대(신규 선택 필터).** Google `priceRange`와 일부 겹침 매칭, 가격 무관은 요청에서 `priceRange` 필드를 생략한다. 생략 또는 명시적 NULL이면 가격 정보가 없는 식당도 포함하고, 특정 범위 선택 시 NULL 식당은 제외한다.
+- [x] **음식 카테고리 5종 → 7종.** `PUB_BAR`, `OTHER`를 추가하고 일식·중식·양식·펍 매핑과 기타 허용 목록을 확장했다. 카테고리 검색은 `includedPrimaryTypes`를 사용하며 50개 초과 시 요청을 분할·중복 제거한다. 제네릭 `restaurant` 보완 분류는 별도 후속 과제로 유지한다.
+- [x] **동행 유형 5종 → 6종.** `DATE`, `FAMILY`, `CHILDREN`, `SOLO`, `GROUP`, `DOG`로 개편했다. Google 신호는 가족=goodForChildren AND goodForGroups, 아이=goodForChildren OR menuForChildren, 단체=goodForGroups, 반려견=allowsDogs로 채우며 기존 수동 값은 덮어쓰지 않는다.
+- [ ] **가격대(신규 선택 필터).** V9와 Google upsert에 `priceRange` 금액·통화 저장까지 반영했다. 추천 요청 DTO의 생략/NULL 계약과 일부 겹침 필터 구현이 남아 있다.
 - [ ] **추천 점수 공식 재구현.** 기존 구현(원시 평점, w1=0.6/w2=0.4)을 스펙 확정본(평점 정규화 3.0~5.0 클램프, 0.7/0.3, 가산점 0.1)으로 교체.
 - [ ] **재추천(다시 추천) + 제외 사유.** `RecommendationExclusion` 엔티티, enum(`DISTANCE_TOO_FAR`/`PRICE_TOO_HIGH`/`MENU_UNSATISFACTORY`/`ATMOSPHERE_MISMATCH`/`WANT_DIFFERENT`), `POST /api/v1/recommendations/{sessionId}/exclusions`.
 - [ ] **Pick 지도·캘린더.** 둘 다 REVIEWED만 노출한다. 캘린더는 Phase 2 Review 구현과 함께 진행하며 날짜당 대표 이미지 1개와 기록 개수 점을 제공한다. Review 전까지 지도 결과가 비어 있는 것은 정상이다.

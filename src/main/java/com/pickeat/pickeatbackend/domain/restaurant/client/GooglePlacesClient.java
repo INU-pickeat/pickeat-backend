@@ -19,7 +19,8 @@ public class GooglePlacesClient {
 
     static final String FIELD_MASK = "places.id,places.displayName,places.formattedAddress,"
         + "places.location,places.rating,places.userRatingCount,places.googleMapsUri,places.attributions,"
-        + "places.primaryType";
+        + "places.primaryType,places.types,places.priceRange,places.goodForChildren,places.goodForGroups,"
+        + "places.menuForChildren,places.allowsDogs";
 
     private final RestClient restClient;
     private final String apiKey;
@@ -34,25 +35,27 @@ public class GooglePlacesClient {
         this.apiKey = apiKey;
     }
 
-    // 카테고리 필터가 있으면 FoodCategory.toGooglePrimaryTypes()로 뒤집은 구체적인 Google 하위 타입을
-    // 넘겨서 Google 서버에서 선처리시킨다. 카테고리가 없으면 호출자가 Set.of("restaurant")를 넘긴다.
+    // 카테고리에 매핑된 구체적인 Google 주 유형을 넘겨 Google 서버에서 선처리시킨다.
     public List<GooglePlaceResponse> findNearbyRestaurants(
-        double latitude, double longitude, RankPreference rankPreference, Set<String> includedTypes
+        double latitude, double longitude, RankPreference rankPreference, Set<String> includedPrimaryTypes
     ) {
         if (!Double.isFinite(latitude) || latitude < -90 || latitude > 90
             || !Double.isFinite(longitude) || longitude < -180 || longitude > 180) {
             throw new IllegalArgumentException("유효한 위도와 경도가 필요합니다.");
         }
         Objects.requireNonNull(rankPreference, "Google 후보 정렬 기준이 필요합니다.");
-        if (includedTypes == null || includedTypes.isEmpty()) {
+        if (includedPrimaryTypes == null || includedPrimaryTypes.isEmpty()) {
             throw new IllegalArgumentException("Google에 요청할 장소 유형이 최소 1개 필요합니다.");
+        }
+        if (includedPrimaryTypes.size() > 50) {
+            throw new IllegalArgumentException("Google 장소 유형은 요청당 최대 50개까지 허용됩니다.");
         }
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("GOOGLE_PLACES_API_KEY 설정이 필요합니다.");
         }
 
         Map<String, Object> request = Map.of(
-            "includedTypes", List.copyOf(includedTypes),
+            "includedPrimaryTypes", List.copyOf(includedPrimaryTypes),
             "maxResultCount", 20,
             "rankPreference", rankPreference.name(),
             "languageCode", "ko",

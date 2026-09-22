@@ -149,4 +149,48 @@ class RestaurantServiceTest {
         assertThat(updated.getFoodCategory()).isEqualTo(FoodCategory.CHINESE);
         assertThat(updated.getExternalRating()).isNull();
     }
+
+    @Test
+    @DisplayName("Google 가격과 동행 신호를 저장하되 이미 큐레이션한 적합도는 유지한다")
+    void storesGooglePriceAndFillsOnlyUnknownSuitability() {
+        Restaurant existing = Restaurant.builder()
+                .googlePlaceId("place-1")
+                .name("옛날 이름")
+                .foodCategory(FoodCategory.KOREAN)
+                .latitude(37.0)
+                .longitude(127.0)
+                .suitableForFamily(false)
+                .build();
+        when(restaurantRepository.findByGooglePlaceId("place-1")).thenReturn(Optional.of(existing));
+        when(restaurantRepository.save(any(Restaurant.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        GooglePlaceResponse place = new GooglePlaceResponse(
+                "place-1",
+                new GooglePlaceResponse.DisplayName("맛있는 식당", "ko"),
+                "서울시 강남구",
+                new GooglePlaceResponse.Location(37.5, 127.0),
+                4.5,
+                42,
+                "https://maps.google.com/place-1",
+                List.of(),
+                "korean_restaurant",
+                List.of("korean_restaurant", "restaurant"),
+                new GooglePlaceResponse.PriceRange(
+                        new GooglePlaceResponse.Money("KRW", "10000", 0),
+                        new GooglePlaceResponse.Money("KRW", "25000", 0)),
+                true,
+                true,
+                false,
+                true
+        );
+
+        Restaurant updated = restaurantService.upsertFromGoogle(place);
+
+        assertThat(updated.getPriceRangeStart()).isEqualByComparingTo("10000");
+        assertThat(updated.getPriceRangeEnd()).isEqualByComparingTo("25000");
+        assertThat(updated.getPriceCurrencyCode()).isEqualTo("KRW");
+        assertThat(updated.getSuitableForFamily()).isFalse();
+        assertThat(updated.getSuitableForChildren()).isTrue();
+        assertThat(updated.getSuitableForGroup()).isTrue();
+        assertThat(updated.getSuitableForDogs()).isTrue();
+    }
 }

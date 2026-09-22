@@ -206,6 +206,27 @@ class RecommendationServiceTest {
     }
 
     @Test
+    @DisplayName("Google 주 유형이 50개를 넘으면 여러 요청으로 나누고 장소 ID 중복을 제거한다")
+    void batchesGooglePrimaryTypesAndDeduplicatesPlaces() {
+        stubPersistence();
+        GooglePlaceResponse duplicate = new GooglePlaceResponse(
+                "same-place", new GooglePlaceResponse.DisplayName("맛집", "ko"), "주소",
+                new GooglePlaceResponse.Location(37.5, 127.0), 4.5, 10, "uri", List.of(), "thai_restaurant");
+        when(googlePlacesClient.findNearbyRestaurants(
+                eq(37.5), eq(127.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet()))
+                .thenReturn(List.of(duplicate));
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 5000.0)).thenReturn(List.of());
+
+        RecommendationRequest otherRequest = new RecommendationRequest(
+                Set.of(FoodCategory.OTHER), CompanionType.DATE, 37.5, 127.0);
+        recommendationService.recommend(otherRequest, 1L);
+
+        verify(googlePlacesClient, org.mockito.Mockito.times(2)).findNearbyRestaurants(
+                eq(37.5), eq(127.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet());
+        verify(restaurantService).upsertFromGoogle(duplicate);
+    }
+
+    @Test
     @DisplayName("세션 주인이 아니면 예외가 발생한다")
     void throwsWhenSessionOwnerMismatch() {
         when(sessionRepository.findByIdAndMemberId(10L, 1L)).thenReturn(Optional.empty());

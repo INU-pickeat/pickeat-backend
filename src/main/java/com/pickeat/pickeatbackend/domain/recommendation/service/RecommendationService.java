@@ -18,7 +18,10 @@ import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantReposit
 import com.pickeat.pickeatbackend.domain.restaurant.service.RestaurantService;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.util.Comparator;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
@@ -45,8 +48,7 @@ public class RecommendationService {
     @Transactional
     public RecommendationResponse recommend(RecommendationRequest request, Long memberId) {
         Set<String> includedTypes = FoodCategory.toGooglePrimaryTypes(request.foodCategories());
-        List<GooglePlaceResponse> places = googlePlacesClient.findNearbyRestaurants(
-                request.latitude(), request.longitude(), GooglePlacesClient.RankPreference.POPULARITY, includedTypes);
+        List<GooglePlaceResponse> places = findGooglePlaces(request, includedTypes);
         places.forEach(restaurantService::upsertFromGoogle);
 
         List<RestaurantCandidate> candidates = restaurantRepository.findWithinRadius(
@@ -73,6 +75,18 @@ public class RecommendationService {
         return RecommendationResponse.of(session.getId(), savedCandidates);
     }
 
+    private List<GooglePlaceResponse> findGooglePlaces(RecommendationRequest request, Set<String> includedTypes) {
+        List<String> types = new ArrayList<>(includedTypes);
+        Map<String, GooglePlaceResponse> uniquePlaces = new LinkedHashMap<>();
+        for (int start = 0; start < types.size(); start += 50) {
+            Set<String> batch = Set.copyOf(types.subList(start, Math.min(start + 50, types.size())));
+            googlePlacesClient.findNearbyRestaurants(
+                            request.latitude(), request.longitude(), GooglePlacesClient.RankPreference.POPULARITY, batch)
+                    .forEach(place -> uniquePlaces.putIfAbsent(place.id(), place));
+        }
+        return List.copyOf(uniquePlaces.values());
+    }
+
     @Transactional(readOnly = true)
     public RecommendationResponse getSession(Long sessionId, Long memberId) {
         RecommendationSession session = sessionRepository.findByIdAndMemberId(sessionId, memberId)
@@ -92,10 +106,11 @@ public class RecommendationService {
     private boolean isCompanionMatch(CompanionType companionType, Restaurant restaurant) {
         Boolean suitable = switch (companionType) {
             case DATE -> restaurant.getSuitableForDate();
-            case FRIENDS -> restaurant.getSuitableForFriends();
             case FAMILY -> restaurant.getSuitableForFamily();
+            case CHILDREN -> restaurant.getSuitableForChildren();
             case SOLO -> restaurant.getSuitableForSolo();
-            case GROUP_DINNER -> restaurant.getSuitableForGroupDinner();
+            case GROUP -> restaurant.getSuitableForGroup();
+            case DOG -> restaurant.getSuitableForDogs();
         };
         return Boolean.TRUE.equals(suitable);
     }

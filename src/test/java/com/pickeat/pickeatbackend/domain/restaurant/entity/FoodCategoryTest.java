@@ -28,7 +28,10 @@ class FoodCategoryTest {
     void resolvesGooglePrimaryTypesFromMultipleCategories() {
         Set<String> types = FoodCategory.toGooglePrimaryTypes(Set.of(FoodCategory.CHINESE, FoodCategory.CAFE_DESSERT));
 
-        assertThat(types).containsExactlyInAnyOrder("chinese_restaurant", "cafe", "dessert_shop");
+        assertThat(types).containsExactlyInAnyOrder(
+                "chinese_restaurant", "cantonese_restaurant", "chinese_noodle_restaurant",
+                "dim_sum_restaurant", "dumpling_restaurant", "hot_pot_restaurant", "taiwanese_restaurant",
+                "cafe", "dessert_shop");
     }
 
     @ParameterizedTest
@@ -42,15 +45,26 @@ class FoodCategoryTest {
             "noodle_shop, KOREAN",
             "japanese_restaurant, JAPANESE",
             "ramen_restaurant, JAPANESE",
+            "japanese_izakaya_restaurant, JAPANESE",
+            "sushi_restaurant, JAPANESE",
+            "tonkatsu_restaurant, JAPANESE",
             "chinese_restaurant, CHINESE",
             "western_restaurant, WESTERN",
             "italian_restaurant, WESTERN",
             "european_restaurant, WESTERN",
             "sandwich_shop, WESTERN",
-            "irish_pub, WESTERN",
             "brunch_restaurant, WESTERN",
+            "fast_food_restaurant, WESTERN",
+            "hamburger_restaurant, WESTERN",
+            "pizza_restaurant, WESTERN",
             "cafe, CAFE_DESSERT",
-            "dessert_shop, CAFE_DESSERT"
+            "dessert_shop, CAFE_DESSERT",
+            "irish_pub, PUB_BAR",
+            "cocktail_bar, PUB_BAR",
+            "sports_bar, PUB_BAR",
+            "indian_restaurant, OTHER",
+            "mexican_restaurant, OTHER",
+            "vietnamese_restaurant, OTHER"
     })
     void mapsGooglePrimaryTypeToFoodCategory(String primaryType, FoodCategory expected) {
         assertThat(FoodCategory.fromGooglePrimaryType(primaryType)).contains(expected);
@@ -65,9 +79,6 @@ class FoodCategoryTest {
             "vegan_restaurant",
             "buffet_restaurant",
             "fine_dining_restaurant",
-            "indian_restaurant",
-            "turkish_restaurant",
-            "asian_fusion_restaurant",
             "meal_takeaway"
     })
     void excludesUnmappedGooglePrimaryType(String primaryType) {

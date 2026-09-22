@@ -49,6 +49,15 @@ public class RestaurantService {
         FoodCategory foodCategory = FoodCategory.fromGooglePrimaryType(place.primaryType())
                 .orElse(restaurant.getFoodCategory());
         BigDecimal rating = place.rating() == null ? null : BigDecimal.valueOf(place.rating());
+        GooglePlaceResponse.PriceRange priceRange = place.priceRange();
+        BigDecimal priceStart = priceRange == null || priceRange.startPrice() == null
+                ? null : priceRange.startPrice().amount();
+        BigDecimal priceEnd = priceRange == null || priceRange.endPrice() == null
+                ? null : priceRange.endPrice().amount();
+        String currencyCode = priceRange == null ? null : firstCurrencyCode(priceRange);
+
+        Boolean suitableForFamily = and(place.goodForChildren(), place.goodForGroups());
+        Boolean suitableForChildren = or(place.goodForChildren(), place.menuForChildren());
 
         restaurant.updateFromGoogle(
                 place.displayName().text(),
@@ -57,9 +66,37 @@ public class RestaurantService {
                 place.location().latitude(),
                 place.location().longitude(),
                 rating,
-                place.userRatingCount()
+                place.userRatingCount(),
+                priceStart,
+                priceEnd,
+                currencyCode,
+                suitableForFamily,
+                suitableForChildren,
+                place.goodForGroups(),
+                place.allowsDogs()
         );
 
         return restaurantRepository.save(restaurant);
+    }
+
+    private String firstCurrencyCode(GooglePlaceResponse.PriceRange priceRange) {
+        if (priceRange.startPrice() != null) {
+            return priceRange.startPrice().currencyCode();
+        }
+        return priceRange.endPrice() == null ? null : priceRange.endPrice().currencyCode();
+    }
+
+    private Boolean and(Boolean left, Boolean right) {
+        if (Boolean.FALSE.equals(left) || Boolean.FALSE.equals(right)) {
+            return false;
+        }
+        return Boolean.TRUE.equals(left) && Boolean.TRUE.equals(right) ? true : null;
+    }
+
+    private Boolean or(Boolean left, Boolean right) {
+        if (Boolean.TRUE.equals(left) || Boolean.TRUE.equals(right)) {
+            return true;
+        }
+        return Boolean.FALSE.equals(left) && Boolean.FALSE.equals(right) ? false : null;
     }
 }
