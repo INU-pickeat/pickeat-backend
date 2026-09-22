@@ -3,16 +3,21 @@ package com.pickeat.pickeatbackend.domain.recommendation.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.pickeat.pickeatbackend.domain.member.entity.Member;
 import com.pickeat.pickeatbackend.domain.member.repository.MemberRepository;
 import com.pickeat.pickeatbackend.domain.recommendation.dto.RecommendationRequest;
+import com.pickeat.pickeatbackend.domain.recommendation.dto.RecommendationRequest.PriceRange;
 import com.pickeat.pickeatbackend.domain.recommendation.dto.RecommendationResponse;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
+import com.pickeat.pickeatbackend.domain.recommendation.entity.RecommendationCandidate;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.RecommendationSession;
 import com.pickeat.pickeatbackend.domain.recommendation.repository.RecommendationCandidateRepository;
 import com.pickeat.pickeatbackend.domain.recommendation.repository.RecommendationSessionRepository;
@@ -24,6 +29,7 @@ import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantCandida
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantRepository;
 import com.pickeat.pickeatbackend.domain.restaurant.service.RestaurantService;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -32,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -63,7 +70,12 @@ class RecommendationServiceTest {
     }
 
     private RecommendationRequest request(CompanionType companionType) {
-        return new RecommendationRequest(Set.of(FoodCategory.KOREAN), companionType, 37.5, 127.0);
+        return new RecommendationRequest(Set.of(FoodCategory.KOREAN), companionType, null, 37.5, 127.0);
+    }
+
+    private RecommendationRequest requestWithPriceRange(BigDecimal min, BigDecimal max) {
+        return new RecommendationRequest(
+                Set.of(FoodCategory.KOREAN), CompanionType.DATE, new PriceRange(min, max), 37.5, 127.0);
     }
 
     private Restaurant restaurant(FoodCategory foodCategory, double rating, Boolean suitableForDate) {
@@ -74,6 +86,18 @@ class RecommendationServiceTest {
                 .longitude(127.0)
                 .externalRating(java.math.BigDecimal.valueOf(rating))
                 .suitableForDate(suitableForDate)
+                .build();
+    }
+
+    private Restaurant restaurantWithPrice(BigDecimal priceRangeStart, BigDecimal priceRangeEnd) {
+        return Restaurant.builder()
+                .name("식당")
+                .foodCategory(FoodCategory.KOREAN)
+                .latitude(37.5)
+                .longitude(127.0)
+                .externalRating(BigDecimal.valueOf(4.0))
+                .priceRangeStart(priceRangeStart)
+                .priceRangeEnd(priceRangeEnd)
                 .build();
     }
 
@@ -218,7 +242,7 @@ class RecommendationServiceTest {
         when(restaurantRepository.findWithinRadius(37.5, 127.0, 5000.0)).thenReturn(List.of());
 
         RecommendationRequest otherRequest = new RecommendationRequest(
-                Set.of(FoodCategory.OTHER), CompanionType.DATE, 37.5, 127.0);
+                Set.of(FoodCategory.OTHER), CompanionType.DATE, null, 37.5, 127.0);
         recommendationService.recommend(otherRequest, 1L);
 
         verify(googlePlacesClient, org.mockito.Mockito.times(2)).findNearbyRestaurants(
@@ -242,5 +266,132 @@ class RecommendationServiceTest {
 
         assertThatThrownBy(() -> recommendationService.getSession(10L, 1L))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("DB 유효 후보가 10개 이상이면 Google을 호출하지 않는다")
+    void skipsGoogleWhenTenOrMoreValidDbCandidatesExist() {
+        stubPersistence();
+        List<RestaurantCandidate> candidates = IntStream.rangeClosed(1, 10)
+                .mapToObj(i -> new RestaurantCandidate(restaurant(FoodCategory.KOREAN, i % 5 + 1.0, null), i * 100))
+                .toList();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 5000.0)).thenReturn(candidates);
+
+        RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
+
+        verify(googlePlacesClient, never()).findNearbyRestaurants(
+                anyDouble(), anyDouble(), any(GooglePlacesClient.RankPreference.class), anySet());
+        assertThat(response.items()).hasSize(5);
+    }
+
+    @Test
+    @DisplayName("DB 유효 후보가 10개 미만이면 Google을 호출해 보충한 뒤 DB를 다시 조회한다")
+    void callsGoogleAndRequeriesWhenFewerThanTenValidDbCandidatesExist() {
+        stubPersistence();
+        GooglePlaceResponse place = new GooglePlaceResponse(
+                "place-1", new GooglePlaceResponse.DisplayName("맛집", "ko"), "주소",
+                new GooglePlaceResponse.Location(37.5, 127.0), 4.5, 10, "uri", List.of(), "korean_restaurant");
+        when(googlePlacesClient.findNearbyRestaurants(
+                eq(37.5), eq(127.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet()))
+                .thenReturn(List.of(place));
+        List<RestaurantCandidate> initial = IntStream.rangeClosed(1, 3)
+                .mapToObj(i -> new RestaurantCandidate(restaurant(FoodCategory.KOREAN, i, null), i * 100))
+                .toList();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 5000.0)).thenReturn(initial);
+
+        recommendationService.recommend(request(CompanionType.DATE), 1L);
+
+        verify(restaurantService).upsertFromGoogle(place);
+        verify(restaurantRepository, times(2)).findWithinRadius(37.5, 127.0, 5000.0);
+    }
+
+    @Test
+    @DisplayName("유효 후보가 10개보다 많으면 상위 10개까지 저장하고 응답은 상위 5개만 반환한다")
+    void storesUpToTenCandidatesButReturnsOnlyTopFive() {
+        stubPersistence();
+        List<RestaurantCandidate> candidates = IntStream.rangeClosed(1, 12)
+                .mapToObj(i -> new RestaurantCandidate(restaurant(FoodCategory.KOREAN, i % 5 + 0.5, null), i * 100))
+                .toList();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 5000.0)).thenReturn(candidates);
+        ArgumentCaptor<List<RecommendationCandidate>> captor = ArgumentCaptor.forClass(List.class);
+
+        RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
+
+        verify(candidateRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(10);
+        assertThat(response.items()).hasSize(5);
+    }
+
+    @Test
+    @DisplayName("가격대를 생략하면 가격 정보가 없는 식당도 포함된다")
+    void includesRestaurantsWithoutPriceInfoWhenPriceRangeOmitted() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        RestaurantCandidate noPriceInfo = new RestaurantCandidate(restaurantWithPrice(null, null), 100);
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 5000.0)).thenReturn(List.of(noPriceInfo));
+
+        RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
+
+        assertThat(response.items()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("가격대를 지정하면 가격 정보가 없는 식당은 제외된다")
+    void excludesRestaurantsWithoutPriceInfoWhenPriceRangeSpecified() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        RestaurantCandidate noPriceInfo = new RestaurantCandidate(restaurantWithPrice(null, null), 100);
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 5000.0)).thenReturn(List.of(noPriceInfo));
+
+        RecommendationResponse response = recommendationService.recommend(
+                requestWithPriceRange(BigDecimal.valueOf(10000), BigDecimal.valueOf(30000)), 1L);
+
+        assertThat(response.items()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("요청 가격대와 식당 가격대가 겹치면 포함된다")
+    void includesRestaurantsWithOverlappingPriceRange() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        RestaurantCandidate overlapping = new RestaurantCandidate(
+                restaurantWithPrice(BigDecimal.valueOf(20000), BigDecimal.valueOf(50000)), 100);
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 5000.0)).thenReturn(List.of(overlapping));
+
+        RecommendationResponse response = recommendationService.recommend(
+                requestWithPriceRange(BigDecimal.valueOf(10000), BigDecimal.valueOf(30000)), 1L);
+
+        assertThat(response.items()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("요청 가격대와 식당 가격대가 겹치지 않으면 제외된다")
+    void excludesRestaurantsWithNonOverlappingPriceRange() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        RestaurantCandidate tooExpensive = new RestaurantCandidate(
+                restaurantWithPrice(BigDecimal.valueOf(50000), BigDecimal.valueOf(80000)), 100);
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 5000.0)).thenReturn(List.of(tooExpensive));
+
+        RecommendationResponse response = recommendationService.recommend(
+                requestWithPriceRange(BigDecimal.valueOf(10000), BigDecimal.valueOf(30000)), 1L);
+
+        assertThat(response.items()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("세션에 요청한 가격대를 저장한다")
+    void savesPriceRangeOnSession() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 5000.0)).thenReturn(List.of());
+        ArgumentCaptor<RecommendationSession> captor = ArgumentCaptor.forClass(RecommendationSession.class);
+
+        recommendationService.recommend(
+                requestWithPriceRange(BigDecimal.valueOf(10000), BigDecimal.valueOf(30000)), 1L);
+
+        verify(sessionRepository).save(captor.capture());
+        assertThat(captor.getValue().getPriceRangeMin()).isEqualByComparingTo(BigDecimal.valueOf(10000));
+        assertThat(captor.getValue().getPriceRangeMax()).isEqualByComparingTo(BigDecimal.valueOf(30000));
     }
 }

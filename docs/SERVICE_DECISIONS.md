@@ -116,6 +116,10 @@
   5. [x] M2-3: ADR에 따른 점수 계산기와 경계값 테스트를 구현한다. (PR #26)
   6. [x] M2-4~5: Top 5 추천 서비스와 추천 생성·세션 조회 API를 완성한다. (PR #28)
   7. [ ] **M2 계약 개편.** 7개 음식 카테고리, 6개 동행 유형, 가격대 필터, 새 점수 공식, 재추천·제외 사유, 응답 계약을 반영한다.
+     - [x] 가격대 필터 + DB 우선·Google 보충 하이브리드 조회. → 아래 "M2 가격 필터 + DB 우선 하이브리드 구현 결과" 참고.
+     - [ ] 새 점수 공식(평점 정규화 3.0~5.0 클램프, 0.7/0.3, 가산점 0.1)
+     - [ ] 재추천(다시 추천) + 제외 사유
+     - [ ] 제네릭 `restaurant` 보완 분류, 데이트 프랜차이즈 제외(브랜드 목록 준비 전까지 보류)
   8. [ ] **M3 계약 개편.** Pick 동행 스냅샷, 기간별 식당 집계 목록, REVIEWED 전용 지도를 반영한다. 기존 생성·상태 전이·권한 검증은 유지한다.
   9. [ ] **M2.5: 초기 탐색 스팟.** 5개 지역 코드, 25개 식당·노출 순서 DB 시드, 탐색 조회 API를 구현한다. 기획 ZIP 수신 전까지 보류한다.
   10. [ ] **배포/CD.** GitHub Actions CD·systemd·헬스체크·자동 롤백 구성은 완료. EC2·운영 DB 생성, Secrets 등록, HTTPS 연결과 최초 실배포가 남아 있다.
@@ -136,13 +140,23 @@
 
 초기 탐색 스팟의 지역·개수·운영 방식은 확정됐지만 실제 25개 식당 목록과 각 지역 내 노출 순서는 DB 시드 작업 전에 별도로 확정한다.
 
+### M2 가격 필터 + DB 우선 하이브리드 구현 결과 (2026-09-22)
+
+- `RecommendationRequest`에 nullable `priceRange(min, max)`를 추가했다. 생략·명시적 `null`은 가격 무관으로 처리하고, 값이 있으면 `min`/`max` 각각 음수를 금지하고(`@PositiveOrZero`) `min > max`는 레코드 내부 `@AssertTrue`로 거부한다. 위반 시 기존 `GLOBAL_001` 계약을 그대로 재사용한다.
+- 가격 무관이면 가격 정보가 없는 식당도 포함하고, 가격을 지정하면 가격 정보가 없는 식당은 제외한다. 식당 쪽에 상한 또는 하한만 있으면 그 방향은 무제한으로 보고, 요청 범위와 일부라도 겹치면 포함한다(`RecommendationService.matchesPriceRange()`).
+- 조회 흐름을 "DB 우선, 부족할 때만 Google"로 교체했다. DB에서 5km 이내 후보를 조회해 카테고리·가격 필터를 통과한 유효 후보가 10개 미만일 때만 Google Places를 호출해 upsert한 뒤 DB를 다시 조회한다. 10개 이상이면 Google을 호출하지 않는다.
+- 점수순 상위 10개를 세션 후보로 저장한다(1~5위는 응답에 노출, 6~10위는 추후 제외 API를 위한 대체 후보로만 보관). 추천 생성·세션 조회 API 응답에는 상위 5개만 반환한다.
+- `RecommendationSession`에 요청 당시 `price_range_min`/`price_range_max`를 저장한다(V10). `recommendation_candidates.result_rank` 제약을 1~5에서 1~10으로 넓혔다.
+- 프랜차이즈 브랜드 목록이 아직 없어 데이트 프랜차이즈 제외 필터와 제네릭 `restaurant` 보완 분류, 새 점수 공식(0.7/0.3 가중치)은 이번 작업 범위에서 제외했다.
+- 단위·API 계약·Flyway 통합 테스트를 추가해 전체 테스트 164개가 통과한다.
+
 ### 2026-09-22 기획서 갱신 — 구현 필요 백로그
 
 Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 134개 테스트 통과 시점)와 스펙 사이 gap이다. 문서 정합성을 먼저 맞춘 뒤 M1 데이터 확장 → M2 계약 개편 → M3 계약 개편 순서로 진행한다.
 
 - [x] **음식 카테고리 5종 → 7종.** `PUB_BAR`, `OTHER`를 추가하고 일식·중식·양식·펍 매핑과 기타 허용 목록을 확장했다. 카테고리 검색은 `includedPrimaryTypes`를 사용하며 50개 초과 시 요청을 분할·중복 제거한다. 제네릭 `restaurant` 보완 분류는 별도 후속 과제로 유지한다.
 - [x] **동행 유형 5종 → 6종.** `DATE`, `FAMILY`, `CHILDREN`, `SOLO`, `GROUP`, `DOG`로 개편했다. Google 신호는 가족=goodForChildren AND goodForGroups, 아이=goodForChildren OR menuForChildren, 단체=goodForGroups, 반려견=allowsDogs로 채우며 기존 수동 값은 덮어쓰지 않는다.
-- [ ] **가격대(신규 선택 필터).** V9와 Google upsert에 `priceRange` 금액·통화 저장까지 반영했다. 추천 요청 DTO의 생략/NULL 계약과 일부 겹침 필터 구현이 남아 있다.
+- [x] **가격대(신규 선택 필터).** V9의 `priceRange` 금액·통화 저장에 이어, 추천 요청 DTO의 생략/NULL 계약과 일부 겹침 필터까지 구현했다. → "M2 가격 필터 + DB 우선 하이브리드 구현 결과" 참고.
 - [ ] **추천 점수 공식 재구현.** 기존 구현(원시 평점, w1=0.6/w2=0.4)을 스펙 확정본(평점 정규화 3.0~5.0 클램프, 0.7/0.3, 가산점 0.1)으로 교체.
 - [ ] **재추천(다시 추천) + 제외 사유.** `RecommendationExclusion` 엔티티, enum(`DISTANCE_TOO_FAR`/`PRICE_TOO_HIGH`/`MENU_UNSATISFACTORY`/`ATMOSPHERE_MISMATCH`/`WANT_DIFFERENT`), `POST /api/v1/recommendations/{sessionId}/exclusions`.
 - [ ] **Pick 지도·캘린더.** 둘 다 REVIEWED만 노출한다. 캘린더는 Phase 2 Review 구현과 함께 진행하며 날짜당 대표 이미지 1개와 기록 개수 점을 제공한다. Review 전까지 지도 결과가 비어 있는 것은 정상이다.
