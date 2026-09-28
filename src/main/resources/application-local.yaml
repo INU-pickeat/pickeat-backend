@@ -3,3 +3,6 @@ springdoc:
     enabled: true
   swagger-ui:
     enabled: true
+
+cors:
+  allowed-origins: http://localhost:3000,http://localhost:5173
