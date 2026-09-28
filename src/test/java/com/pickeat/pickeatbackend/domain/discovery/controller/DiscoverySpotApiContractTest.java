@@ -2,6 +2,7 @@ package com.pickeat.pickeatbackend.domain.discovery.controller;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -39,7 +40,7 @@ class DiscoverySpotApiContractTest {
                         "서울 강남구 논현로163길 13-5 한가빌딩 1층",
                         "매일 17:00~22:00",
                         "02-515-0818",
-                        null,
+                        "/images/discovery/sinsa_01_main.jpg",
                         1
                 );
         when(discoverySpotService.getDiscoverySpots()).thenReturn(new DiscoverySpotsResponse(List.of(
@@ -52,6 +53,15 @@ class DiscoverySpotApiContractTest {
                 .andExpect(jsonPath("$.spots[0].regionName").value("신사"))
                 .andExpect(jsonPath("$.spots[0].restaurants[0].name").value("야스노야지로 압구정점"))
                 .andExpect(jsonPath("$.spots[0].restaurants[0].foodCategory").value("JAPANESE"))
-                .andExpect(jsonPath("$.spots[0].restaurants[0].representativeImageUrl").doesNotExist());
+                .andExpect(jsonPath("$.spots[0].restaurants[0].representativeImageUrl")
+                        .value("/images/discovery/sinsa_01_main.jpg"));
+    }
+
+    @Test
+    @DisplayName("탐색 스팟 이미지는 인증 없이 조회할 수 있다")
+    void servesDiscoveryImageWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/images/discovery/sinsa_01_main.jpg"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("image/jpeg"));
     }
 }

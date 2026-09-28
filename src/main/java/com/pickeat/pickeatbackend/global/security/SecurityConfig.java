@@ -52,6 +52,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/signup", "/api/v1/auth/login", "/error",
                                 "/actuator/health", "/actuator/health/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/images/discovery/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/restaurants/**").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/discovery-spots", "/api/v1/discovery-spots/**").permitAll()

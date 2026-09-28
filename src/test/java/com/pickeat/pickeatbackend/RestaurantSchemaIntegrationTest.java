@@ -29,6 +29,8 @@ class RestaurantSchemaIntegrationTest {
                 "SELECT success FROM flyway_schema_history WHERE version = '13'", Boolean.class)).isTrue();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT success FROM flyway_schema_history WHERE version = '14'", Boolean.class)).isTrue();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT success FROM flyway_schema_history WHERE version = '15'", Boolean.class)).isTrue();
         assertThat(jdbcTemplate.queryForObject("""
                 SELECT indexdef FROM pg_indexes
                 WHERE schemaname = 'public' AND indexname = 'restaurants_location_gist_idx'
@@ -65,6 +67,11 @@ class RestaurantSchemaIntegrationTest {
                 JOIN discovery_spot_restaurants dsr ON dsr.restaurant_id = r.id
                 WHERE r.google_place_id IS NULL OR r.location IS NULL
                 """, Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM restaurants r
+                JOIN discovery_spot_restaurants dsr ON dsr.restaurant_id = r.id
+                WHERE r.representative_image_url LIKE '/images/discovery/%_main.jpg'
+                """, Integer.class)).isEqualTo(25);
     }
 
     @Test
