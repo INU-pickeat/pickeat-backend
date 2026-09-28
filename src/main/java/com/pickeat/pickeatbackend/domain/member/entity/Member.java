@@ -32,12 +32,15 @@ public class Member {
     @Column(nullable = false)
     private String password;
 
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, length = 10)
     private String nickname;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private LoginProvider loginProvider;
+
+    @Column(length = 150)
+    private String bio;
 
     @Column(length = 500)
     private String profileImageUrl;
@@ -57,6 +60,18 @@ public class Member {
         this.password = password;
         this.nickname = nickname;
         this.loginProvider = LoginProvider.LOCAL;
+    }
+
+    public void updateProfile(String nickname, String bio, String profileImageUrl) {
+        if (nickname != null) {
+            this.nickname = nickname.strip();
+        }
+        if (bio != null) {
+            this.bio = bio.isBlank() ? null : bio;
+        }
+        if (profileImageUrl != null) {
+            this.profileImageUrl = profileImageUrl.isEmpty() ? null : profileImageUrl;
+        }
     }
 
     @PrePersist

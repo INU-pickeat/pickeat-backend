@@ -8,7 +8,9 @@ import static org.mockito.Mockito.when;
 
 import com.pickeat.pickeatbackend.domain.member.dto.LoginRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.LoginResponse;
+import com.pickeat.pickeatbackend.domain.member.dto.MemberProfileResponse;
 import com.pickeat.pickeatbackend.domain.member.dto.SignUpRequest;
+import com.pickeat.pickeatbackend.domain.member.dto.UpdateProfileRequest;
 import com.pickeat.pickeatbackend.domain.member.entity.Member;
 import com.pickeat.pickeatbackend.domain.member.repository.MemberRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
@@ -102,5 +104,27 @@ class MemberServiceTest {
         LoginResponse response = memberService.login(new LoginRequest("test@pickeat.com", "password123"));
 
         assertThat(response.accessToken()).isEqualTo("access-token");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 회원의 프로필을 조회하면 예외가 발생한다")
+    void throwsWhenProfileMemberNotFound() {
+        when(memberRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> memberService.getProfile(1L))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("프로필 수정은 전달한 필드만 변경한다")
+    void updatesOnlyProvidedProfileFields() {
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(savedMember()));
+
+        MemberProfileResponse response = memberService.updateProfile(
+                1L, new UpdateProfileRequest(null, "혼밥 전문", null));
+
+        assertThat(response.nickname()).isEqualTo("픽잇러");
+        assertThat(response.bio()).isEqualTo("혼밥 전문");
+        assertThat(response.profileImageUrl()).isNull();
     }
 }

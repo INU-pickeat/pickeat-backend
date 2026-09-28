@@ -2,7 +2,9 @@ package com.pickeat.pickeatbackend.domain.member.service;
 
 import com.pickeat.pickeatbackend.domain.member.dto.LoginRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.LoginResponse;
+import com.pickeat.pickeatbackend.domain.member.dto.MemberProfileResponse;
 import com.pickeat.pickeatbackend.domain.member.dto.SignUpRequest;
+import com.pickeat.pickeatbackend.domain.member.dto.UpdateProfileRequest;
 import com.pickeat.pickeatbackend.domain.member.entity.Member;
 import com.pickeat.pickeatbackend.domain.member.exception.MemberErrorCode;
 import com.pickeat.pickeatbackend.domain.member.repository.MemberRepository;
@@ -47,5 +49,22 @@ public class MemberService {
 
         String accessToken = jwtTokenProvider.createAccessToken(member.getId());
         return new LoginResponse(accessToken);
+    }
+
+    @Transactional(readOnly = true)
+    public MemberProfileResponse getProfile(Long memberId) {
+        return MemberProfileResponse.from(findMember(memberId));
+    }
+
+    @Transactional
+    public MemberProfileResponse updateProfile(Long memberId, UpdateProfileRequest request) {
+        Member member = findMember(memberId);
+        member.updateProfile(request.nickname(), request.bio(), request.profileImageUrl());
+        return MemberProfileResponse.from(member);
+    }
+
+    private Member findMember(Long memberId) {
+        return memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(MemberErrorCode.MEMBER_NOT_FOUND));
     }
 }

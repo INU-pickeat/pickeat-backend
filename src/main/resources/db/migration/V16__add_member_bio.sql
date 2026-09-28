@@ -1,0 +1,1 @@
+ALTER TABLE members ADD COLUMN bio VARCHAR(150);

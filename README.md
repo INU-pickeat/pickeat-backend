@@ -57,6 +57,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 **M1 Restaurant, M2 Recommendation, M3 Pick 마일스톤 완료.**
 
 - Member 회원가입·로그인과 JWT 인증 (`POST /api/v1/auth/signup`, `/login`)
+- 내 프로필 조회·수정 API (`GET`/`PATCH /api/v1/me`) — 닉네임·자기소개·프로필 이미지 URL 부분 수정
 - 식당 상세 조회 (`GET /api/v1/restaurants/{id}`) — 인증 불필요, 공유 링크 대응
 - 외부 지도 링크 조회 (`GET /api/v1/restaurants/{id}/navigation-links`) — 네이버·카카오
 - Google Places 연동: `GooglePlacesClient`(Nearby Search, 카테고리별 `includedPrimaryTypes` 선처리), Google Place ID 기준 upsert·갱신 정책, primaryType → 7개 음식 카테고리 매핑
@@ -70,7 +71,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - 내 Pick 지도 API (`GET /api/v1/me/picks/map`) — 본인 데이터만 조회, REVIEWED만 노출(SELECTED·CANCELED 미노출)
 - 초기 탐색 스팟 조회 API (`GET /api/v1/discovery-spots`) — 인증 없이 신사·혜화·서촌·한남·종로와 지역별 고정 노출 식당을 순서대로 조회
 
-**다음 할 일:** 초기 탐색 스팟의 최종 5개 지역과 25개 목록·JPG 대표 이미지 연결을 완료했습니다. Member 프로필 확장, 데이트 프랜차이즈 제외, 제네릭 `restaurant` 분류도 남아 있습니다. Pick 캘린더는 Review 기능과 함께 Phase 2로 보류 중입니다.
+**다음 할 일:** 초기 탐색 스팟의 최종 5개 지역과 25개 목록·JPG 대표 이미지 연결을 완료했습니다. Member 프로필 조회·수정도 완료했습니다. 프로필 이미지 업로드(Object Storage 확정 후), 데이트 프랜차이즈 제외, 제네릭 `restaurant` 분류도 남아 있습니다. Pick 캘린더는 Review 기능과 함께 Phase 2로 보류 중입니다.
 
 초기 탐색 스팟은 신사·혜화·서촌·한남·종로 5개 지역과 지역별 5곳(총 25곳)의 운영자 선정 `CURATED` 데이터입니다. 실제 Picker 행동 데이터가 쌓이기 전까지 자동 인기 집계나 실시간 순위는 구현하지 않습니다.
 
