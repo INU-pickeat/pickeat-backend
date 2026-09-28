@@ -39,9 +39,18 @@ class RecommendationScoreCalculatorTest {
     @Test
     @DisplayName("중간값 평점과 거리는 가중치대로 섞인다")
     void blendsMidRangeRatingAndDistanceByWeight() {
-        double score = calculator.calculate(BigDecimal.valueOf(2.5), 2500, false).totalScore();
+        double score = calculator.calculate(BigDecimal.valueOf(4.0), 2500, false).totalScore();
 
         assertThat(score).isCloseTo(0.5, within(1e-9));
+    }
+
+    @Test
+    @DisplayName("평점이 3.0 미만이면 3.0과 동일하게 0점으로 취급된다")
+    void clampsRatingBelowFloorToZero() {
+        double belowFloor = calculator.calculate(BigDecimal.valueOf(1.0), 1000, false).totalScore();
+        double atFloor = calculator.calculate(BigDecimal.valueOf(3.0), 1000, false).totalScore();
+
+        assertThat(belowFloor).isCloseTo(atFloor, within(1e-9));
     }
 
     @Test

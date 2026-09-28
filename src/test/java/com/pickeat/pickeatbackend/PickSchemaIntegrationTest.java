@@ -40,13 +40,32 @@ class PickSchemaIntegrationTest {
     }
 
     @Test
+    @DisplayName("V12 마이그레이션이 적용된다")
+    void appliesCompanionTypeSnapshotMigration() {
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT success FROM flyway_schema_history WHERE version = '12'", Boolean.class)).isTrue();
+    }
+
+    @Test
+    @DisplayName("정의되지 않은 동행 유형은 저장할 수 없다")
+    void rejectsUnknownCompanionTypeSnapshot() {
+        TestIds ids = insertDependencies();
+
+        assertThatThrownBy(() -> jdbcTemplate.update("""
+                INSERT INTO picks (member_id, restaurant_id, recommendation_session_id, companion_type)
+                VALUES (?, ?, ?, 'UNKNOWN')
+                """, ids.memberId(), ids.restaurantId(), ids.sessionId()))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
     @DisplayName("정의되지 않은 Pick 상태는 저장할 수 없다")
     void rejectsUnknownStatus() {
         TestIds ids = insertDependencies();
 
         assertThatThrownBy(() -> jdbcTemplate.update("""
-                INSERT INTO picks (member_id, restaurant_id, recommendation_session_id, status)
-                VALUES (?, ?, ?, 'UNKNOWN')
+                INSERT INTO picks (member_id, restaurant_id, recommendation_session_id, companion_type, status)
+                VALUES (?, ?, ?, 'DATE', 'UNKNOWN')
                 """, ids.memberId(), ids.restaurantId(), ids.sessionId()))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
@@ -72,8 +91,8 @@ class PickSchemaIntegrationTest {
 
     private void insertPick(TestIds ids) {
         jdbcTemplate.update("""
-                INSERT INTO picks (member_id, restaurant_id, recommendation_session_id)
-                VALUES (?, ?, ?)
+                INSERT INTO picks (member_id, restaurant_id, recommendation_session_id, companion_type)
+                VALUES (?, ?, ?, 'DATE')
                 """, ids.memberId(), ids.restaurantId(), ids.sessionId());
     }
 

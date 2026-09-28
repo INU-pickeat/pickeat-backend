@@ -37,6 +37,7 @@ out/
 .vscode/
 
 .claude/
+.codex/
 .serena/
 graphify-out/
 src/graphify-out/

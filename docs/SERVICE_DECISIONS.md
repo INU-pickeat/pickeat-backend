@@ -1,6 +1,6 @@
 # Pick Eat 서비스 결정 사항
 
-마지막 갱신일: 2026-09-22
+마지막 갱신일: 2026-09-28
 
 ## 제품 기준 문서
 
@@ -11,31 +11,33 @@
 - 추천 후보는 Google Places 주변 검색(nearby search)에서 가져온다.
 - 서비스는 안정적인 내부 ID, Pick, 후기, 외부 데이터 갱신에 필요한 최소한의 식당 스냅샷만 저장한다.
 - `GOOGLE`과 `CURATED`는 `data_provider`로 구분해서 기록한다.
-- 큐레이션 데이터는 초기 탐색 경험 전용이다: 성수동·연남동·신사동·서촌·을지로3가 각 5곳씩 총 25곳.
+- 큐레이션 데이터는 초기 탐색 경험 전용이다: 신사·혜화·서촌·한남·종로 각 5곳씩 총 25곳.
 - Google 평점과 향후 Pick Eat 자체 평점은 의미와 갱신 정책이 달라서 분리해서 관리한다.
 
-### 초기 인기맛집 탐색 스팟 고정 정책 (2026-09-21)
+### 초기 인기맛집 탐색 스팟 고정 정책 (2026-09-21, 2026-09-23 목록 확정)
 
 초기에는 실제 Picker와 Pick·좋아요·후기 데이터가 없고 실시간 인기 집계 기능도 구현하지 않는다. 따라서 탐색 스팟과 노출 식당은 자동 순위가 아니라 운영자가 선정한 고정 큐레이션으로 제공한다.
 
-- 고정 지역: `성수동`, `연남동`, `신사동`, `서촌`, `을지로3가`.
+- 최종 고정 지역: `신사(SINSA)`, `혜화(HYEHWA)`, `서촌(SEOCHEON)`, `한남(HANNAM)`, `종로(JONGNO)`.
 - 지역별 식당은 정확히 5곳, 총 25곳으로 시작한다.
 - 지역 목록은 초기 애플리케이션 계약에 고정하되 안정적인 지역 코드로 표현해서 이후 지역 추가가 가능하게 한다.
 - 식당과 노출 순서는 소스 코드의 임시 객체가 아니라 Flyway 마이그레이션으로 DB에 직접 시드한다. 식당은 `data_provider=CURATED`로 구분한다.
 - 동일 마이그레이션을 다시 적용해도 중복 식당이 생기지 않도록 안정적인 식별·중복 방지 기준을 함께 둔다.
 - 초기 탐색 결과를 사용자 행동 기반의 "실시간 인기 순위"라고 표현하지 않는다. 현재 의미는 **운영자 선정 인기 후보**다.
 - Pick·좋아요·후기 데이터와 집계 기능이 충분해지면 고정 목록을 동적 랭킹으로 교체한다. 그 전까지 자동 갱신·인기 점수·집계 배치는 구현하지 않는다.
-- 실제 25개 식당과 노출 순서는 기획자가 전달할 ZIP 파일을 기준으로 확정한다. 파일을 받기 전까지 M2.5 구현은 보류한다.
+- 실제 25개 식당과 지역 내 노출 순서는 2026-09-23 전달 목록으로 확정했다. 원본은 `src/main/resources/curated/discovery-spots.csv`로 보존한다.
+- 한남에서 음식 종류가 생략된 항목은 기획 확인에 따라 `쥬에=CHINESE`, `오만지아=WESTERN`, `이태원우육미옌=CHINESE`, `마일스톤커피 한남=CAFE_DESSERT`로 확정했다. `타크`는 `OTHER`다.
+- 대표 사진 25장은 JPG로 수령해 `{region}_{01..05}_main.jpg` 규칙으로 정규화했다. EXIF 메타데이터는 제거하고 `/images/discovery/{파일명}`에서 공개 제공하며, V15에서 각 Restaurant의 이미지 URL을 연결한다.
 - 가짜 식당을 운영 DB용 Flyway 시드로 만들지 않는다. 개발 중 임시 데이터가 필요하면 테스트 fixture 또는 API mock에만 둔다.
 
 이 25곳은 **탐색 스팟 전용 데이터**다. M2 위치 기반 추천의 후보 정책을 대신하지 않으며, 추천에서는 다른 Restaurant와 동일하게 5km·음식 카테고리 조건을 통과할 때만 후보가 될 수 있다.
 
 ### Google Nearby Search 카테고리 선처리 (2026-09-20)
 
-`GooglePlacesClient.findNearbyRestaurants()`는 이제 `includedTypes`를 호출자가 넘긴다. 추천 요청에 카테고리가 있으면 `FoodCategory.toGooglePrimaryTypes()`(M1-2 매핑표의 역방향)로 구체적인 Google 하위 타입 목록을 만들어 넘기고, 카테고리가 없으면 `Set.of("restaurant")`로 광범위하게 요청한다.
+`GooglePlacesClient.findNearbyRestaurants()`는 이제 `includedPrimaryTypes`를 호출자가 넘긴다. 추천 요청에 카테고리가 있으면 `FoodCategory.toGooglePrimaryTypes()`(M1-2 매핑표의 역방향)로 구체적인 Google 하위 타입 목록을 만들어 넘기고, 카테고리가 없으면 `Set.of("restaurant")`로 광범위하게 요청한다.
 
 - Google Nearby Search는 한 번 호출에 최대 20개까지만 반환하고, 이건 "반경 안 전체를 찾은 뒤 자르는" 게 아니라 Google이 자기 랭킹(`POPULARITY`/`DISTANCE`) 기준으로 골라주는 상위 20개다.
-- `includedTypes`를 카테고리에 맞게 좁히면 이 20개 슬롯이 hotel·halal_restaurant처럼 어차피 제외할 타입에 낭비되지 않고 관련 있는 후보로 채워진다.
+- `includedPrimaryTypes`를 카테고리에 맞게 좁히면 이 20개 슬롯이 hotel·halal_restaurant처럼 어차피 제외할 타입에 낭비되지 않고 관련 있는 후보로 채워진다.
 - 추천 후보는 M2 ADR에 따라 매 요청 Google Nearby Search를 호출하고 응답을 DB에 upsert한 뒤 5km 반경 후보를 조회한다. 전환 조건은 아래 "M2 ADR 확정 결과"를 따른다.
 
 ### Google upsert 정책 (M1-3, 2026-09-20)
@@ -65,7 +67,7 @@
 | CHINESE | `chinese_restaurant` |
 | WESTERN | `western_restaurant`, `italian_restaurant`, `european_restaurant`, `sandwich_shop`, `brunch_restaurant` |
 | CAFE_DESSERT | `cafe`, `dessert_shop` |
-| PUB_BAR | `bar`, `pub`, `wine_bar`, `cocktail_bar`, `sports_bar`, `gastropub`, `brewpub`, `brewery`, `lounge_bar`, `hookah_bar`, `irish_pub`, `beer_garden`, `bar_and_grill` |
+| PUB_BAR | `bar`, `pub`, `wine_bar`, `cocktail_bar`, `sports_club`, `gastropub`, `brewpub`, `brewery`, `lounge_bar`, `hookah_bar`, `irish_pub`, `beer_garden`, `bar_and_grill` |
 | OTHER | 위 6개 카테고리에 속하지 않는 Google Food and Drink 허용 타입 |
 
 미매핑 유형 정책은 2026-09-22에 변경했다. 기존 6개 카테고리 밖의 멕시칸·태국·인도·베트남·아시안 등 Google Food and Drink 타입은 `OTHER`로 분류한다. `cat_cafe`, `dog_cafe`, `hotel` 등 명시 제외 타입과 Food and Drink 허용 목록에 없는 알려지지 않은 타입은 제외한다. Google 타입 목록이 바뀌어도 임의의 신규 타입이 자동으로 `OTHER`에 들어가지 않도록 허용 목록을 코드와 문서에서 함께 관리한다.
@@ -74,7 +76,7 @@
 - 검색 성공률: 5개 지역 모두 결과 반환 (5/5).
 - 평점 노출률: 결과의 약 100%.
 - 영업시간 노출률: 결과의 약 93%.
-- 오매칭: `includedTypes: ["restaurant"]`로 제한했음에도 `hotel`이 반복적으로 섞여 나옴 (호텔 부속 식당이 호텔 장소로 색인된 경우) — 음식 카테고리가 아니므로 제외.
+- 오매칭: `includedTypes: ["restaurant"]` 실측 당시 `hotel`이 반복적으로 섞여 나옴 (호텔 부속 식당이 호텔 장소로 색인된 경우) — 음식 카테고리가 아니므로 제외. 현재 구현은 주 유형만 거르는 `includedPrimaryTypes`를 사용한다.
 
 ## 추천 기본 정책
 
@@ -117,17 +119,17 @@
   6. [x] M2-4~5: Top 5 추천 서비스와 추천 생성·세션 조회 API를 완성한다. (PR #28)
   7. [ ] **M2 계약 개편.** 7개 음식 카테고리, 6개 동행 유형, 가격대 필터, 새 점수 공식, 재추천·제외 사유, 응답 계약을 반영한다.
      - [x] 가격대 필터 + DB 우선·Google 보충 하이브리드 조회. → 아래 "M2 가격 필터 + DB 우선 하이브리드 구현 결과" 참고.
-     - [ ] 새 점수 공식(평점 정규화 3.0~5.0 클램프, 0.7/0.3, 가산점 0.1)
-     - [ ] 재추천(다시 추천) + 제외 사유
+     - [x] 새 점수 공식(평점 정규화 3.0~5.0 클램프, 0.7/0.3, 가산점 0.1). → 아래 "M2 점수 공식 재구현 결과" 참고.
+     - [x] 재추천(다시 추천) + 제외 사유. → 아래 "M2 재추천 + 제외 사유 구현 결과" 참고.
      - [ ] 제네릭 `restaurant` 보완 분류, 데이트 프랜차이즈 제외(브랜드 목록 준비 전까지 보류)
-  8. [ ] **M3 계약 개편.** Pick 동행 스냅샷, 기간별 식당 집계 목록, REVIEWED 전용 지도를 반영한다. 기존 생성·상태 전이·권한 검증은 유지한다.
-  9. [ ] **M2.5: 초기 탐색 스팟.** 5개 지역 코드, 25개 식당·노출 순서 DB 시드, 탐색 조회 API를 구현한다. 기획 ZIP 수신 전까지 보류한다.
+  8. [x] **M3 계약 개편.** Pick 동행 스냅샷, 기간별 식당 집계 목록, REVIEWED 전용 지도를 반영했다. 기존 생성·상태 전이·권한 검증은 유지한다. Pick 캘린더는 Phase 2(Review 구현)로 보류. → "M3 계약 개편 구현 결과" 참고.
+  9. [x] **M2.5: 초기 탐색 스팟.** V13에서 최종 5개 지역, 지역-식당 관계 스키마와 공개 탐색 조회 API를 구현했다. Google Places Text Search로 25개 식당의 Place ID·좌표를 검증하고 V14로 Restaurant와 지역별 고정 순서를 시드했다. 사진은 JPG 수령 후 URL만 후속 반영한다.
   10. [ ] **배포/CD.** GitHub Actions CD·systemd·헬스체크·자동 롤백 구성은 완료. EC2·운영 DB 생성, Secrets 등록, HTTPS 연결과 최초 실배포가 남아 있다.
   11. [ ] 프론트엔드 연동 MVP E2E를 검증한다.
 
 ### M2 ADR 확정 결과 (2026-09-21, 2026-09-22 개편으로 일부 폐기)
 
-- **점수 계산 공식(현행 목표):** Google 평점을 `(rating - 3.0) / 2.0`으로 정규화하고 0~1로 제한한다. 거리 점수는 `1 - distance/5000`, 가중치는 `rating=0.7`, `distance=0.3`, 동행 적합 가산점은 `0.1`이다. 기존 코드의 `rating/5`, `0.6/0.4` 공식은 폐기한다.
+- **점수 계산 공식:** Google 평점을 `(rating - 3.0) / 2.0`으로 정규화하고 0~1로 제한한다. 거리 점수는 `1 - distance/5000`, 가중치는 `rating=0.7`, `distance=0.3`, 동행 적합 가산점은 `0.1`이다. 기존 `rating/5`, `0.6/0.4` 공식은 폐기했다(구현 완료, 아래 "M2 점수 공식 재구현 결과" 참고).
 - **추천 후보 조회 방식(목표 계약):** DB에서 5km 이내 유효 후보를 먼저 조회하고, 카테고리·가격·데이트 프랜차이즈 필터를 통과한 후보가 10개 미만일 때만 Google Places로 보충한다. 상위 5개는 노출하고 나머지 5개는 대체 후보로 유지한다. 현재 `RecommendationService`의 매 요청 Google 호출은 후속 M2 개편에서 이 흐름으로 교체한다.
 
 ### M2-4~5 구현 결과 (2026-09-21)
@@ -138,7 +140,7 @@
 - 추천 생성·세션 조회의 JWT 인증, HTTP 상태, 요청 검증 오류(`GLOBAL_001`), JSON 응답 필드를 MockMvc 계약 테스트로 검증한다.
 - 전체 테스트 134개가 통과한다.
 
-초기 탐색 스팟의 지역·개수·운영 방식은 확정됐지만 실제 25개 식당 목록과 각 지역 내 노출 순서는 DB 시드 작업 전에 별도로 확정한다.
+초기 탐색 스팟의 지역·개수·25개 식당·노출 순서는 2026-09-23 확정했다. 식당별 좌표와 Google Place ID를 Google Places Text Search로 검증하고 V14에서 실제 Restaurant와 지역 관계 데이터를 시드했다. 서촌 `팔`은 일반 명사 검색의 첫 결과가 오매칭되어 `카페 팔 서촌` 재검색과 주소 대조로 Google 표기 `PHAL`을 확정했다.
 
 ### M2 가격 필터 + DB 우선 하이브리드 구현 결과 (2026-09-22)
 
@@ -150,6 +152,31 @@
 - 프랜차이즈 브랜드 목록이 아직 없어 데이트 프랜차이즈 제외 필터와 제네릭 `restaurant` 보완 분류, 새 점수 공식(0.7/0.3 가중치)은 이번 작업 범위에서 제외했다.
 - 단위·API 계약·Flyway 통합 테스트를 추가해 전체 테스트 164개가 통과한다.
 
+### M2 점수 공식 재구현 결과 (2026-09-22)
+
+- `RecommendationScoreCalculator`를 ADR 확정본으로 교체했다. 평점은 `(rating - 3.0) / 2.0`으로 정규화한 뒤 `Math.clamp`로 0~1에 제한하고(3.0 미만은 0점, 5.0은 만점), 거리 점수(`1 - distance/5000`)는 그대로 두되 가중치를 `rating=0.7`, `distance=0.3`으로 바꿨다. 동행 적합 가산점 `0.1`은 유지한다.
+- 평점이 없으면(NULL) 기존과 동일하게 평점 항을 0으로 계산한다.
+- `RecommendationScoreCalculatorTest`에 평점 3.0 미만이 3.0과 동일하게 0점 처리되는 클램프 경계 테스트를 추가했다.
+- 전체 테스트 165개가 통과한다.
+
+### M2 재추천 + 제외 사유 구현 결과 (2026-09-22)
+
+- `POST /api/v1/recommendations/{sessionId}/exclusions` API를 추가했다. 요청은 `restaurantId`와 `reason`(`DISTANCE_TOO_FAR`/`PRICE_TOO_HIGH`/`MENU_UNSATISFACTORY`/`ATMOSPHERE_MISMATCH`/`WANT_DIFFERENT`) 둘 다 필수이며, 응답은 대체 후보가 반영된 `RecommendationResponse`(상위 5개)다. 인증 필요, 세션 소유자가 아니면 404.
+- `RecommendationExclusion` 엔티티(세션·식당·사유·제외 일시)와 V11 마이그레이션을 추가했다. `(session_id, restaurant_id)` 유니크 제약으로 같은 세션 내 중복 제외를 막는다.
+- 제외 대상이 해당 세션의 저장된 후보(1~10위)가 아니면 `RECOMMENDATION_002`(404)로 거부한다. 이미 제외한 식당을 다시 제외하면 새 레코드를 만들지 않고 멱등하게 현재 상태만 반환한다.
+- 노출 목록은 세션에 저장된 1~10위 후보 중 제외되지 않은 것만 순서대로 최대 5개 뽑아 구성한다. 대체 후보가 소진되면(10위까지 다 제외) 반경을 넓히지 않고 5개보다 적게 노출한다.
+- 제외는 해당 세션 안에서만 유효하다(영구 차단 아님) — 다른 세션이나 이후 추천에는 영향을 주지 않는다.
+- `RecommendationResponse.Item.rank`의 의미를 세션 저장 순위(1~10, 불변)에서 현재 노출 목록 안에서의 위치(항상 1부터 연속)로 바꿨다. 제외로 빈 자리가 생기면 다음 대체 후보가 그 자리의 순위를 그대로 이어받는다. `recommend`/`getSession` 기존 응답 계약은 동일하게 유지된다(제외 이력이 없으면 결과가 같다).
+- 단위·API 계약·Flyway 통합 테스트를 추가해 전체 테스트 180개가 통과한다.
+
+### M3 계약 개편 구현 결과 (2026-09-22)
+
+- **Pick 동행 스냅샷.** `Pick`에 `companion_type` 컬럼을 추가하고(V12), 생성 시 추천 세션의 `companionType`을 그대로 복사해 저장한다. 이후 세션이 바뀌어도 이미 생성된 Pick의 값은 변하지 않는다. 기존 행은 연결된 세션의 현재 `companion_type`으로 백필했다.
+- **Pick 지도 REVIEWED 전용.** 기존 "CANCELED만 제외"에서 "REVIEWED만 노출"로 바꿨다(`findByMemberIdAndStatusOrderBySelectedAtDescIdDesc`). `PickMapResponse.Item`에 스냅샷된 `companionType`을 추가해 지도 팝업에 표시할 수 있게 했다. Review 기능이 아직 없어 REVIEWED Pick이 생기기 전까지는 지도 결과가 비어 있는 것이 정상이다.
+- **최근 Pick 목록 개편.** `GET /api/v1/me/picks`의 계약을 페이지 조회에서 `period=week|month` 필수 쿼리 파라미터 기반 식당별 집계로 완전히 교체했다(기존 `page`/`size`, `PickListResponse`는 제거). SELECTED + REVIEWED만 집계하고 CANCELED는 제외하며, 식당별로 `pickCount`와 `latestPickedAt`을 반환한다. `period`는 `week`(최근 7일)·`month`(최근 30일) 롤링 윈도우로 해석했다 — 기획서에 "일주일 기준"/"한 달 기준"의 정확한 경계(캘린더 월 vs 롤링 30일)가 명시되어 있지 않아 내린 구현 판단이며, 기획자 확인이 필요하면 조정한다. `period`가 `week`/`month`가 아니면 `GLOBAL_001`로 거부한다.
+- **Pick 캘린더는 범위 밖.** 기획서에 "캘린더는 Phase 2 Review 구현과 함께 진행"이라고 명시되어 있고, 대표 이미지 출처가 리뷰 사진인데 Review 모듈이 아직 없어 이번 작업에서 구현하지 않았다.
+- 단위·API 계약·Flyway 통합 테스트를 갱신해 전체 테스트 184개가 통과한다.
+
 ### 2026-09-22 기획서 갱신 — 구현 필요 백로그
 
 Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 134개 테스트 통과 시점)와 스펙 사이 gap이다. 문서 정합성을 먼저 맞춘 뒤 M1 데이터 확장 → M2 계약 개편 → M3 계약 개편 순서로 진행한다.
@@ -157,30 +184,30 @@ Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 1
 - [x] **음식 카테고리 5종 → 7종.** `PUB_BAR`, `OTHER`를 추가하고 일식·중식·양식·펍 매핑과 기타 허용 목록을 확장했다. 카테고리 검색은 `includedPrimaryTypes`를 사용하며 50개 초과 시 요청을 분할·중복 제거한다. 제네릭 `restaurant` 보완 분류는 별도 후속 과제로 유지한다.
 - [x] **동행 유형 5종 → 6종.** `DATE`, `FAMILY`, `CHILDREN`, `SOLO`, `GROUP`, `DOG`로 개편했다. Google 신호는 가족=goodForChildren AND goodForGroups, 아이=goodForChildren OR menuForChildren, 단체=goodForGroups, 반려견=allowsDogs로 채우며 기존 수동 값은 덮어쓰지 않는다.
 - [x] **가격대(신규 선택 필터).** V9의 `priceRange` 금액·통화 저장에 이어, 추천 요청 DTO의 생략/NULL 계약과 일부 겹침 필터까지 구현했다. → "M2 가격 필터 + DB 우선 하이브리드 구현 결과" 참고.
-- [ ] **추천 점수 공식 재구현.** 기존 구현(원시 평점, w1=0.6/w2=0.4)을 스펙 확정본(평점 정규화 3.0~5.0 클램프, 0.7/0.3, 가산점 0.1)으로 교체.
-- [ ] **재추천(다시 추천) + 제외 사유.** `RecommendationExclusion` 엔티티, enum(`DISTANCE_TOO_FAR`/`PRICE_TOO_HIGH`/`MENU_UNSATISFACTORY`/`ATMOSPHERE_MISMATCH`/`WANT_DIFFERENT`), `POST /api/v1/recommendations/{sessionId}/exclusions`.
-- [ ] **Pick 지도·캘린더.** 둘 다 REVIEWED만 노출한다. 캘린더는 Phase 2 Review 구현과 함께 진행하며 날짜당 대표 이미지 1개와 기록 개수 점을 제공한다. Review 전까지 지도 결과가 비어 있는 것은 정상이다.
-- [ ] **최근 Pick 목록.** `GET /api/v1/me/picks?period=week|month` — SELECTED + REVIEWED를 식당별로 그룹화하고 `pickCount`와 `latestPickedAt`을 제공한다. CANCELED는 제외한다.
-- [ ] **Pick 동행 스냅샷.** Pick 생성 시 추천 세션의 동행 유형을 Pick에 복사해 이후 변경과 무관한 기록으로 보존한다.
+- [x] **추천 점수 공식 재구현.** 기존 구현(원시 평점, w1=0.6/w2=0.4)을 스펙 확정본(평점 정규화 3.0~5.0 클램프, 0.7/0.3, 가산점 0.1)으로 교체했다.
+- [x] **재추천(다시 추천) + 제외 사유.** `RecommendationExclusion` 엔티티, enum(`DISTANCE_TOO_FAR`/`PRICE_TOO_HIGH`/`MENU_UNSATISFACTORY`/`ATMOSPHERE_MISMATCH`/`WANT_DIFFERENT`), `POST /api/v1/recommendations/{sessionId}/exclusions`. → "M2 재추천 + 제외 사유 구현 결과" 참고.
+- [x] **Pick 지도.** REVIEWED만 노출하도록 반영했다. 캘린더는 Phase 2 Review 구현과 함께 진행하며 이번 범위에서 제외했다(Review 전까지 지도 결과가 비어 있는 것은 정상). → "M3 계약 개편 구현 결과" 참고.
+- [x] **최근 Pick 목록.** `GET /api/v1/me/picks?period=week|month` — SELECTED + REVIEWED를 식당별로 그룹화하고 `pickCount`와 `latestPickedAt`을 제공한다. CANCELED는 제외한다.
+- [x] **Pick 동행 스냅샷.** Pick 생성 시 추천 세션의 동행 유형을 Pick에 복사해 이후 변경과 무관한 기록으로 보존한다.
 - [ ] **Member 프로필 확장.** 자기소개(bio) 필드, `GET /api/v1/me`, `PATCH /api/v1/me`를 사용한다. 다른 사용자용 리소스가 필요할 때만 `/api/v1/members/{memberId}`를 추가한다.
 - [ ] **세션 ID 유지.** 추천 세션의 내부·API 식별자는 현재의 `Long`을 유지한다. 외부 공유가 필요해지면 별도 UUID 공개 식별자를 추가한다.
-- [ ] **인기맛집 지역 재확인 필요.** 기획서 9/29번 지역(성수동·연남동·신사동·서촌·을지로3가)과 M1-2 실제 검증 지역(연남·한남·서촌·신사·논현)이 다름 — 기획자가 최종 목록을 정리해 주기로 스펙에 명시됨. M2.5 착수 전 확인.
+- [x] **인기맛집 지역 확정.** 기존 후보 지역과 M1 검증 지역을 대체해 `신사·혜화·서촌·한남·종로`를 최종 5개 탐색 스팟으로 확정했다.
 
 각 항목을 시작하기 전 Notion "Pick Eat 프로젝트 기획서" 최신 상태를 다시 확인한다(수치가 재조정될 수 있다고 스펙에 명시됨).
 
-### M2.5 우선도와 보류 기준
+### M2.5 진행 기준
 
 - 홈 탐색 경험에 필요하므로 제품 우선도는 높다.
-- 다만 실제 식당 목록과 노출 순서가 기획 ZIP에 의존하므로 현재 구현 우선도는 보류 상태다.
-- ZIP 수신 후 데이터 형식 검수 → 지역 코드·스키마 확정 → 2026-09-22 계약 마이그레이션 이후 버전으로 실제 데이터 시드 → 탐색 조회 API·테스트 순서로 재개한다.
+- V13에서 지역 코드·스키마와 탐색 조회 API를 구현하고 최종 25개 목록을 CSV 원본으로 고정했다.
+- 추천 반경 계산에 필요한 위도·경도와 중복 방지용 Google Place ID는 Google Places에서 검증한 뒤 V14로 등록했다. 25곳 모두 `data_provider=CURATED`이며 기존 Google 레코드가 있으면 같은 Place ID 행을 큐레이션 데이터로 갱신한다.
+- 사진은 `representative_image_url=NULL`을 허용하므로 JPG 수령 전에도 나머지 작업을 진행한다.
 
 ### M3 Pick 구현 결과 (2026-09-21)
 
 - 추천 세션당 최종 Pick은 하나만 허용한다. 같은 식당은 서로 다른 추천 세션에서 다시 Pick할 수 있다.
 - Pick 대상은 요청한 회원이 소유한 추천 세션에 실제 후보로 저장된 식당이어야 한다. 다른 회원의 세션·Pick은 404로 처리해 존재 여부를 노출하지 않는다.
 - 상태는 `SELECTED`, `REVIEWED`, `CANCELED` 세 가지다. `SELECTED`에서 `REVIEWED` 또는 `CANCELED`로만 전환하며, 같은 상태 요청은 멱등 처리하고 종료 상태는 되돌리지 않는다.
-- `REVIEWED` 전환 시 `visited_at`을 기록한다. 현재 코드는 `CANCELED`만 지도에서 제외하지만 목표 계약은 REVIEWED만 지도에 노출하는 것이다.
-- 현재 목록은 `selected_at DESC, id DESC`의 페이지 조회다. 목표 계약은 week/month 기간 필터와 SELECTED + REVIEWED 식당별 집계다.
+- `REVIEWED` 전환 시 `visited_at`을 기록한다. (2026-09-22 개편으로 지도는 REVIEWED 전용, 목록은 기간별 집계로 바뀌었다 — 아래 "M3 계약 개편 구현 결과" 참고.)
 - API는 `POST /api/v1/picks`, `PATCH /api/v1/picks/{pickId}`, `GET /api/v1/me/picks`, `GET /api/v1/me/picks/map` 네 개이며 모두 JWT 인증이 필요하다.
 - Flyway V8에 `picks` 테이블, 추천 세션 유일 제약, 회원별 최신순·상태·식당 인덱스를 추가했다.
 - 엔티티 상태 전이, 서비스 권한·중복·후보 검증, DB 제약, JWT 및 JSON 계약을 포함해 전체 테스트 134개가 통과한다.

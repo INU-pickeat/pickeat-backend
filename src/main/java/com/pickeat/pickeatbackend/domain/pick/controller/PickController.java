@@ -1,19 +1,17 @@
 package com.pickeat.pickeatbackend.domain.pick.controller;
 
 import com.pickeat.pickeatbackend.domain.pick.dto.CreatePickRequest;
-import com.pickeat.pickeatbackend.domain.pick.dto.PickListResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickMapResponse;
+import com.pickeat.pickeatbackend.domain.pick.dto.PickPeriod;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickStatusUpdateRequest;
+import com.pickeat.pickeatbackend.domain.pick.dto.RecentPicksResponse;
 import com.pickeat.pickeatbackend.domain.pick.service.PickService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,7 +21,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-@Validated
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -49,12 +46,11 @@ public class PickController {
     }
 
     @GetMapping("/me/picks")
-    public ResponseEntity<PickListResponse> getMyPicks(
+    public ResponseEntity<RecentPicksResponse> getMyPicks(
             @AuthenticationPrincipal Long memberId,
-            @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
+            @RequestParam String period
     ) {
-        return ResponseEntity.ok(pickService.getMyPicks(memberId, page, size));
+        return ResponseEntity.ok(pickService.getMyPicks(memberId, PickPeriod.from(period)));
     }
 
     @GetMapping("/me/picks/map")

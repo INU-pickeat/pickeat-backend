@@ -2,6 +2,7 @@ package com.pickeat.pickeatbackend.domain.pick.dto;
 
 import com.pickeat.pickeatbackend.domain.pick.entity.Pick;
 import com.pickeat.pickeatbackend.domain.pick.entity.PickStatus;
+import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
 import java.util.List;
 
 public record PickMapResponse(List<Item> picks) {
@@ -16,7 +17,8 @@ public record PickMapResponse(List<Item> picks) {
             String restaurantName,
             double latitude,
             double longitude,
-            PickStatus status
+            PickStatus status,
+            CompanionType companionType
     ) {
         private static Item from(Pick pick) {
             return new Item(
@@ -25,7 +27,8 @@ public record PickMapResponse(List<Item> picks) {
                     pick.getRestaurant().getName(),
                     pick.getRestaurant().getLatitude(),
                     pick.getRestaurant().getLongitude(),
-                    pick.getStatus()
+                    pick.getStatus(),
+                    pick.getCompanionType()
             );
         }
     }

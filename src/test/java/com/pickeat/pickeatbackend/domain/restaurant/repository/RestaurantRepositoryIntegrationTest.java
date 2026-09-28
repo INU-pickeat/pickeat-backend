@@ -34,7 +34,9 @@ class RestaurantRepositoryIntegrationTest {
         List<RestaurantCandidate> candidates =
                 restaurantRepository.findWithinRadius(CENTER_LATITUDE, CENTER_LONGITUDE, 5000);
 
-        assertThat(candidates).extracting(c -> c.restaurant().getName()).containsExactly("경계_안쪽");
+        assertThat(candidates).extracting(c -> c.restaurant().getName())
+                .contains("경계_안쪽")
+                .doesNotContain("경계_바깥쪽");
     }
 
     @Test
@@ -48,9 +50,15 @@ class RestaurantRepositoryIntegrationTest {
         List<RestaurantCandidate> candidates =
                 restaurantRepository.findWithinRadius(CENTER_LATITUDE, CENTER_LONGITUDE, 5000);
 
-        assertThat(candidates).extracting(c -> c.restaurant().getName())
+        List<RestaurantCandidate> insertedCandidates = candidates.stream()
+                .filter(candidate -> candidate.restaurant().getName().equals("가까운_식당")
+                        || candidate.restaurant().getName().equals("먼_식당"))
+                .toList();
+
+        assertThat(insertedCandidates).extracting(c -> c.restaurant().getName())
                 .containsExactly("가까운_식당", "먼_식당");
-        assertThat(candidates.get(0).distanceMeters()).isLessThan(candidates.get(1).distanceMeters());
+        assertThat(insertedCandidates.get(0).distanceMeters())
+                .isLessThan(insertedCandidates.get(1).distanceMeters());
     }
 
     @Test

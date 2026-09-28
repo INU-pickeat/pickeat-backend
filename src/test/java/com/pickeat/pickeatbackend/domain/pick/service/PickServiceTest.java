@@ -8,13 +8,15 @@ import static org.mockito.Mockito.when;
 
 import com.pickeat.pickeatbackend.domain.member.entity.Member;
 import com.pickeat.pickeatbackend.domain.pick.dto.CreatePickRequest;
-import com.pickeat.pickeatbackend.domain.pick.dto.PickListResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickMapResponse;
+import com.pickeat.pickeatbackend.domain.pick.dto.PickPeriod;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickStatusUpdateRequest;
+import com.pickeat.pickeatbackend.domain.pick.dto.RecentPicksResponse;
 import com.pickeat.pickeatbackend.domain.pick.entity.Pick;
 import com.pickeat.pickeatbackend.domain.pick.entity.PickStatus;
 import com.pickeat.pickeatbackend.domain.pick.repository.PickRepository;
+import com.pickeat.pickeatbackend.domain.pick.repository.RestaurantPickSummary;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.RecommendationSession;
 import com.pickeat.pickeatbackend.domain.recommendation.repository.RecommendationCandidateRepository;
@@ -22,6 +24,7 @@ import com.pickeat.pickeatbackend.domain.recommendation.repository.Recommendatio
 import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -32,8 +35,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -83,6 +84,20 @@ class PickServiceTest {
     }
 
     @Test
+    @DisplayName("Pick 생성 시 추천 세션의 동행 유형을 스냅샷으로 저장한다")
+    void snapshotsCompanionTypeFromSessionAtCreation() {
+        when(sessionRepository.findByIdAndMemberId(20L, 1L)).thenReturn(Optional.of(session));
+        when(candidateRepository.existsBySessionIdAndRestaurantId(20L, 10L)).thenReturn(true);
+        when(restaurantRepository.getReferenceById(10L)).thenReturn(restaurant);
+        ArgumentCaptor<Pick> captor = ArgumentCaptor.forClass(Pick.class);
+        when(pickRepository.saveAndFlush(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        pickService.create(new CreatePickRequest(20L, 10L), 1L);
+
+        assertThat(captor.getValue().getCompanionType()).isEqualTo(CompanionType.DATE);
+    }
+
+    @Test
     @DisplayName("추천 후보가 아닌 식당은 Pick할 수 없다")
     void rejectsRestaurantOutsideSession() {
         when(sessionRepository.findByIdAndMemberId(20L, 1L)).thenReturn(Optional.of(session));
@@ -125,35 +140,50 @@ class PickServiceTest {
     }
 
     @Test
-    @DisplayName("Pick 목록은 최신 선택순 페이지 조건으로 조회한다")
-    void getsMyPicksWithStableNewestFirstSort() {
-        Pick pick = persistedPick(30L);
-        when(pickRepository.findByMemberId(any(Long.class), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(pick)));
+    @DisplayName("최근 Pick 목록은 식당별로 묶어 개수와 최근 시각을 반환한다")
+    void getsMyPicksGroupedByRestaurant() {
+        RestaurantPickSummary summary = new RestaurantPickSummary(10L, "테스트 식당", 3L, Instant.now());
+        when(pickRepository.findRecentPickSummaries(org.mockito.ArgumentMatchers.eq(1L), any(Instant.class)))
+                .thenReturn(List.of(summary));
 
-        PickListResponse response = pickService.getMyPicks(1L, 0, 20);
+        RecentPicksResponse response = pickService.getMyPicks(1L, PickPeriod.WEEK);
 
-        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-        verify(pickRepository).findByMemberId(org.mockito.ArgumentMatchers.eq(1L), captor.capture());
-        assertThat(captor.getValue().getSort().getOrderFor("selectedAt").isDescending()).isTrue();
-        assertThat(captor.getValue().getSort().getOrderFor("id").isDescending()).isTrue();
-        assertThat(response.items()).hasSize(1);
+        assertThat(response.restaurants()).hasSize(1);
+        assertThat(response.restaurants().get(0).restaurantId()).isEqualTo(10L);
+        assertThat(response.restaurants().get(0).pickCount()).isEqualTo(3L);
     }
 
     @Test
-    @DisplayName("지도 조회는 취소 상태를 제외하도록 저장소에 위임한다")
-    void getsMapWithoutCanceledPicks() {
-        when(pickRepository.findByMemberIdAndStatusNotOrderBySelectedAtDescIdDesc(1L, PickStatus.CANCELED))
+    @DisplayName("최근 Pick 목록 조회는 기간에 맞는 시작 시각을 저장소에 넘긴다")
+    void passesPeriodWindowStartToRepository() {
+        when(pickRepository.findRecentPickSummaries(org.mockito.ArgumentMatchers.eq(1L), any(Instant.class)))
+                .thenReturn(List.of());
+
+        pickService.getMyPicks(1L, PickPeriod.MONTH);
+
+        ArgumentCaptor<Instant> sinceCaptor = ArgumentCaptor.forClass(Instant.class);
+        verify(pickRepository).findRecentPickSummaries(org.mockito.ArgumentMatchers.eq(1L), sinceCaptor.capture());
+        assertThat(sinceCaptor.getValue()).isCloseTo(
+                Instant.now().minus(PickPeriod.MONTH.window()), org.assertj.core.api.Assertions.within(
+                        java.time.Duration.ofSeconds(5)));
+    }
+
+    @Test
+    @DisplayName("지도 조회는 REVIEWED 상태만 노출하도록 저장소에 위임한다")
+    void getsMapWithOnlyReviewedPicks() {
+        when(pickRepository.findByMemberIdAndStatusOrderBySelectedAtDescIdDesc(1L, PickStatus.REVIEWED))
                 .thenReturn(List.of(persistedPick(30L)));
 
         PickMapResponse response = pickService.getMyPickMap(1L);
 
         assertThat(response.picks()).hasSize(1);
-        verify(pickRepository).findByMemberIdAndStatusNotOrderBySelectedAtDescIdDesc(1L, PickStatus.CANCELED);
+        verify(pickRepository).findByMemberIdAndStatusOrderBySelectedAtDescIdDesc(1L, PickStatus.REVIEWED);
     }
 
     private Pick persistedPick(Long id) {
-        Pick pick = Pick.builder().member(member).restaurant(restaurant).recommendationSession(session).build();
+        Pick pick = Pick.builder()
+                .member(member).restaurant(restaurant).recommendationSession(session)
+                .companionType(CompanionType.DATE).build();
         ReflectionTestUtils.setField(pick, "id", id);
         ReflectionTestUtils.setField(pick, "selectedAt", java.time.Instant.now());
         ReflectionTestUtils.setField(pick, "updatedAt", java.time.Instant.now());

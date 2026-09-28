@@ -1,5 +1,6 @@
 package com.pickeat.pickeatbackend.domain.recommendation.controller;
 
+import com.pickeat.pickeatbackend.domain.recommendation.dto.RecommendationExclusionRequest;
 import com.pickeat.pickeatbackend.domain.recommendation.dto.RecommendationRequest;
 import com.pickeat.pickeatbackend.domain.recommendation.dto.RecommendationResponse;
 import com.pickeat.pickeatbackend.domain.recommendation.service.RecommendationService;
@@ -36,5 +37,15 @@ public class RecommendationController {
             @AuthenticationPrincipal Long memberId
     ) {
         return ResponseEntity.ok(recommendationService.getSession(sessionId, memberId));
+    }
+
+    @PostMapping("/{sessionId}/exclusions")
+    public ResponseEntity<RecommendationResponse> exclude(
+            @PathVariable Long sessionId,
+            @Valid @RequestBody RecommendationExclusionRequest request,
+            @AuthenticationPrincipal Long memberId
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(recommendationService.exclude(sessionId, memberId, request));
     }
 }

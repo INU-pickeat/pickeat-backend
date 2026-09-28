@@ -61,7 +61,7 @@ class FoodCategoryTest {
             "dessert_shop, CAFE_DESSERT",
             "irish_pub, PUB_BAR",
             "cocktail_bar, PUB_BAR",
-            "sports_bar, PUB_BAR",
+            "sports_club, PUB_BAR",
             "indian_restaurant, OTHER",
             "mexican_restaurant, OTHER",
             "vietnamese_restaurant, OTHER"
