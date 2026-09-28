@@ -1,7 +1,8 @@
 [Unit]
 Description=Pick Eat Backend
 After=network-online.target
-Wants=network-online.target
+Wants=network-online.target docker.service
+After=docker.service
 
 [Service]
 Type=simple
@@ -9,7 +10,7 @@ User=__DEPLOY_USER__
 Group=__DEPLOY_GROUP__
 WorkingDirectory=/opt/pickeat/current
 EnvironmentFile=/etc/pickeat/pickeat.env
-ExecStart=/usr/bin/java -jar /opt/pickeat/current/app.jar
+ExecStart=/usr/bin/java $JAVA_OPTS -jar /opt/pickeat/current/app.jar
 SuccessExitStatus=143
 Restart=on-failure
 RestartSec=5
