@@ -32,7 +32,7 @@ public class Member {
     @Column(nullable = false)
     private String password;
 
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, length = 10)
     private String nickname;
 
     @Enumerated(EnumType.STRING)
