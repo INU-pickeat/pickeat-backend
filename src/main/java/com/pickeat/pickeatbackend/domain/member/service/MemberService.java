@@ -9,7 +9,6 @@ import com.pickeat.pickeatbackend.domain.member.entity.Member;
 import com.pickeat.pickeatbackend.domain.member.exception.MemberErrorCode;
 import com.pickeat.pickeatbackend.domain.member.repository.MemberRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
-import com.pickeat.pickeatbackend.global.security.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,7 +20,7 @@ public class MemberService {
 
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtTokenProvider jwtTokenProvider;
+    private final AuthTokenService authTokenService;
 
     @Transactional
     public Long signUp(SignUpRequest request) {
@@ -38,7 +37,7 @@ public class MemberService {
         return memberRepository.save(member).getId();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         Member member = memberRepository.findByEmail(request.email())
                 .orElseThrow(() -> new BusinessException(MemberErrorCode.INVALID_CREDENTIALS));
@@ -47,8 +46,7 @@ public class MemberService {
             throw new BusinessException(MemberErrorCode.INVALID_CREDENTIALS);
         }
 
-        String accessToken = jwtTokenProvider.createAccessToken(member.getId());
-        return new LoginResponse(accessToken);
+        return authTokenService.issue(member);
     }
 
     @Transactional(readOnly = true)

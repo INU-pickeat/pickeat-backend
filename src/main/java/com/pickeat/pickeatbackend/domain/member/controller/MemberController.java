@@ -3,9 +3,11 @@ package com.pickeat.pickeatbackend.domain.member.controller;
 import com.pickeat.pickeatbackend.domain.member.dto.LoginRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.LoginResponse;
 import com.pickeat.pickeatbackend.domain.member.dto.MemberProfileResponse;
+import com.pickeat.pickeatbackend.domain.member.dto.RefreshTokenRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.SignUpRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.SignUpResponse;
 import com.pickeat.pickeatbackend.domain.member.dto.UpdateProfileRequest;
+import com.pickeat.pickeatbackend.domain.member.service.AuthTokenService;
 import com.pickeat.pickeatbackend.domain.member.service.MemberService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MemberController {
 
     private final MemberService memberService;
+    private final AuthTokenService authTokenService;
 
     @PostMapping("/auth/signup")
     public ResponseEntity<SignUpResponse> signUp(@Valid @RequestBody SignUpRequest request) {
@@ -35,6 +38,18 @@ public class MemberController {
     @PostMapping("/auth/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(memberService.login(request));
+    }
+
+    @PostMapping("/auth/refresh")
+    public ResponseEntity<LoginResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(authTokenService.refresh(request.refreshToken()));
+    }
+
+    // access token이 만료된 뒤에도 로그아웃할 수 있도록 인증 없이 refresh token만 받는다.
+    @PostMapping("/auth/logout")
+    public ResponseEntity<Void> logout(@Valid @RequestBody RefreshTokenRequest request) {
+        authTokenService.revoke(request.refreshToken());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/me")
