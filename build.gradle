@@ -48,6 +48,7 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    systemProperty 'jwt.secret', 'pickeat-test-secret-key-long-enough-for-hs256-signing'
 }
 
 tasks.named('bootJar') {

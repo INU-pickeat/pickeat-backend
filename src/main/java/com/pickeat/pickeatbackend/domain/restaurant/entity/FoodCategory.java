@@ -51,7 +51,7 @@ public enum FoodCategory {
             Map.entry("pub", PUB_BAR),
             Map.entry("wine_bar", PUB_BAR),
             Map.entry("cocktail_bar", PUB_BAR),
-            Map.entry("sports_bar", PUB_BAR),
+            Map.entry("sports_club", PUB_BAR),
             Map.entry("gastropub", PUB_BAR),
             Map.entry("brewpub", PUB_BAR),
             Map.entry("brewery", PUB_BAR),

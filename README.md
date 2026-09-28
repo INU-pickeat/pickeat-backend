@@ -20,7 +20,7 @@ PickEat 프로젝트의 백엔드 서버입니다.
 | `DB_URL` | `jdbc:postgresql://localhost:5432/pick_eat` |
 | `DB_USERNAME` | 현재 OS 사용자명 |
 | `DB_PASSWORD` | (빈 값) |
-| `JWT_SECRET` | 로컬 개발용 기본값 포함 (운영 배포 시 반드시 변경) |
+| `JWT_SECRET` | 필수 (HS256 기준 32바이트 이상) |
 | `JWT_ACCESS_TOKEN_VALIDITY_MS` | `1800000` (30분) |
 | `GOOGLE_PLACES_API_KEY` | Google Places Nearby Search API 키 |
 
@@ -59,30 +59,31 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - Member 회원가입·로그인과 JWT 인증 (`POST /api/v1/auth/signup`, `/login`)
 - 식당 상세 조회 (`GET /api/v1/restaurants/{id}`) — 인증 불필요, 공유 링크 대응
 - 외부 지도 링크 조회 (`GET /api/v1/restaurants/{id}/navigation-links`) — 네이버·카카오
-- Google Places 연동: `GooglePlacesClient`(Nearby Search, 카테고리별 `includedTypes` 선처리), Google Place ID 기준 upsert·갱신 정책, primaryType → 5개 음식 카테고리 매핑
+- Google Places 연동: `GooglePlacesClient`(Nearby Search, 카테고리별 `includedPrimaryTypes` 선처리), Google Place ID 기준 upsert·갱신 정책, primaryType → 7개 음식 카테고리 매핑
 - PostGIS `geography(Point, 4326)` 기반 5km 반경 후보 조회 (`RestaurantRepository.findWithinRadius`, GiST 인덱스)
-- 데이트·친구·가족·혼밥·회식 적합도 3상태(`true`/`false`/`NULL`, 큐레이션 전용 — Google 갱신이 건드리지 않음)
+- 데이트·가족·아이·혼자·단체·반려견 적합도 3상태(`true`/`false`/`NULL`, 큐레이션 전용 — Google 갱신이 건드리지 않음)
 - M2 ADR 확정, 추천 요청 DTO(`RecommendationRequest`), 점수 계산기(`RecommendationScoreCalculator`), 세션·후보 스키마(V7 마이그레이션)
 - 추천 생성·세션 조회 API (`POST`/`GET /api/v1/recommendations`) — DB 우선, 부족할 때만 Google 호출·upsert 하이브리드 조회. 선택적 가격대 필터(`priceRange`)를 지원하며 상위 10개를 세션 후보로 저장하고 상위 5개만 응답한다
 - 재추천(제외) API (`POST /api/v1/recommendations/{sessionId}/exclusions`) — 식당을 제외 사유와 함께 제외하면 세션에 저장해 둔 6~10위 대체 후보로 그 자리를 채워 다시 상위 5개를 반환한다. 제외는 해당 세션 안에서만 유효하다
 - Pick 생성·상태 변경 API (`POST /api/v1/picks`, `PATCH /api/v1/picks/{pickId}`) — 추천 세션에 실제 노출된 후보만 선택 가능. 생성 시 추천 세션의 동행 유형을 스냅샷으로 저장
 - 내 최근 Pick 목록 API (`GET /api/v1/me/picks?period=week|month`) — SELECTED + REVIEWED를 식당별로 그룹화해 `pickCount`·`latestPickedAt` 반환
 - 내 Pick 지도 API (`GET /api/v1/me/picks/map`) — 본인 데이터만 조회, REVIEWED만 노출(SELECTED·CANCELED 미노출)
+- 초기 탐색 스팟 조회 API (`GET /api/v1/discovery-spots`) — 인증 없이 신사·혜화·서촌·한남·종로와 지역별 고정 노출 식당을 순서대로 조회
 
-**다음 할 일:** 2026-09-22 기획서 갱신으로 Member 프로필 확장 등 일부 항목이 남아 있습니다. 음식 카테고리(7종)·동행 유형(6종)·가격대 필터·추천 점수 공식·재추천 제외 사유·Pick 동행 스냅샷/기간별 집계/REVIEWED 전용 지도는 반영을 완료했습니다. Pick 캘린더는 Review 기능과 함께 Phase 2로 보류 중입니다. 확정 계약과 순서는 [`docs/SERVICE_DECISIONS.md`](docs/SERVICE_DECISIONS.md)의 "2026-09-22 기획서 갱신 — 구현 필요 백로그"를 확인하세요. 기존 M2.5(초기 탐색 스팟)는 기획자의 최종 ZIP 확정 전까지 별도로 보류 상태입니다.
+**다음 할 일:** 초기 탐색 스팟의 최종 5개 지역과 25개 목록은 확정했고 V13 스키마·조회 API와 V14 실제 식당 시드를 완료했습니다. JPG 사진은 수령 후 연결합니다. Member 프로필 확장, 데이트 프랜차이즈 제외, 제네릭 `restaurant` 분류도 남아 있습니다. Pick 캘린더는 Review 기능과 함께 Phase 2로 보류 중입니다.
 
-M2 완료 직후에는 초기 탐색 스팟을 구현합니다. 성수동·연남동·신사동·서촌·을지로3가 5개 지역과 지역별 5곳(총 25곳)을 운영자 선정 `CURATED` 데이터로 DB에 직접 시드합니다. 실제 Picker 행동 데이터가 쌓이기 전까지 자동 인기 집계나 실시간 순위는 구현하지 않습니다.
+초기 탐색 스팟은 신사·혜화·서촌·한남·종로 5개 지역과 지역별 5곳(총 25곳)의 운영자 선정 `CURATED` 데이터입니다. 실제 Picker 행동 데이터가 쌓이기 전까지 자동 인기 집계나 실시간 순위는 구현하지 않습니다.
 
 이 고정 25곳은 탐색 화면용이며 M2 위치 기반 추천의 후보 정책을 대신하지 않습니다. 이후 Pick, 후기·피드와 행동 데이터가 충분해지면 동적 인기맛집으로 확장합니다.
 
-가짜 식당은 운영 DB용 Flyway 시드에 넣지 않습니다. 탐색 API 개발이나 프론트 계약 검증에 임시 데이터가 필요하면 테스트 fixture 또는 API mock으로만 사용하고, 실제 탐색 시드는 기획 데이터가 확정된 뒤 최신 계약 마이그레이션 다음 버전으로 작성합니다.
+가짜 식당과 임의 좌표는 운영 DB용 Flyway 시드에 넣지 않습니다. 확정 목록은 [`src/main/resources/curated/discovery-spots.csv`](src/main/resources/curated/discovery-spots.csv)에 정리했고, Google Places에서 검증한 좌표·Place ID로 V14 실제 탐색 시드를 작성했습니다.
 
 ## 향후 작업 순서
 
 1. 문서 계약 정합성 정리
 2. M1 데이터 확장 — 카테고리·동행 신호·Google 가격대
 3. M2 계약 개편 — 제네릭 `restaurant` 보완 분류, 데이트 프랜차이즈 제외 (브랜드 목록 준비 전까지 보류. 가격 필터·DB 우선 하이브리드·새 점수 공식·재추천 제외 사유는 완료)
-4. 기획 ZIP 기준 25개 식당 확정 후 M2.5 초기 탐색 스팟 구현
+4. M2.5 JPG 대표 이미지 수령 후 URL 연결
 5. AWS EC2 배포와 GitHub Actions CD 활성화
 6. 프론트엔드 연동 E2E 검증
 

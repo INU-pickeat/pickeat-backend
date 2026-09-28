@@ -25,10 +25,46 @@ class RestaurantSchemaIntegrationTest {
                 "SELECT success FROM flyway_schema_history WHERE version = '6'", Boolean.class)).isTrue();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT success FROM flyway_schema_history WHERE version = '9'", Boolean.class)).isTrue();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT success FROM flyway_schema_history WHERE version = '13'", Boolean.class)).isTrue();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT success FROM flyway_schema_history WHERE version = '14'", Boolean.class)).isTrue();
         assertThat(jdbcTemplate.queryForObject("""
                 SELECT indexdef FROM pg_indexes
                 WHERE schemaname = 'public' AND indexname = 'restaurants_location_gist_idx'
                 """, String.class)).contains("USING gist (location)");
+    }
+
+    @Test
+    @DisplayName("최종 5개 탐색 스팟을 고정 순서로 저장한다")
+    void storesFinalDiscoverySpotsInDisplayOrder() {
+        assertThat(jdbcTemplate.queryForList("""
+                SELECT region_code FROM discovery_spots ORDER BY display_order
+                """, String.class))
+                .containsExactly("SINSA", "HYEHWA", "SEOCHEON", "HANNAM", "JONGNO");
+    }
+
+    @Test
+    @DisplayName("최종 25개 큐레이션 식당을 지역별 5곳씩 저장한다")
+    void storesFiveCuratedRestaurantsPerDiscoverySpot() {
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM restaurants WHERE data_provider = 'CURATED'
+                """, Integer.class)).isGreaterThanOrEqualTo(25);
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM discovery_spot_restaurants
+                """, Integer.class)).isEqualTo(25);
+        assertThat(jdbcTemplate.queryForList("""
+                SELECT COUNT(dsr.id)
+                FROM discovery_spots ds
+                LEFT JOIN discovery_spot_restaurants dsr ON dsr.discovery_spot_id = ds.id
+                GROUP BY ds.id, ds.display_order
+                ORDER BY ds.display_order
+                """, Integer.class)).containsExactly(5, 5, 5, 5, 5);
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM restaurants r
+                JOIN discovery_spot_restaurants dsr ON dsr.restaurant_id = r.id
+                WHERE r.google_place_id IS NULL OR r.location IS NULL
+                """, Integer.class)).isZero();
     }
 
     @Test
