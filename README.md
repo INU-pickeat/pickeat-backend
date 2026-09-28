@@ -91,7 +91,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 
 M3 Pick의 생성·상태 전이·권한 검증 기반과 동행 스냅샷·기간별 식당 집계(`period=week|month`)·REVIEWED 전용 지도가 모두 완료됐습니다. 추천 세션당 Pick은 하나만 허용하고, 다른 세션에서는 같은 식당을 다시 선택할 수 있습니다. Pick 캘린더는 Review 기능과 함께 Phase 2에서 진행합니다.
 
-CI는 `.github/workflows/ci.yml`에서 실행 중입니다. `.github/workflows/deploy.yml`에는 CI 성공 후 EC2에 실행 JAR를 배포하고 헬스체크 실패 시 직전 릴리스로 롤백하는 CD가 준비되어 있습니다. 실제 배포는 EC2와 운영 DB를 만든 뒤 GitHub 저장소 변수 `DEPLOY_ENABLED=true`를 설정해야 활성화됩니다.
+CI는 `.github/workflows/ci.yml`에서 실행 중입니다. `.github/workflows/deploy.yml`에는 CI 성공 후 EC2에 실행 JAR를 배포하고 헬스체크 실패 시 직전 릴리스로 롤백하는 CD가 준비되어 있습니다. 운영은 EC2 t3.micro 한 대에 앱(systemd)·PostGIS(Docker)·Nginx를 함께 올리는 구성이며, API 도메인은 `api.pickeat.kr`입니다. 실제 배포는 EC2를 `bootstrap.sh`로 구성한 뒤 GitHub 저장소 변수 `DEPLOY_ENABLED=true`를 설정해야 활성화됩니다.
 
 EC2 최초 설정, GitHub Secrets, systemd, 헬스체크와 롤백 절차는 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)를 참고하세요.
 

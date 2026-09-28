@@ -104,7 +104,9 @@
 - CI와 CD는 GitHub Actions를 사용한다. CD는 `main` CI 성공 후 실행 JAR를 EC2에 전송한다. `DEPLOY_ENABLED=true` 전에는 실행하지 않는다.
 - EC2에서는 Java 21 실행 JAR를 systemd로 관리한다. 릴리스별 디렉터리와 `current` 심볼릭 링크를 사용하고, `/actuator/health` 실패 시 직전 릴리스로 자동 롤백한다.
 - 운영 공개 전 HTTPS 종료 지점(Nginx 또는 ALB)과 도메인을 확정한다. 애플리케이션 8080 포트는 외부에 직접 공개하지 않는다.
-- 운영 PostgreSQL/PostGIS는 RDS 또는 별도 호스트 중 인프라 생성 시 확정한다. 애플리케이션은 `DB_URL` 등 환경변수만 사용한다.
+- 운영 인스턴스는 AWS EC2 프리티어 t3.micro(1GB RAM) 한 대로 시작한다(2026-09-28 확정). JVM 힙은 `-Xmx384m`으로 제한하고 2GB swap을 둔다.
+- 운영 PostgreSQL/PostGIS는 같은 인스턴스의 Docker 컨테이너(`postgis/postgis:16-3.4`, CI와 같은 이미지)로 운영한다(2026-09-28 확정). `127.0.0.1`에만 바인딩하고 매일 `pg_dump` 백업과 EBS 스냅샷으로 보존한다. 메모리가 부족해지면 DB만 RDS로 옮기며, 애플리케이션은 `DB_URL` 등 환경변수만 사용한다.
+- API 도메인은 `api.pickeat.kr`이며 Nginx + Let's Encrypt로 HTTPS를 종료한다. `/actuator/**`는 외부에 노출하지 않는다.
 - 운영 비밀 값(`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, `GOOGLE_PLACES_API_KEY`)은 저장소에 커밋하지 않고 GitHub Actions Secrets 또는 AWS의 비밀 저장소에서 주입한다.
 
 ## 구현 현황
@@ -124,7 +126,7 @@
      - [ ] 제네릭 `restaurant` 보완 분류, 데이트 프랜차이즈 제외(브랜드 목록 준비 전까지 보류)
   8. [x] **M3 계약 개편.** Pick 동행 스냅샷, 기간별 식당 집계 목록, REVIEWED 전용 지도를 반영했다. 기존 생성·상태 전이·권한 검증은 유지한다. Pick 캘린더는 Phase 2(Review 구현)로 보류. → "M3 계약 개편 구현 결과" 참고.
   9. [x] **M2.5: 초기 탐색 스팟.** V13에서 최종 5개 지역, 지역-식당 관계 스키마와 공개 탐색 조회 API를 구현했다. Google Places Text Search로 25개 식당의 Place ID·좌표를 검증하고 V14로 Restaurant와 지역별 고정 순서를 시드했다. 사진은 JPG 수령 후 URL만 후속 반영한다.
-  10. [ ] **배포/CD.** GitHub Actions CD·systemd·헬스체크·자동 롤백 구성은 완료. EC2·운영 DB 생성, Secrets 등록, HTTPS 연결과 최초 실배포가 남아 있다.
+  10. [ ] **배포/CD.** GitHub Actions CD·systemd·헬스체크·자동 롤백 구성은 완료. t3.micro 단일 인스턴스 구성(swap·PostGIS Docker·Nginx·백업 cron·JVM 힙 제한)을 `bootstrap.sh`에 반영했다. EC2 생성, DNS·HTTPS 연결, Secrets 등록과 최초 실배포가 남아 있다.
   11. [ ] 프론트엔드 연동 MVP E2E를 검증한다.
   12. [x] **Refresh Token.** 로그인 시 refresh token을 함께 발급하고, 재발급(rotation)·로그아웃(폐기) API를 추가했다. → 아래 "Refresh Token 구현 결과" 참고.
   13. [ ] 프로필 이미지 업로드 — Object Storage(S3 여부) 결정 후 진행한다.
