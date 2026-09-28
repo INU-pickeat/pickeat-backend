@@ -181,7 +181,7 @@
 
 - `members.bio VARCHAR(150)` 컬럼을 추가했다(V16). 기획서에 길이 제한이 없어 150자로 정한 구현 판단이며, 기획 확정 시 조정한다.
 - `GET /api/v1/me`는 `memberId`·`email`·`nickname`·`bio`·`profileImageUrl`을 반환한다. 비밀번호는 응답에 포함하지 않는다.
-- `PATCH /api/v1/me`는 부분 수정이다. 생략(`null`)한 필드는 그대로 두고, `bio`·`profileImageUrl`은 빈 문자열이면 삭제한다. `nickname`은 공백만 있는 값을 거부하고 앞뒤 공백을 제거해 저장한다(최대 30자).
+- `PATCH /api/v1/me`는 부분 수정이다. 생략(`null`)한 필드는 그대로 두고, `bio`·`profileImageUrl`은 빈 문자열이면 삭제한다. `nickname`은 앞뒤 공백을 제거한 뒤 검증하며, 한글 완성형·영문·숫자만 최대 10자까지 허용한다(공백·특수문자·이모지·자모 불가, 회원가입도 동일).
 - 프로필 이미지는 Object Storage(S3 여부 미확정)가 아직 없어 업로드 API 없이 `http(s)` URL 문자열만 받는다. 저장소가 확정되면 리뷰 이미지와 같은 업로드 흐름을 붙인다.
 - 토큰의 회원이 없으면 `MEMBER_003`(404)으로 응답한다.
 

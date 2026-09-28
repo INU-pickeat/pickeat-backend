@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -81,10 +82,40 @@ class MemberApiContractTest {
                 .andExpect(jsonPath("$.nickname").value("픽잇러"));
     }
 
+    @Test
+    @DisplayName("닉네임 앞뒤 공백은 검증 전에 제거된다")
+    void stripsNicknameBeforeValidation() throws Exception {
+        when(memberService.updateProfile(eq(MEMBER_ID), any(UpdateProfileRequest.class))).thenReturn(profile);
+
+        mockMvc.perform(patch("/api/v1/me")
+                        .header("Authorization", authorizationHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nickname\":\"  열글자닉네임입니다요  \"}"))
+                .andExpect(status().isOk());
+
+        verify(memberService).updateProfile(MEMBER_ID, new UpdateProfileRequest("열글자닉네임입니다요", null, null));
+    }
+
+    @Test
+    @DisplayName("회원가입은 특수문자가 포함된 닉네임을 거부한다")
+    void rejectsSpecialCharacterNicknameOnSignUp() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test@pickeat.com\",\"password\":\"password123\",\"nickname\":\"픽잇!\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+
+        verify(memberService, never()).signUp(any());
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {
             "{\"nickname\":\"   \"}",
-            "{\"nickname\":\"1234567890123456789012345678901\"}",
+            "{\"nickname\":\"12345678901\"}",
+            "{\"nickname\":\"픽잇😀\"}",
+            "{\"nickname\":\"픽잇!\"}",
+            "{\"nickname\":\"픽 잇\"}",
+            "{\"nickname\":\"ㅋㅋ\"}",
             "{\"profileImageUrl\":\"javascript:alert(1)\"}"
     })
     @DisplayName("내 프로필 수정 API는 잘못된 입력을 거부한다")
