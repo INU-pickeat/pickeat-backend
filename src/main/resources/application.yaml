@@ -16,6 +16,7 @@ spring:
 jwt:
   secret: ${JWT_SECRET:}
   access-token-validity-ms: ${JWT_ACCESS_TOKEN_VALIDITY_MS:1800000}
+  refresh-token-validity-ms: ${JWT_REFRESH_TOKEN_VALIDITY_MS:1209600000}
 
 cors:
   # 쉼표로 구분한 허용 origin 목록. 패턴(https://*.vercel.app)도 쓸 수 있다.

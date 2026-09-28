@@ -92,7 +92,7 @@
 
 ## API와 운영
 
-- 인증 없이 접근 가능한 엔드포인트는 `/api/v1/auth/signup`, `/api/v1/auth/login`이다.
+- 인증 없이 접근 가능한 엔드포인트는 `/api/v1/auth/signup`, `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/logout`이다.
 - 그 외 모든 비즈니스 엔드포인트는 명시적으로 문서화되지 않는 한 인증(bearer token)이 필요하다.
 - 예외: `GET /api/v1/restaurants/**`는 인증 없이 접근 가능하다. 식당 상세는 민감 정보가 아니고, 공유 링크는 비로그인 사용자도 열 수 있어야 한다. 식당 관련 쓰기/변경 작업은 여전히 인증이 필요하다.
 - OpenAPI와 Swagger UI는 `local` Spring 프로필에서만 활성화된다.
@@ -128,6 +128,8 @@
   9. [x] **M2.5: 초기 탐색 스팟.** V13에서 최종 5개 지역, 지역-식당 관계 스키마와 공개 탐색 조회 API를 구현했다. Google Places Text Search로 25개 식당의 Place ID·좌표를 검증하고 V14로 Restaurant와 지역별 고정 순서를 시드했다. 사진은 JPG 수령 후 URL만 후속 반영한다.
   10. [ ] **배포/CD.** GitHub Actions CD·systemd·헬스체크·자동 롤백 구성은 완료. t3.micro 단일 인스턴스 구성(swap·PostGIS Docker·Nginx·백업 cron·JVM 힙 제한)을 `bootstrap.sh`에 반영했다. EC2 생성, DNS·HTTPS 연결, Secrets 등록과 최초 실배포가 남아 있다.
   11. [ ] 프론트엔드 연동 MVP E2E를 검증한다.
+  12. [x] **Refresh Token.** 로그인 시 refresh token을 함께 발급하고, 재발급(rotation)·로그아웃(폐기) API를 추가했다. → 아래 "Refresh Token 구현 결과" 참고.
+  13. [ ] 프로필 이미지 업로드 — Object Storage(S3 여부) 결정 후 진행한다.
 
 ### M2 ADR 확정 결과 (2026-09-21, 2026-09-22 개편으로 일부 폐기)
 
@@ -186,6 +188,16 @@
 - `PATCH /api/v1/me`는 부분 수정이다. 생략(`null`)한 필드는 그대로 두고, `bio`·`profileImageUrl`은 빈 문자열이면 삭제한다. `nickname`은 앞뒤 공백을 제거한 뒤 검증하며, 한글 완성형·영문·숫자만 최대 10자까지 허용한다(공백·특수문자·이모지·자모 불가, 회원가입도 동일). DB 컬럼도 `VARCHAR(10)`으로 줄였다(V17).
 - 프로필 이미지는 Object Storage(S3 여부 미확정)가 아직 없어 업로드 API 없이 `http(s)` URL 문자열만 받는다. 저장소가 확정되면 리뷰 이미지와 같은 업로드 흐름을 붙인다.
 - 토큰의 회원이 없으면 `MEMBER_003`(404)으로 응답한다.
+
+### Refresh Token 구현 결과 (2026-09-28)
+
+- 로그인 응답에 `refreshToken`을 추가했다. 형식은 32바이트 무작위 값의 Base64URL 문자열이며 JWT가 아니다. 유효기간은 14일(`JWT_REFRESH_TOKEN_VALIDITY_MS`, 기본 1209600000)이고 access token은 기존대로 30분이다.
+- DB(`refresh_tokens`, V18)에는 원문 대신 SHA-256 해시만 저장한다. 로그인한 기기마다 행이 하나씩 생겨 기기별로 따로 로그아웃된다. 회원이 삭제되면 함께 지운다.
+- `POST /api/v1/auth/refresh`는 refresh token을 받아 새 access·refresh token 쌍을 돌려준다. 쓴 토큰은 바로 지운다(rotation). 없거나 이미 쓴 토큰, 만료된 토큰은 모두 `MEMBER_004`(401)이다. 같은 토큰으로 동시에 요청하면 삭제 행 수로 판별해 한 요청만 성공한다.
+- `POST /api/v1/auth/logout`은 refresh token을 폐기하고 204를 돌려준다. access token이 만료된 뒤에도 로그아웃할 수 있도록 인증 없이 호출하며, 이미 없는 토큰이어도 204다. 이미 발급된 access token은 만료(최대 30분)까지 유효하다.
+- 쿠키를 쓰지 않는 기존 방식(Authorization 헤더, CORS credentials 불허)을 유지해 토큰은 요청·응답 body로 주고받는다.
+- 만료된 토큰 행은 같은 회원이 새로 발급받을 때 정리한다. 별도 정리 배치는 두지 않는다.
+- 재사용 감지(이미 쓴 토큰이 다시 오면 그 계열 토큰 전체 폐기)는 구현하지 않았다. 탈취 대응이 필요해지면 `family_id` 컬럼을 추가한다.
 
 ### 2026-09-22 기획서 갱신 — 구현 필요 백로그
 

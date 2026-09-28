@@ -14,7 +14,6 @@ import com.pickeat.pickeatbackend.domain.member.dto.UpdateProfileRequest;
 import com.pickeat.pickeatbackend.domain.member.entity.Member;
 import com.pickeat.pickeatbackend.domain.member.repository.MemberRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
-import com.pickeat.pickeatbackend.global.security.jwt.JwtTokenProvider;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,7 +34,7 @@ class MemberServiceTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
-    private JwtTokenProvider jwtTokenProvider;
+    private AuthTokenService authTokenService;
 
     @InjectMocks
     private MemberService memberService;
@@ -95,15 +94,16 @@ class MemberServiceTest {
     }
 
     @Test
-    @DisplayName("로그인에 성공하면 액세스 토큰을 반환한다")
-    void returnsAccessTokenOnSuccessfulLogin() {
+    @DisplayName("로그인에 성공하면 액세스 토큰과 리프레시 토큰을 반환한다")
+    void returnsTokensOnSuccessfulLogin() {
         when(memberRepository.findByEmail("test@pickeat.com")).thenReturn(Optional.of(savedMember()));
         when(passwordEncoder.matches("password123", "encoded-password")).thenReturn(true);
-        when(jwtTokenProvider.createAccessToken(any())).thenReturn("access-token");
+        when(authTokenService.issue(any(Member.class))).thenReturn(new LoginResponse("access-token", "refresh-token"));
 
         LoginResponse response = memberService.login(new LoginRequest("test@pickeat.com", "password123"));
 
         assertThat(response.accessToken()).isEqualTo("access-token");
+        assertThat(response.refreshToken()).isEqualTo("refresh-token");
     }
 
     @Test
