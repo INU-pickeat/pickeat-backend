@@ -22,12 +22,15 @@ import com.pickeat.pickeatbackend.domain.restaurant.service.FranchiseBrands;
 import com.pickeat.pickeatbackend.domain.restaurant.service.RestaurantService;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +38,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 // DB 우선, 부족할 때만 Google 하이브리드(M2 계약 개편). DB에서 카테고리·가격·데이트 프랜차이즈
-// 필터를 통과한 유효 후보가 10개 미만일 때만 Google Places를 호출해 보충한다. 상위 10개를 세션 후보로
+// 필터를 통과한 유효 후보가 합계 10개 미만이거나, 요청한 카테고리 중 5개 미만인 카테고리가 있으면
+// 부족한 카테고리만 Google Places로 보충한다. 상위 10개를 세션 후보로
 // 저장하고(1~5위 노출, 6~10위는 제외 시 대체), 응답에는 상위 5개만 반환한다.
 @Service
 @RequiredArgsConstructor
@@ -46,6 +50,14 @@ public class RecommendationService {
     private static final int TOP_RESULT_COUNT = 5;
     private static final int STORED_CANDIDATE_COUNT = 10;
     private static final int MIN_DB_CANDIDATES_BEFORE_GOOGLE = 10;
+    private static final int MIN_DB_CANDIDATES_PER_CATEGORY = 5;
+    private static final Duration GOOGLE_FILL_COOLDOWN = Duration.ofHours(6);
+
+    // 같은 구역·카테고리를 최근에 Google로 보충했는지 기억한다. 식당이 원래 적은 구역에서 요청마다
+    // Google을 다시 부르지 않기 위한 것이다. 키는 "카테고리:위도*100:경도*100"(약 1km 격자).
+    // ponytail: 인스턴스 메모리라 재시작하면 비워지고 인스턴스가 여러 대면 공유되지 않는다. 키를 지우지 않아
+    // 격자 수만큼 늘어난다. 서버를 늘리거나 지역이 넓어지면 DB 테이블이나 TTL 캐시로 옮긴다.
+    private final Map<String, Instant> lastGoogleFillAt = new ConcurrentHashMap<>();
 
     private final GooglePlacesClient googlePlacesClient;
     private final RestaurantService restaurantService;
@@ -61,9 +73,12 @@ public class RecommendationService {
         double radiusMeters = searchRadiusMeters(request.latitude(), request.longitude());
         List<RestaurantCandidate> candidates = findValidCandidates(request, radiusMeters);
 
-        if (candidates.size() < MIN_DB_CANDIDATES_BEFORE_GOOGLE) {
-            Set<String> includedTypes = FoodCategory.toGooglePrimaryTypes(request.foodCategories());
+        Set<FoodCategory> categoriesToFill = categoriesToFill(request, candidates);
+        if (!categoriesToFill.isEmpty()) {
+            Set<String> includedTypes = FoodCategory.toGooglePrimaryTypes(categoriesToFill);
             findGooglePlaces(request, radiusMeters, includedTypes).forEach(restaurantService::upsertFromGoogle);
+            Instant now = Instant.now();
+            categoriesToFill.forEach(category -> lastGoogleFillAt.put(fillKey(request, category), now));
             candidates = findValidCandidates(request, radiusMeters);
         }
 
@@ -88,6 +103,28 @@ public class RecommendationService {
                 toCandidateEntities(session, topCandidates));
 
         return RecommendationResponse.of(session.getId(), topRanked(savedCandidates));
+    }
+
+    // Google로 보충할 카테고리를 고른다. 합계가 10개 미만이면 요청한 카테고리 전부, 아니면 후보가
+    // 5개 미만인 카테고리만. 합계만 보면 한 카테고리로 10개가 채워진 지역에서 나머지 카테고리를 영영
+    // 가져오지 않는다. 최근에 보충한 구역·카테고리는 건너뛴다.
+    private Set<FoodCategory> categoriesToFill(RecommendationRequest request, List<RestaurantCandidate> candidates) {
+        Map<FoodCategory, Long> countByCategory = candidates.stream()
+                .collect(Collectors.groupingBy(c -> c.restaurant().getFoodCategory(), Collectors.counting()));
+        boolean totalShort = candidates.size() < MIN_DB_CANDIDATES_BEFORE_GOOGLE;
+        Instant cooldownStart = Instant.now().minus(GOOGLE_FILL_COOLDOWN);
+        return request.foodCategories().stream()
+                .filter(category -> totalShort
+                        || countByCategory.getOrDefault(category, 0L) < MIN_DB_CANDIDATES_PER_CATEGORY)
+                .filter(category -> {
+                    Instant last = lastGoogleFillAt.get(fillKey(request, category));
+                    return last == null || last.isBefore(cooldownStart);
+                })
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private String fillKey(RecommendationRequest request, FoodCategory category) {
+        return category + ":" + Math.round(request.latitude() * 100) + ":" + Math.round(request.longitude() * 100);
     }
 
     // 수도권(서울·인천·경기)과 부산은 식당 밀도가 높아 1km, 그 외 지역은 5km 반경을 쓴다.
