@@ -4,13 +4,14 @@ import com.pickeat.pickeatbackend.domain.discovery.entity.DiscoverySpot;
 import com.pickeat.pickeatbackend.domain.discovery.entity.DiscoverySpotRestaurant;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
+import com.pickeat.pickeatbackend.domain.review.dto.ReviewOneLiner;
 import java.util.List;
 import java.util.Map;
 
 public record DiscoverySpotsResponse(List<Spot> spots) {
 
     // 한줄평은 앱 내 사용자 후기로만 채운다. 후기가 없는 식당은 이 문구를 그대로 내려준다.
-    public static final String NO_REVIEW_ONE_LINER = "후기가 없습니다.";
+    public static final String NO_REVIEW_ONE_LINER = ReviewOneLiner.NO_REVIEW;
 
     // oneLineReviews: restaurantId → 사용자 후기에서 뽑은 한줄평. 없는 식당은 NO_REVIEW_ONE_LINER로 채운다.
     public static DiscoverySpotsResponse from(List<DiscoverySpot> discoverySpots, Map<Long, String> oneLineReviews) {

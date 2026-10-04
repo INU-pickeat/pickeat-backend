@@ -89,6 +89,14 @@ public class Pick {
         }
     }
 
+    // 후기가 삭제되면 방문 기록도 없던 일이 된다. REVIEWED가 아니면 아무것도 하지 않는다.
+    public void revertReview() {
+        if (status == PickStatus.REVIEWED) {
+            status = PickStatus.SELECTED;
+            visitedAt = null;
+        }
+    }
+
     @PrePersist
     protected void onCreate() {
         Instant now = Instant.now();

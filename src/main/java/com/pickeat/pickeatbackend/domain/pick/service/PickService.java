@@ -16,12 +16,16 @@ import com.pickeat.pickeatbackend.domain.recommendation.exception.Recommendation
 import com.pickeat.pickeatbackend.domain.recommendation.repository.RecommendationCandidateRepository;
 import com.pickeat.pickeatbackend.domain.recommendation.repository.RecommendationSessionRepository;
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantRepository;
+import com.pickeat.pickeatbackend.domain.review.repository.PickImage;
+import com.pickeat.pickeatbackend.domain.review.repository.ReviewImageRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import com.pickeat.pickeatbackend.global.exception.GlobalErrorCode;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -40,6 +44,7 @@ public class PickService {
     private final RecommendationSessionRepository sessionRepository;
     private final RecommendationCandidateRepository candidateRepository;
     private final RestaurantRepository restaurantRepository;
+    private final ReviewImageRepository reviewImageRepository;
 
     @Transactional
     public PickResponse create(CreatePickRequest request, Long memberId) {
@@ -69,6 +74,10 @@ public class PickService {
 
     @Transactional
     public PickResponse updateStatus(Long pickId, PickStatusUpdateRequest request, Long memberId) {
+        // REVIEWED는 후기 작성(POST /api/v1/reviews)으로만 전환된다. 이 API로는 취소만 할 수 있다.
+        if (request.status() == PickStatus.REVIEWED) {
+            throw new BusinessException(PickErrorCode.REVIEW_REQUIRED);
+        }
         Pick pick = pickRepository.findByIdAndMemberId(pickId, memberId)
                 .orElseThrow(() -> new BusinessException(PickErrorCode.PICK_NOT_FOUND));
         pick.changeStatus(request.status());
@@ -91,6 +100,7 @@ public class PickService {
     }
 
     // Pick 캘린더는 REVIEWED만, 달력 월(한국 시간) 단위로 방문일(visitedAt) 기준 집계한다.
+    // 날짜 대표 이미지는 그날 가장 먼저 쓴 후기 중 사진이 있는 첫 후기의 첫 번째 사진이다.
     @Transactional(readOnly = true)
     public PickCalendarResponse getMyPickCalendar(Long memberId, int year, int month) {
         if (year < MIN_CALENDAR_YEAR || year > MAX_CALENDAR_YEAR || month < 1 || month > 12) {
@@ -102,6 +112,15 @@ public class PickService {
         List<Pick> picks = pickRepository
                 .findByMemberIdAndStatusAndVisitedAtGreaterThanEqualAndVisitedAtLessThanOrderByVisitedAtAscIdAsc(
                         memberId, PickStatus.REVIEWED, from, to);
-        return PickCalendarResponse.of(yearMonth, picks, CALENDAR_ZONE);
+        return PickCalendarResponse.of(yearMonth, picks, CALENDAR_ZONE, firstReviewImageByPickId(picks));
+    }
+
+    private Map<Long, String> firstReviewImageByPickId(List<Pick> picks) {
+        if (picks.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> pickIds = picks.stream().map(Pick::getId).toList();
+        return reviewImageRepository.findFirstImagesByPickIds(pickIds).stream()
+                .collect(Collectors.toMap(PickImage::pickId, PickImage::imageUrl, (first, ignored) -> first));
     }
 }

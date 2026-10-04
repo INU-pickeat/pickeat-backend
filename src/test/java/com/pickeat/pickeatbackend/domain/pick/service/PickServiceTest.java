@@ -16,6 +16,7 @@ import com.pickeat.pickeatbackend.domain.pick.dto.PickStatusUpdateRequest;
 import com.pickeat.pickeatbackend.domain.pick.dto.RecentPicksResponse;
 import com.pickeat.pickeatbackend.domain.pick.entity.Pick;
 import com.pickeat.pickeatbackend.domain.pick.entity.PickStatus;
+import com.pickeat.pickeatbackend.domain.pick.exception.PickErrorCode;
 import com.pickeat.pickeatbackend.domain.pick.repository.PickRepository;
 import com.pickeat.pickeatbackend.domain.pick.repository.RestaurantPickSummary;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
@@ -24,6 +25,8 @@ import com.pickeat.pickeatbackend.domain.recommendation.repository.Recommendatio
 import com.pickeat.pickeatbackend.domain.recommendation.repository.RecommendationSessionRepository;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantRepository;
+import com.pickeat.pickeatbackend.domain.review.repository.PickImage;
+import com.pickeat.pickeatbackend.domain.review.repository.ReviewImageRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -46,6 +49,7 @@ class PickServiceTest {
     @Mock RecommendationSessionRepository sessionRepository;
     @Mock RecommendationCandidateRepository candidateRepository;
     @Mock RestaurantRepository restaurantRepository;
+    @Mock ReviewImageRepository reviewImageRepository;
 
     private PickService pickService;
     private Member member;
@@ -54,7 +58,8 @@ class PickServiceTest {
 
     @BeforeEach
     void setUp() {
-        pickService = new PickService(pickRepository, sessionRepository, candidateRepository, restaurantRepository);
+        pickService = new PickService(
+                pickRepository, sessionRepository, candidateRepository, restaurantRepository, reviewImageRepository);
         member = Member.builder().email("user@pickeat.com").password("password").nickname("사용자").build();
         ReflectionTestUtils.setField(member, "id", 1L);
         restaurant = Restaurant.builder().name("테스트 식당").latitude(37.5).longitude(127.0).build();
@@ -130,15 +135,26 @@ class PickServiceTest {
     }
 
     @Test
-    @DisplayName("본인 Pick 상태를 변경한다")
-    void updatesOwnedPickStatus() {
+    @DisplayName("본인 Pick을 취소 상태로 변경한다")
+    void cancelsOwnedPick() {
         Pick pick = persistedPick(30L);
         when(pickRepository.findByIdAndMemberId(30L, 1L)).thenReturn(Optional.of(pick));
 
-        PickResponse response = pickService.updateStatus(30L, new PickStatusUpdateRequest(PickStatus.REVIEWED), 1L);
+        PickResponse response = pickService.updateStatus(30L, new PickStatusUpdateRequest(PickStatus.CANCELED), 1L);
 
-        assertThat(response.status()).isEqualTo(PickStatus.REVIEWED);
-        assertThat(response.visitedAt()).isNotNull();
+        assertThat(response.status()).isEqualTo(PickStatus.CANCELED);
+        assertThat(response.visitedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("상태 변경 API로는 REVIEWED로 바꿀 수 없다 — 후기 작성으로만 전환된다")
+    void rejectsReviewedViaStatusUpdate() {
+        assertThatThrownBy(() ->
+                pickService.updateStatus(30L, new PickStatusUpdateRequest(PickStatus.REVIEWED), 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(PickErrorCode.REVIEW_REQUIRED.getMessage());
+
+        verify(pickRepository, org.mockito.Mockito.never()).findByIdAndMemberId(any(), any());
     }
 
     @Test
@@ -227,6 +243,30 @@ class PickServiceTest {
         assertThat(response.dates().get(1).date()).isEqualTo(LocalDate.of(2026, 9, 22));
         assertThat(response.dates().get(1).recordCount()).isEqualTo(1);
         assertThat(response.dates().get(1).restaurantName()).isEqualTo("두 번째 식당");
+    }
+
+    @Test
+    @DisplayName("캘린더 대표 이미지는 그날 사진이 있는 첫 후기의 첫 번째 사진이다")
+    void usesFirstReviewImageOfDateAsRepresentative() {
+        Pick withoutImage = reviewedPick(30L, restaurant, Instant.parse("2026-09-21T01:00:00Z"));
+        Pick withImage = reviewedPick(31L, restaurant, Instant.parse("2026-09-21T03:00:00Z"));
+        Pick laterWithImage = reviewedPick(32L, restaurant, Instant.parse("2026-09-21T05:00:00Z"));
+        when(pickRepository
+                .findByMemberIdAndStatusAndVisitedAtGreaterThanEqualAndVisitedAtLessThanOrderByVisitedAtAscIdAsc(
+                        org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(PickStatus.REVIEWED),
+                        any(Instant.class), any(Instant.class)))
+                .thenReturn(List.of(withoutImage, withImage, laterWithImage));
+        when(reviewImageRepository.findFirstImagesByPickIds(List.of(30L, 31L, 32L)))
+                .thenReturn(List.of(
+                        new PickImage(32L, "https://img.pickeat.kr/reviews/1/later.jpg"),
+                        new PickImage(31L, "https://img.pickeat.kr/reviews/1/first.jpg")));
+
+        PickCalendarResponse response = pickService.getMyPickCalendar(1L, 2026, 9);
+
+        assertThat(response.dates()).hasSize(1);
+        assertThat(response.dates().get(0).recordCount()).isEqualTo(3);
+        assertThat(response.dates().get(0).representativeImageUrl())
+                .isEqualTo("https://img.pickeat.kr/reviews/1/first.jpg");
     }
 
     @Test

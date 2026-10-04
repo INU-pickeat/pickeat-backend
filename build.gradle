@@ -28,6 +28,11 @@ dependencies {
     implementation 'org.flywaydb:flyway-database-postgresql'
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
+    // 후기 이미지 presigned URL 서명용. 서명은 로컬 계산이라 HTTP 클라이언트(Netty·Apache)는 뺀다(t3.micro 메모리 절약).
+    implementation('software.amazon.awssdk:s3:2.29.52') {
+        exclude group: 'software.amazon.awssdk', module: 'netty-nio-client'
+        exclude group: 'software.amazon.awssdk', module: 'apache-client'
+    }
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
     compileOnly 'org.projectlombok:lombok'
