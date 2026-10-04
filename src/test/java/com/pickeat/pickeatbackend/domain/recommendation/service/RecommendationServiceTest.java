@@ -401,6 +401,56 @@ class RecommendationServiceTest {
     }
 
     @Test
+    @DisplayName("데이트 추천에서는 프랜차이즈를 제외하고 예외 브랜드와 개인 식당만 남긴다")
+    void excludesFranchisesForDate() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(
+                new RestaurantCandidate(restaurantWithId(1L, "새마을식당 홍대점"), 100),
+                new RestaurantCandidate(restaurantWithId(2L, "본죽&비빔밥 연남점"), 200),
+                new RestaurantCandidate(restaurantWithId(3L, "청기와타운 합정점"), 300),
+                new RestaurantCandidate(restaurantWithId(4L, "연남동 한식당"), 400)));
+
+        RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
+
+        assertThat(response.items()).extracting(RecommendationResponse.Item::name)
+                .containsExactlyInAnyOrder("청기와타운 합정점", "연남동 한식당");
+    }
+
+    @Test
+    @DisplayName("데이트가 아닌 동행 유형에서는 프랜차이즈를 제외하지 않는다")
+    void keepsFranchisesForOtherCompanionTypes() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(
+                new RestaurantCandidate(restaurantWithId(1L, "새마을식당 홍대점"), 100),
+                new RestaurantCandidate(restaurantWithId(4L, "연남동 한식당"), 400)));
+
+        RecommendationResponse response = recommendationService.recommend(request(CompanionType.SOLO), 1L);
+
+        assertThat(response.items()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("데이트 추천에서 프랜차이즈를 빼고 남은 후보가 10개 미만이면 Google로 보충한다")
+    void callsGoogleWhenFranchiseFilterLeavesFewerThanTenCandidates() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        List<RestaurantCandidate> candidates = IntStream.rangeClosed(1, 10)
+                .mapToObj(i -> new RestaurantCandidate(
+                        restaurantWithId((long) i, i <= 3 ? "한신포차 " + i + "호점" : "개인 식당 " + i), i * 50))
+                .toList();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(candidates);
+
+        RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
+
+        verify(googlePlacesClient).findNearbyRestaurants(
+                eq(37.5), eq(127.0), eq(1000.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet());
+        assertThat(response.items()).hasSize(5)
+                .extracting(RecommendationResponse.Item::name).allMatch(name -> name.startsWith("개인 식당"));
+    }
+
+    @Test
     @DisplayName("DB 유효 후보가 10개 이상이면 Google을 호출하지 않는다")
     void skipsGoogleWhenTenOrMoreValidDbCandidatesExist() {
         stubPersistence();

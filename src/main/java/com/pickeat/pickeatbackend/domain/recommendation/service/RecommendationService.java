@@ -18,6 +18,7 @@ import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantCandidate;
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantRepository;
+import com.pickeat.pickeatbackend.domain.restaurant.service.FranchiseBrands;
 import com.pickeat.pickeatbackend.domain.restaurant.service.RestaurantService;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.math.BigDecimal;
@@ -33,8 +34,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// DB 우선, 부족할 때만 Google 하이브리드(M2 계약 개편). DB에서 카테고리·가격 필터를 통과한
-// 유효 후보가 10개 미만일 때만 Google Places를 호출해 보충한다. 상위 10개를 세션 후보로
+// DB 우선, 부족할 때만 Google 하이브리드(M2 계약 개편). DB에서 카테고리·가격·데이트 프랜차이즈
+// 필터를 통과한 유효 후보가 10개 미만일 때만 Google Places를 호출해 보충한다. 상위 10개를 세션 후보로
 // 저장하고(1~5위 노출, 6~10위는 제외 시 대체), 응답에는 상위 5개만 반환한다.
 @Service
 @RequiredArgsConstructor
@@ -99,11 +100,14 @@ public class RecommendationService {
     }
 
     // DB에서 반경 이내 후보를 조회한 뒤 카테고리·가격 조건을 통과한 후보만 남긴다.
+    // 동행이 DATE면 프랜차이즈도 뺀다. 다른 동행 유형에는 적용하지 않는다.
     private List<RestaurantCandidate> findValidCandidates(RecommendationRequest request, double radiusMeters) {
         return restaurantRepository.findWithinRadius(request.latitude(), request.longitude(), radiusMeters)
                 .stream()
                 .filter(candidate -> request.foodCategories().contains(candidate.restaurant().getFoodCategory()))
                 .filter(candidate -> matchesPriceRange(candidate.restaurant(), request.priceRange()))
+                .filter(candidate -> request.companionType() != CompanionType.DATE
+                        || !FranchiseBrands.isFranchise(candidate.restaurant().getName()))
                 .toList();
     }
 
