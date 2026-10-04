@@ -36,7 +36,7 @@ class DiscoverySpotApiContractTest {
                         1L,
                         "야스노야지로 압구정점",
                         FoodCategory.JAPANESE,
-                        "일본 감성 닮은 양고기 오마카세",
+                        DiscoverySpotsResponse.NO_REVIEW_ONE_LINER,
                         "서울 강남구 논현로163길 13-5 한가빌딩 1층",
                         "매일 17:00~22:00",
                         "02-515-0818",
@@ -53,6 +53,7 @@ class DiscoverySpotApiContractTest {
                 .andExpect(jsonPath("$.spots[0].regionName").value("신사"))
                 .andExpect(jsonPath("$.spots[0].restaurants[0].name").value("야스노야지로 압구정점"))
                 .andExpect(jsonPath("$.spots[0].restaurants[0].foodCategory").value("JAPANESE"))
+                .andExpect(jsonPath("$.spots[0].restaurants[0].oneLineIntro").value("후기가 없습니다."))
                 .andExpect(jsonPath("$.spots[0].restaurants[0].representativeImageUrl")
                         .value("/images/discovery/sinsa_01_main.jpg"));
     }

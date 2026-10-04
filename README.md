@@ -70,6 +70,8 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - Pick 생성·상태 변경 API (`POST /api/v1/picks`, `PATCH /api/v1/picks/{pickId}`) — 추천 세션에 실제 노출된 후보만 선택 가능. 생성 시 추천 세션의 동행 유형을 스냅샷으로 저장
 - 내 최근 Pick 목록 API (`GET /api/v1/me/picks?period=week|month`) — SELECTED + REVIEWED를 식당별로 그룹화해 `pickCount`·`latestPickedAt` 반환
 - 내 Pick 지도 API (`GET /api/v1/me/picks/map`) — 본인 데이터만 조회, REVIEWED만 노출(SELECTED·CANCELED 미노출)
+- 내 Pick 캘린더 API (`GET /api/v1/me/picks/calendar?year=2026&month=9`) — REVIEWED만 방문일(`visitedAt`, 한국 시간) 기준 날짜별로 묶어 `recordCount`·그날 첫 식당 이름 반환. `representativeImageUrl`은 후기 사진 기능 전까지 `null`
+- 탐색 스팟 한줄평(`oneLineIntro`)은 앱 내 사용자 후기 기반 — 후기가 없으면 `"후기가 없습니다."` 반환(후기 집계 방식은 미정)
 - 초기 탐색 스팟 조회 API (`GET /api/v1/discovery-spots`) — 인증 없이 신사·혜화·서촌·한남·종로와 지역별 고정 노출 식당을 순서대로 조회
 
 **다음 할 일:** 초기 탐색 스팟의 최종 5개 지역과 25개 목록·JPG 대표 이미지 연결을 완료했습니다. Member 프로필 조회·수정과 Refresh Token도 완료했습니다. 프로필 이미지 업로드(Object Storage 확정 후), 데이트 프랜차이즈 제외, 제네릭 `restaurant` 분류도 남아 있습니다. Pick 캘린더는 Review 기능과 함께 Phase 2로 보류 중입니다.

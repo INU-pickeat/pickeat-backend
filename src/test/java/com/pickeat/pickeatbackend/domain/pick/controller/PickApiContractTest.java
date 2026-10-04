@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.pickeat.pickeatbackend.domain.pick.dto.CreatePickRequest;
+import com.pickeat.pickeatbackend.domain.pick.dto.PickCalendarResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickMapResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickPeriod;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickResponse;
@@ -23,6 +24,7 @@ import com.pickeat.pickeatbackend.domain.pick.service.PickService;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
 import com.pickeat.pickeatbackend.global.security.jwt.JwtTokenProvider;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -156,6 +158,54 @@ class PickApiContractTest {
                 .andExpect(jsonPath("$.code").value("GLOBAL_001"));
 
         verify(pickService, never()).getMyPicks(any(), any());
+    }
+
+    @Test
+    @DisplayName("내 Pick 캘린더 API는 날짜별 기록 수와 대표 식당 계약을 반환한다")
+    void getsMyPickCalendarWithDocumentedContract() throws Exception {
+        PickCalendarResponse response = new PickCalendarResponse(2026, 9, List.of(
+                new PickCalendarResponse.DateItem(LocalDate.of(2026, 9, 21), 2, "테스트 식당", null)));
+        when(pickService.getMyPickCalendar(MEMBER_ID, 2026, 9)).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/me/picks/calendar")
+                        .header("Authorization", authorizationHeader)
+                        .param("year", "2026")
+                        .param("month", "9"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.year").value(2026))
+                .andExpect(jsonPath("$.month").value(9))
+                .andExpect(jsonPath("$.dates.length()").value(1))
+                .andExpect(jsonPath("$.dates[0].date").value("2026-09-21"))
+                .andExpect(jsonPath("$.dates[0].recordCount").value(2))
+                .andExpect(jsonPath("$.dates[0].restaurantName").value("테스트 식당"))
+                .andExpect(jsonPath("$.dates[0].representativeImageUrl").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("Pick 캘린더 API는 인증이 필요하다")
+    void calendarRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/me/picks/calendar").param("year", "2026").param("month", "9"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("연·월이 없거나 숫자가 아닌 캘린더 요청은 공통 입력 오류를 반환한다")
+    void rejectsMissingOrMalformedCalendarMonth() throws Exception {
+        mockMvc.perform(get("/api/v1/me/picks/calendar")
+                        .header("Authorization", authorizationHeader)
+                        .param("year", "2026"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+
+        mockMvc.perform(get("/api/v1/me/picks/calendar")
+                        .header("Authorization", authorizationHeader)
+                        .param("year", "2026")
+                        .param("month", "sep"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+
+        verify(pickService, never()).getMyPickCalendar(any(), org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyInt());
     }
 
     private String validCreateRequest() {

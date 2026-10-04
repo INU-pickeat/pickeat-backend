@@ -35,6 +35,7 @@ public class DiscoverySpotRestaurant {
     @Column(nullable = false)
     private Integer displayOrder;
 
+    // 운영자가 시드한 소개 문구. 한줄평을 사용자 후기 기반으로 바꾸면서 API 응답에는 더 이상 쓰지 않는다.
     @Column(nullable = false, length = 200)
     private String oneLineIntro;
 }
