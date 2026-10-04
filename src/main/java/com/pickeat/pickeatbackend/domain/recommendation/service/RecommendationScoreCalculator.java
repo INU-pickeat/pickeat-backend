@@ -10,15 +10,16 @@ public class RecommendationScoreCalculator {
 
     private static final double RATING_FLOOR = 3.0;
     private static final double RATING_RANGE = 2.0;
-    private static final double SEARCH_RADIUS_METERS = 5000.0;
     private static final double RATING_WEIGHT = 0.7;
     private static final double DISTANCE_WEIGHT = 0.3;
     private static final double COMPANION_MATCH_BONUS = 0.1;
 
-    public ScoreBreakdown calculate(BigDecimal externalRating, double distanceMeters, boolean companionMatch) {
+    public ScoreBreakdown calculate(
+            BigDecimal externalRating, double distanceMeters, double radiusMeters, boolean companionMatch
+    ) {
         double ratingScore = externalRating == null ? 0.0
                 : Math.clamp((externalRating.doubleValue() - RATING_FLOOR) / RATING_RANGE, 0.0, 1.0);
-        double distanceScore = 1.0 - (distanceMeters / SEARCH_RADIUS_METERS);
+        double distanceScore = 1.0 - (distanceMeters / radiusMeters);
 
         double ratingContribution = RATING_WEIGHT * ratingScore;
         double distanceContribution = DISTANCE_WEIGHT * distanceScore;

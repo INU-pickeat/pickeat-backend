@@ -26,6 +26,14 @@ google:
   places:
     api-key: ${GOOGLE_PLACES_API_KEY:}
 
+storage:
+  s3:
+    # 후기 이미지 버킷. 비어 있으면 업로드 URL 발급만 REVIEW_006으로 거부하고 나머지 기능은 정상 동작한다.
+    bucket: ${REVIEW_IMAGE_BUCKET:}
+    region: ${REVIEW_IMAGE_REGION:ap-northeast-2}
+  # 이미지를 제공하는 주소(CloudFront 도메인 등). 비어 있으면 S3 버킷 주소를 그대로 쓴다.
+  public-base-url: ${REVIEW_IMAGE_BASE_URL:}
+
 springdoc:
   api-docs:
     enabled: false

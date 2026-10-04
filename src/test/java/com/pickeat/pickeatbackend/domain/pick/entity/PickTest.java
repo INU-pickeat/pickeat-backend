@@ -59,4 +59,27 @@ class PickTest {
         assertThatThrownBy(() -> pick.changeStatus(PickStatus.CANCELED))
                 .isInstanceOf(BusinessException.class);
     }
+
+    @Test
+    @DisplayName("후기가 삭제되면 REVIEWED Pick은 SELECTED로 돌아가고 방문 시각이 지워진다")
+    void revertsReviewedPickWhenReviewDeleted() {
+        Pick pick = Pick.builder().build();
+        pick.changeStatus(PickStatus.REVIEWED);
+
+        pick.revertReview();
+
+        assertThat(pick.getStatus()).isEqualTo(PickStatus.SELECTED);
+        assertThat(pick.getVisitedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("REVIEWED가 아닌 Pick은 되돌려도 상태가 바뀌지 않는다")
+    void keepsCanceledPickWhenReverting() {
+        Pick pick = Pick.builder().build();
+        pick.changeStatus(PickStatus.CANCELED);
+
+        pick.revertReview();
+
+        assertThat(pick.getStatus()).isEqualTo(PickStatus.CANCELED);
+    }
 }

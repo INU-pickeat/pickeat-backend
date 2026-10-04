@@ -2,6 +2,14 @@
 
 Pick Eat 백엔드는 EC2에서 실행 JAR를 systemd로 관리하고, GitHub Actions가 CI 성공 후 새 릴리스를 배포한다.
 
+## 현재 운영 상태 (2026-10-04)
+
+- 운영 주소: `https://api.pickeat.kr` (Elastic IP `3.39.48.167`)
+- EC2 생성, bootstrap, GitHub Secrets 등록, 최초 배포, DNS·HTTPS 연결까지 완료했다. 아래 1~3번은 새 인스턴스를 만들 때 따르는 절차다.
+- `main`의 CI가 성공하면 자동 CD가 배포한다.
+- 인증서 만료일은 2027-01-02이며 certbot 타이머가 자동 갱신한다.
+- 아직 하지 않은 것: 자동 롤백 실검증, 후기 이미지용 S3 버킷·IAM 역할 생성.
+
 ## 확정 구조
 
 - 실행 환경: AWS EC2 프리티어 **t3.micro** (2 vCPU, 1GB RAM) 한 대 + Ubuntu
@@ -23,7 +31,7 @@ Pick Eat 백엔드는 EC2에서 실행 JAR를 systemd로 관리하고, GitHub Ac
 
 Ubuntu 24.04 t3.micro를 만들고 Elastic IP를 연결한다. 루트 EBS는 프리티어 한도(30GB) 안에서 20GB 이상을 권장한다. 보안 그룹은 다음만 허용한다.
 
-- SSH 22: 관리자 고정 IP 또는 GitHub Actions가 접근 가능한 별도 경로
+- SSH 22: GitHub-hosted runner의 IP가 고정되지 않아 현재 `0.0.0.0/0`으로 열어 두었다. 키 인증 전용(`PasswordAuthentication no`)과 fail2ban으로 보완한다. 관리자 IP `/32`로만 열면 CD의 `scp`가 약 2분 뒤 exit 255로 실패한다. OIDC + SSM 배포로 바꾸면 22번을 닫을 수 있다
 - HTTP 80 / HTTPS 443: 사용자 트래픽
 - 8080, 5432: 열지 않음 (둘 다 인스턴스 내부에서만 사용)
 
@@ -34,7 +42,7 @@ sudo ./deploy/ec2/bootstrap.sh ubuntu api.pickeat.kr
 sudoedit /etc/pickeat/pickeat.env   # GOOGLE_PLACES_API_KEY 입력
 ```
 
-bootstrap은 swap, Java·Docker·Nginx·certbot 설치, PostGIS 컨테이너 실행, Nginx 설정, 백업 cron, systemd 서비스 등록을 한 번에 처리한다. 여러 번 실행해도 기존 환경변수 파일과 DB 볼륨은 유지된다. 환경변수 파일은 Git에 커밋하지 않는다.
+bootstrap은 swap, Java·Docker·Nginx·certbot 설치, PostGIS 컨테이너 실행, Nginx 설정, 백업 cron, systemd 서비스 등록을 한 번에 처리한다. 여러 번 실행해도 기존 환경변수 파일과 DB 볼륨은 유지된다. 단, Nginx 설정 파일은 템플릿으로 덮어쓰므로 **HTTPS 발급 뒤에 다시 실행하면 certbot이 넣은 SSL 설정이 사라진다.** 그때는 `sudo certbot --nginx -d api.pickeat.kr`를 다시 실행한다. 환경변수 파일은 Git에 커밋하지 않는다.
 
 ### 도메인과 HTTPS
 
@@ -42,7 +50,17 @@ bootstrap은 swap, Java·Docker·Nginx·certbot 설치, PostGIS 컨테이너 실
 2. 전파를 확인한 뒤 인증서를 발급한다. 갱신은 certbot 타이머가 자동으로 처리한다.
 
 ```bash
-sudo certbot --nginx -d api.pickeat.kr
+sudo certbot --nginx -d api.pickeat.kr --redirect
+sudo certbot renew --dry-run
+```
+
+Nginx 설정 파일은 `/etc/nginx/sites-available/pickeat`이다. IP로 bootstrap했다면 발급 전에 `server_name`을 도메인으로 바꾼다.
+
+확인할 때 `curl -I`(HEAD)는 쓰지 않는다. 인증 없이 허용된 메서드가 GET뿐이라 401이 나온다.
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://api.pickeat.kr/api/v1/discovery-spots   # 200
+curl -s -o /dev/null -D - -H "Origin: https://www.pickeat.kr" https://api.pickeat.kr/api/v1/discovery-spots | grep -i access-control
 ```
 
 ### 백업
@@ -53,6 +71,29 @@ sudo certbot --nginx -d api.pickeat.kr
 sudo /usr/local/bin/pickeat-backup          # 수동 백업
 docker exec -i pickeat-postgres pg_restore -U pick_eat -d pick_eat --clean < /var/backups/pickeat/pick_eat-YYYY-MM-DD.dump
 ```
+
+### 후기 이미지 S3
+
+후기 이미지는 클라이언트가 presigned URL로 S3에 직접 올린다. 설정하지 않아도 애플리케이션은 정상 동작하고, 업로드 URL 발급만 `REVIEW_006`(503)으로 거부된다.
+
+1. S3 버킷을 만든다(서울 리전). 이미지를 그대로 제공하려면 `reviews/*`에 공개 읽기를 허용하거나 CloudFront를 앞에 둔다.
+2. 버킷 CORS에 프론트 origin의 `PUT`을 허용한다.
+
+```json
+[{"AllowedOrigins": ["https://www.pickeat.kr", "https://pickeat.kr"], "AllowedMethods": ["PUT"], "AllowedHeaders": ["Content-Type"], "MaxAgeSeconds": 3600}]
+```
+
+3. EC2 인스턴스 역할에 `s3:PutObject`를 `arn:aws:s3:::<버킷>/reviews/*`에만 허용한다. 액세스 키는 쓰지 않는다.
+4. `/etc/pickeat/pickeat.env`에 값을 넣고 서비스를 재시작한다.
+
+```bash
+REVIEW_IMAGE_BUCKET=<버킷 이름>
+REVIEW_IMAGE_REGION=ap-northeast-2
+REVIEW_IMAGE_BASE_URL=            # CloudFront를 쓰면 https://xxxx.cloudfront.net
+sudo systemctl restart pickeat-backend.service
+```
+
+presigned PUT은 파일 크기를 제한하지 못한다. 필요해지면 S3 버킷 정책이나 presigned POST로 바꾼다.
 
 ## 2. GitHub Environment와 Secret
 
@@ -95,4 +136,4 @@ curl --fail https://api.pickeat.kr/api/v1/discovery-spots
 
 ## 롤백
 
-자동 헬스체크 실패 시 배포 스크립트가 직전 릴리스로 되돌린다. 수동 롤백은 `/opt/pickeat/releases`의 정상 릴리스를 `/opt/pickeat/current`가 가리키도록 바꾼 뒤 서비스를 재시작한다.
+자동 헬스체크 실패 시 배포 스크립트가 직전 릴리스로 되돌린다. 이 자동 롤백은 아직 실제 실패 배포로 검증하지 않았다. 수동 롤백은 `/opt/pickeat/releases`의 정상 릴리스를 `/opt/pickeat/current`가 가리키도록 바꾼 뒤 서비스를 재시작한다.

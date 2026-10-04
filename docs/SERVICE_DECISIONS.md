@@ -1,6 +1,8 @@
 # Pick Eat 서비스 결정 사항
 
-마지막 갱신일: 2026-09-28
+마지막 갱신일: 2026-10-04
+
+테스트 현황: 2026-10-04 `main`(`3009d49`) 기준 219개 통과. 아래 구현 결과에 적힌 개수는 각 작업 당시의 수치이며, 현재 수치는 CI 결과를 기준으로 한다.
 
 ## 제품 기준 문서
 
@@ -30,7 +32,7 @@
 - 대표 사진 25장은 JPG로 수령해 `{region}_{01..05}_main.jpg` 규칙으로 정규화했다. EXIF 메타데이터는 제거하고 `/images/discovery/{파일명}`에서 공개 제공하며, V15에서 각 Restaurant의 이미지 URL을 연결한다.
 - 가짜 식당을 운영 DB용 Flyway 시드로 만들지 않는다. 개발 중 임시 데이터가 필요하면 테스트 fixture 또는 API mock에만 둔다.
 
-이 25곳은 **탐색 스팟 전용 데이터**다. M2 위치 기반 추천의 후보 정책을 대신하지 않으며, 추천에서는 다른 Restaurant와 동일하게 5km·음식 카테고리 조건을 통과할 때만 후보가 될 수 있다.
+이 25곳은 **탐색 스팟 전용 데이터**다. M2 위치 기반 추천의 후보 정책을 대신하지 않으며, 추천에서는 다른 Restaurant와 동일하게 검색 반경(수도권·부산 1km, 그 외 5km)·음식 카테고리 조건을 통과할 때만 후보가 될 수 있다.
 
 ### Google Nearby Search 카테고리 선처리 (2026-09-20)
 
@@ -38,7 +40,7 @@
 
 - Google Nearby Search는 한 번 호출에 최대 20개까지만 반환하고, 이건 "반경 안 전체를 찾은 뒤 자르는" 게 아니라 Google이 자기 랭킹(`POPULARITY`/`DISTANCE`) 기준으로 골라주는 상위 20개다.
 - `includedPrimaryTypes`를 카테고리에 맞게 좁히면 이 20개 슬롯이 hotel·halal_restaurant처럼 어차피 제외할 타입에 낭비되지 않고 관련 있는 후보로 채워진다.
-- 추천 후보는 M2 ADR에 따라 매 요청 Google Nearby Search를 호출하고 응답을 DB에 upsert한 뒤 5km 반경 후보를 조회한다. 전환 조건은 아래 "M2 ADR 확정 결과"를 따른다.
+- 추천 후보는 DB에서 검색 반경 안의 유효 후보를 먼저 조회하고, 10개 미만일 때만 Google Nearby Search를 호출해 upsert한 뒤 다시 조회한다(2026-09-22 개편). 초기 계약이던 "매 요청 Google 호출"은 폐기했다.
 
 ### Google upsert 정책 (M1-3, 2026-09-20)
 
@@ -80,7 +82,7 @@
 
 ## 추천 기본 정책
 
-- 검색 반경은 5km로 고정하고 직선 거리를 사용한다.
+- 검색 반경은 수도권(서울·인천·경기)과 부산 1km(위경도 사각형 근사), 그 외 지역 5km이며 직선 거리를 사용한다. 거리 점수 정규화도 같은 반경을 쓴다(2026-09-28).
 - 후보가 5개 미만이어도 반경을 자동으로 넓히지 않는다.
 - 조회는 `RestaurantRepository.findWithinRadius()`(M1-4, 2026-09-20)가 담당한다. `ST_DWithin(location, point, radius)`로 GiST 인덱스(`restaurants_location_gist_idx`)를 태울 수 있는 형태를 쓰고, 거리순 정렬 결과를 반환한다. 반경은 호출자가 넘긴 값 그대로만 쓰고 메서드 내부에서 넓히지 않는다.
 - 음식 카테고리는 한식·일식·중식·양식·카페/디저트·펍/와인/술집·기타 7종이다.
@@ -92,26 +94,28 @@
 
 ## API와 운영
 
-- 인증 없이 접근 가능한 엔드포인트는 `/api/v1/auth/signup`, `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/logout`이다.
+- 인증 없이 접근 가능한 엔드포인트는 `/api/v1/auth/signup`, `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/logout`, `GET /api/v1/discovery-spots`, `GET /images/discovery/**`이다.
 - 그 외 모든 비즈니스 엔드포인트는 명시적으로 문서화되지 않는 한 인증(bearer token)이 필요하다.
-- 예외: `GET /api/v1/restaurants/**`는 인증 없이 접근 가능하다. 식당 상세는 민감 정보가 아니고, 공유 링크는 비로그인 사용자도 열 수 있어야 한다. 식당 관련 쓰기/변경 작업은 여전히 인증이 필요하다.
+- 예외: `GET /api/v1/restaurants/**`는 인증 없이 접근 가능하다. 식당 상세는 민감 정보가 아니고, 공유 링크는 비로그인 사용자도 열 수 있어야 한다. 식당별 후기 요약(`GET /api/v1/restaurants/{id}/review-summary`)도 이 경로 아래라 인증 없이 조회한다. 식당 관련 쓰기/변경 작업은 여전히 인증이 필요하다.
 - OpenAPI와 Swagger UI는 `local` Spring 프로필에서만 활성화된다.
-- 스키마 변경은 기존 Member 마이그레이션 이력 다음부터 이어간다: Restaurant는 Flyway V5·V6, Recommendation은 V7, Pick은 V8을 사용한다. 2026-09-22 계약 변경은 V9부터 사용하고 초기 탐색 스팟은 그 이후 버전을 사용한다.
+- 스키마 변경은 기존 Member 마이그레이션 이력 다음부터 이어간다: Restaurant는 Flyway V5·V6, Recommendation은 V7, Pick은 V8을 사용한다. 2026-09-22 계약 변경은 V9부터 사용하고 초기 탐색 스팟은 V13~V15, Refresh Token은 V18, Review·이미지·좋아요는 V19를 사용한다.
 
 ## 배포 결정
 
 - 운영 애플리케이션 서버는 AWS EC2를 사용한다.
 - CI와 CD는 GitHub Actions를 사용한다. CD는 `main` CI 성공 후 실행 JAR를 EC2에 전송한다. `DEPLOY_ENABLED=true` 전에는 실행하지 않는다.
 - EC2에서는 Java 21 실행 JAR를 systemd로 관리한다. 릴리스별 디렉터리와 `current` 심볼릭 링크를 사용하고, `/actuator/health` 실패 시 직전 릴리스로 자동 롤백한다.
-- 운영 공개 전 HTTPS 종료 지점(Nginx 또는 ALB)과 도메인을 확정한다. 애플리케이션 8080 포트는 외부에 직접 공개하지 않는다.
+- HTTPS 종료 지점은 Nginx, 도메인은 `api.pickeat.kr`로 확정했고 2026-10-04 운영에 적용했다. 애플리케이션 8080 포트는 외부에 직접 공개하지 않는다.
 - 운영 인스턴스는 AWS EC2 프리티어 t3.micro(1GB RAM) 한 대로 시작한다(2026-09-28 확정). JVM 힙은 `-Xmx384m`으로 제한하고 2GB swap을 둔다.
 - 운영 PostgreSQL/PostGIS는 같은 인스턴스의 Docker 컨테이너(`postgis/postgis:16-3.4`, CI와 같은 이미지)로 운영한다(2026-09-28 확정). `127.0.0.1`에만 바인딩하고 매일 `pg_dump` 백업과 EBS 스냅샷으로 보존한다. 메모리가 부족해지면 DB만 RDS로 옮기며, 애플리케이션은 `DB_URL` 등 환경변수만 사용한다.
 - API 도메인은 `api.pickeat.kr`이며 Nginx + Let's Encrypt로 HTTPS를 종료한다. `/actuator/**`는 외부에 노출하지 않는다.
+- GitHub Actions의 EC2 배포는 SSH(22번)로 한다. GitHub-hosted runner의 IP가 고정되지 않아 22번 인바운드를 `0.0.0.0/0`으로 열고, 키 인증 전용(`PasswordAuthentication no`)과 fail2ban으로 보완한다(2026-10-01). 여유가 생기면 OIDC + SSM 배포로 바꿔 22번을 닫는다.
+- 후기 이미지는 S3 presigned URL로 클라이언트가 직접 올리고 서버는 URL만 저장한다(2026-10-04). 버킷이 설정되지 않은 환경에서도 애플리케이션은 기동하며 업로드 URL 발급만 `REVIEW_006`으로 거부한다. 자격 증명은 EC2 인스턴스 역할에서 읽는다.
 - 운영 비밀 값(`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, `GOOGLE_PLACES_API_KEY`)은 저장소에 커밋하지 않고 GitHub Actions Secrets 또는 AWS의 비밀 저장소에서 주입한다.
 
 ## 구현 현황
 
-- 기반 구현 완료: Member 회원가입·로그인, JWT 필터, Restaurant 영속성 모델, PostGIS 위치 컬럼과 인덱스, 기존 동행 적합도 플래그, CI 데이터베이스 서비스, 식당 상세 조회 API, Google Places 클라이언트, Google Restaurant upsert·갱신 정책, PostGIS 5km 반경 후보 조회, 외부 지도 링크 API. 기존 **M1 Restaurant 마일스톤은 2026-09-20 완료**했으며, 2026-09-22 기획의 카테고리·동행 신호·가격 필드 확장은 별도 후속 작업으로 다시 열었다.
+- 기반 구현 완료: Member 회원가입·로그인, JWT 필터, Restaurant 영속성 모델, PostGIS 위치 컬럼과 인덱스, 기존 동행 적합도 플래그, CI 데이터베이스 서비스, 식당 상세 조회 API, Google Places 클라이언트, Google Restaurant upsert·갱신 정책, PostGIS 반경 후보 조회, 외부 지도 링크 API. 기존 **M1 Restaurant 마일스톤은 2026-09-20 완료**했으며, 2026-09-22 기획의 카테고리·동행 신호·가격 필드 확장은 별도 후속 작업으로 다시 열었다.
 - M2 작업은 아래 순서로 진행한다. 완료된 항목은 체크하고, 항목을 마칠 때마다 이 목록을 갱신한다.
   1. [x] 문서 계약 정리: Notion API 상태, README 로컬 실행법, 초기 탐색 스팟 정책을 동기화한다. (PR #24)
   2. [x] M2 ADR 확정: 추천 후보 조회 방식과 평점 보정·거리 정규화·동행 가산점 수치를 결정한다. → 아래 "M2 ADR 확정 결과" 참고.
@@ -124,12 +128,21 @@
      - [x] 새 점수 공식(평점 정규화 3.0~5.0 클램프, 0.7/0.3, 가산점 0.1). → 아래 "M2 점수 공식 재구현 결과" 참고.
      - [x] 재추천(다시 추천) + 제외 사유. → 아래 "M2 재추천 + 제외 사유 구현 결과" 참고.
      - [ ] 제네릭 `restaurant` 보완 분류, 데이트 프랜차이즈 제외(브랜드 목록 준비 전까지 보류)
-  8. [x] **M3 계약 개편.** Pick 동행 스냅샷, 기간별 식당 집계 목록, REVIEWED 전용 지도를 반영했다. 기존 생성·상태 전이·권한 검증은 유지한다. Pick 캘린더는 Phase 2(Review 구현)로 보류. → "M3 계약 개편 구현 결과" 참고.
+  8. [x] **M3 계약 개편.** Pick 동행 스냅샷, 기간별 식당 집계 목록, REVIEWED 전용 지도를 반영했다. 기존 생성·상태 전이·권한 검증은 유지한다. Pick 캘린더는 2026-10-04에 구현했다(#39). → "M3 계약 개편 구현 결과", "Pick 캘린더 구현 결과" 참고.
   9. [x] **M2.5: 초기 탐색 스팟.** V13에서 최종 5개 지역, 지역-식당 관계 스키마와 공개 탐색 조회 API를 구현했다. Google Places Text Search로 25개 식당의 Place ID·좌표를 검증하고 V14로 Restaurant와 지역별 고정 순서를 시드했다. 사진은 JPG 수령 후 URL만 후속 반영한다.
-  10. [ ] **배포/CD.** GitHub Actions CD·systemd·헬스체크·자동 롤백 구성은 완료. t3.micro 단일 인스턴스 구성(swap·PostGIS Docker·Nginx·백업 cron·JVM 힙 제한)을 `bootstrap.sh`에 반영했다. EC2 생성, DNS·HTTPS 연결, Secrets 등록과 최초 실배포가 남아 있다.
-  11. [ ] 프론트엔드 연동 MVP E2E를 검증한다.
+  10. [x] **배포/CD.** GitHub Actions CD·systemd·헬스체크·자동 롤백 구성, t3.micro 단일 인스턴스 구성(swap·PostGIS Docker·Nginx·백업 cron·JVM 힙 제한), EC2 생성, Secrets 등록, 최초 실배포(2026-10-01), DNS·HTTPS 연결(2026-10-04)을 마쳤다. 자동 롤백을 실제 실패 배포로 검증하는 일만 남았다. → "운영 배포 결과" 참고.
+  11. [ ] 프론트엔드 연동 MVP E2E를 검증한다. 백엔드 단독 E2E(회원가입 → 추천 → 다시 추천 → Pick → 로그아웃)는 운영 HTTPS 기준으로 통과했다(2026-10-04).
   12. [x] **Refresh Token.** 로그인 시 refresh token을 함께 발급하고, 재발급(rotation)·로그아웃(폐기) API를 추가했다. → 아래 "Refresh Token 구현 결과" 참고.
-  13. [ ] 프로필 이미지 업로드 — Object Storage(S3 여부) 결정 후 진행한다.
+  13. [ ] 프로필 이미지 업로드 — 후기 이미지와 같은 S3 presigned URL 방식을 쓰기로 했다. 구현은 아직이다.
+  14. [x] **지역별 검색 반경.** 수도권·부산은 1km, 그 외 지역은 5km로 바꿨다. → 아래 "지역별 검색 반경 구현 결과" 참고.
+  15. [x] **S3 도입 범위 결정.** (B) 사용자 업로드를 골랐고 후기 이미지부터 presigned URL로 도입했다(2026-10-04). 탐색 스팟 JPG 25장은 계속 JAR에서 제공한다. 버킷·IAM·CORS 설정은 `docs/DEPLOYMENT.md` 참고.
+  16. [ ] **(보류) 반경 판정 정확도.** 사각형 근사로 생기는 경계 오판(춘천 서부·철원·김해·양산 일부는 1km, 양평·가평·여주 동쪽 끝과 인천 먼 섬은 5km)이 실제 문제가 되면 행정구역 폴리곤이나 역지오코딩으로 교체한다.
+  17. [ ] **(보류) 1km 반경 거리 가중치.** 실사용 데이터에서 1km 안의 거리 차이가 선택에 영향이 없다고 확인되면 거리 가중치(0.3) 하향을 기획서에서 검토한다. 그 전에는 ADR에 따라 상수를 바꾸지 않는다.
+
+  18. [x] **Review·공개 피드·좋아요·후기 요약.** 후기 작성·조회·수정·삭제, 이미지 업로드 URL, 공개 피드, 공개 후기 좋아요, 식당별 후기 요약을 구현했다(V19). → "Review·피드 구현 결과" 참고.
+  19. [ ] **(보류) 동적 지역별 인기맛집.** 후기·좋아요 데이터가 쌓인 뒤 진행한다. 그 전까지 탐색 스팟은 운영자 선정 25곳을 유지한다.
+  20. [x] **(제외) 카테고리·동행 유형 조회 API.** 별도 조회 API를 만들지 않는다. 후기 작성 화면에서 사용자가 고른 값을 후기 저장 요청에 함께 받는다(2026-10-04).
+  21. [ ] **후기 한줄평 선정 규칙 확정.** 지금은 식당별 가장 최근 공개 후기의 첫 줄(최대 50자)이다. 좋아요 수 등 다른 기준이 정해지면 `ReviewSummaryService`만 바꾼다.
 
 ### M2 ADR 확정 결과 (2026-09-21, 2026-09-22 개편으로 일부 폐기)
 
@@ -142,7 +155,7 @@
 - 추천 후보는 Google Nearby Search 응답을 upsert한 뒤 `RestaurantRepository.findWithinRadius()`로 다시 조회해 거리를 얻는다 — CURATED 데이터가 생기는 M2.5 이후에도 같은 조회로 자동 포함된다.
 - 후보가 0개면 빈 `items`, 1~4개면 조회된 개수만, 5개를 초과하면 점수순 상위 5개만 반환하는 경계 테스트를 고정했다.
 - 추천 생성·세션 조회의 JWT 인증, HTTP 상태, 요청 검증 오류(`GLOBAL_001`), JSON 응답 필드를 MockMvc 계약 테스트로 검증한다.
-- 전체 테스트 134개가 통과한다.
+- 당시 기준 전체 테스트 134개가 통과했다.
 
 초기 탐색 스팟의 지역·개수·25개 식당·노출 순서는 2026-09-23 확정했다. 식당별 좌표와 Google Place ID를 Google Places Text Search로 검증하고 V14에서 실제 Restaurant와 지역 관계 데이터를 시드했다. 서촌 `팔`은 일반 명사 검색의 첫 결과가 오매칭되어 `카페 팔 서촌` 재검색과 주소 대조로 Google 표기 `PHAL`을 확정했다.
 
@@ -154,14 +167,14 @@
 - 점수순 상위 10개를 세션 후보로 저장한다(1~5위는 응답에 노출, 6~10위는 추후 제외 API를 위한 대체 후보로만 보관). 추천 생성·세션 조회 API 응답에는 상위 5개만 반환한다.
 - `RecommendationSession`에 요청 당시 `price_range_min`/`price_range_max`를 저장한다(V10). `recommendation_candidates.result_rank` 제약을 1~5에서 1~10으로 넓혔다.
 - 프랜차이즈 브랜드 목록이 아직 없어 데이트 프랜차이즈 제외 필터와 제네릭 `restaurant` 보완 분류, 새 점수 공식(0.7/0.3 가중치)은 이번 작업 범위에서 제외했다.
-- 단위·API 계약·Flyway 통합 테스트를 추가해 전체 테스트 164개가 통과한다.
+- 단위·API 계약·Flyway 통합 테스트를 추가해 당시 기준 전체 테스트 164개가 통과했다.
 
 ### M2 점수 공식 재구현 결과 (2026-09-22)
 
 - `RecommendationScoreCalculator`를 ADR 확정본으로 교체했다. 평점은 `(rating - 3.0) / 2.0`으로 정규화한 뒤 `Math.clamp`로 0~1에 제한하고(3.0 미만은 0점, 5.0은 만점), 거리 점수(`1 - distance/5000`)는 그대로 두되 가중치를 `rating=0.7`, `distance=0.3`으로 바꿨다. 동행 적합 가산점 `0.1`은 유지한다.
 - 평점이 없으면(NULL) 기존과 동일하게 평점 항을 0으로 계산한다.
 - `RecommendationScoreCalculatorTest`에 평점 3.0 미만이 3.0과 동일하게 0점 처리되는 클램프 경계 테스트를 추가했다.
-- 전체 테스트 165개가 통과한다.
+- 당시 기준 전체 테스트 165개가 통과했다.
 
 ### M2 재추천 + 제외 사유 구현 결과 (2026-09-22)
 
@@ -171,15 +184,15 @@
 - 노출 목록은 세션에 저장된 1~10위 후보 중 제외되지 않은 것만 순서대로 최대 5개 뽑아 구성한다. 대체 후보가 소진되면(10위까지 다 제외) 반경을 넓히지 않고 5개보다 적게 노출한다.
 - 제외는 해당 세션 안에서만 유효하다(영구 차단 아님) — 다른 세션이나 이후 추천에는 영향을 주지 않는다.
 - `RecommendationResponse.Item.rank`의 의미를 세션 저장 순위(1~10, 불변)에서 현재 노출 목록 안에서의 위치(항상 1부터 연속)로 바꿨다. 제외로 빈 자리가 생기면 다음 대체 후보가 그 자리의 순위를 그대로 이어받는다. `recommend`/`getSession` 기존 응답 계약은 동일하게 유지된다(제외 이력이 없으면 결과가 같다).
-- 단위·API 계약·Flyway 통합 테스트를 추가해 전체 테스트 180개가 통과한다.
+- 단위·API 계약·Flyway 통합 테스트를 추가해 당시 기준 전체 테스트 180개가 통과했다.
 
 ### M3 계약 개편 구현 결과 (2026-09-22)
 
 - **Pick 동행 스냅샷.** `Pick`에 `companion_type` 컬럼을 추가하고(V12), 생성 시 추천 세션의 `companionType`을 그대로 복사해 저장한다. 이후 세션이 바뀌어도 이미 생성된 Pick의 값은 변하지 않는다. 기존 행은 연결된 세션의 현재 `companion_type`으로 백필했다.
 - **Pick 지도 REVIEWED 전용.** 기존 "CANCELED만 제외"에서 "REVIEWED만 노출"로 바꿨다(`findByMemberIdAndStatusOrderBySelectedAtDescIdDesc`). `PickMapResponse.Item`에 스냅샷된 `companionType`을 추가해 지도 팝업에 표시할 수 있게 했다. Review 기능이 아직 없어 REVIEWED Pick이 생기기 전까지는 지도 결과가 비어 있는 것이 정상이다.
 - **최근 Pick 목록 개편.** `GET /api/v1/me/picks`의 계약을 페이지 조회에서 `period=week|month` 필수 쿼리 파라미터 기반 식당별 집계로 완전히 교체했다(기존 `page`/`size`, `PickListResponse`는 제거). SELECTED + REVIEWED만 집계하고 CANCELED는 제외하며, 식당별로 `pickCount`와 `latestPickedAt`을 반환한다. `period`는 `week`(최근 7일)·`month`(최근 30일) 롤링 윈도우로 해석했다 — 기획서에 "일주일 기준"/"한 달 기준"의 정확한 경계(캘린더 월 vs 롤링 30일)가 명시되어 있지 않아 내린 구현 판단이며, 기획자 확인이 필요하면 조정한다. `period`가 `week`/`month`가 아니면 `GLOBAL_001`로 거부한다.
-- **Pick 캘린더는 범위 밖.** 기획서에 "캘린더는 Phase 2 Review 구현과 함께 진행"이라고 명시되어 있고, 대표 이미지 출처가 리뷰 사진인데 Review 모듈이 아직 없어 이번 작업에서 구현하지 않았다.
-- 단위·API 계약·Flyway 통합 테스트를 갱신해 전체 테스트 184개가 통과한다.
+- **Pick 캘린더는 당시 범위 밖.** 대표 이미지 출처가 리뷰 사진인데 Review 모듈이 없어 이 작업에서는 구현하지 않았다. 2026-10-04에 구현했다 — "Pick 캘린더 구현 결과" 참고.
+- 단위·API 계약·Flyway 통합 테스트를 갱신해 당시 기준 전체 테스트 184개가 통과했다.
 
 ### Member 프로필 구현 결과 (2026-09-28)
 
@@ -199,6 +212,37 @@
 - 만료된 토큰 행은 같은 회원이 새로 발급받을 때 정리한다. 별도 정리 배치는 두지 않는다.
 - 재사용 감지(이미 쓴 토큰이 다시 오면 그 계열 토큰 전체 폐기)는 구현하지 않았다. 탈취 대응이 필요해지면 `family_id` 컬럼을 추가한다.
 
+### 지역별 검색 반경 구현 결과 (2026-09-28)
+
+- `RecommendationService.searchRadiusMeters(lat, lng)`가 수도권(위도 36.89~38.30, 경도 126.30~127.70)·부산(위도 34.88~35.39, 경도 128.76~129.31)이면 1000m, 그 외는 5000m를 돌려준다.
+- DB 반경 조회, Google Nearby Search `radius`, 거리 점수 정규화(`1 - 거리/반경`)가 모두 같은 값을 쓴다. 정규화가 반경 기준이라 점수 범위(거리 0~0.3)와 가중치 0.7/0.3/+0.1은 그대로 유지된다.
+- 행정구역을 조회하지 않는 위경도 사각형 근사다. 경계 오판은 구현 현황 16번 참고.
+- `recommendation_candidates.distance_meters` CHECK(0~5000)는 최대 반경과 같아 변경하지 않았다.
+
+### Pick 캘린더 구현 결과 (2026-10-04)
+
+- `GET /api/v1/me/picks/calendar?year&month`. REVIEWED만 방문일(`visited_at`)을 한국 시간 날짜로 묶어 `recordCount`, 그날 첫 기록의 `restaurantName`, `representativeImageUrl`을 돌려준다.
+- 월 경계도 한국 시간 기준이다. 연 2000~2100·월 1~12 밖이거나 누락·숫자 아님이면 `GLOBAL_001`이다. 쿼리 파라미터 누락·타입 오류를 공통 예외 핸들러에서 `GLOBAL_001`로 응답하도록 함께 바꿨다.
+- 대표 이미지는 그날 가장 먼저 쓴 후기 중 사진이 있는 첫 후기의 첫 번째(0번) 사진이다. 그날 후기에 사진이 하나도 없으면 `null`이다.
+
+### Review·피드 구현 결과 (2026-10-04)
+
+- **후기.** `POST /api/v1/reviews`, `GET`/`PATCH`/`DELETE /api/v1/reviews/{reviewId}`. 후기는 Pick 하나당 하나이며(`REVIEW_002`), 작성하면 그 Pick이 `REVIEWED`가 된다. 취소한 Pick에는 쓸 수 없다(`PICK_004`). 삭제하면 Pick이 `SELECTED`로 돌아가 지도·캘린더에서 빠지고 다시 후기를 쓸 수 있다.
+- **입력값.** 별점 1~5, 내용 1~1000자, 음식 카테고리, 동행 유형, 공개 범위(`PUBLIC`/`PRIVATE`), 이미지 URL 최대 1개(`imageUrls` 배열로 받되 지금은 한 장만 허용한다). 음식 카테고리와 동행 유형은 추천 세션 값이 아니라 후기 작성 화면에서 사용자가 직접 고른 값이다. 그래서 선택지 조회 API는 따로 만들지 않았다.
+- **이미지.** `POST /api/v1/reviews/images/upload-urls`에 Content-Type 목록을 보내면 10분짜리 S3 presigned PUT URL과 저장될 `imageUrl`을 돌려준다. JPEG·PNG·WebP만 허용한다(`REVIEW_005`). 후기에는 본인 경로(`reviews/{memberId}/`) 아래의 URL만 붙일 수 있다(`REVIEW_004`). 버킷이 설정되지 않았으면 발급을 `REVIEW_006`(503)으로 거부한다. presigned PUT은 파일 크기를 제한하지 못하고, 후기에서 뺀 이미지의 S3 객체는 지우지 않는다.
+- **공개 피드.** `GET /api/v1/feed?cursor&size`. `PUBLIC` 후기만 최신순으로 내려준다. 커서는 이전 응답의 `nextCursor`(마지막 `reviewId`)이고 `null`이면 마지막 페이지다. 크기는 1~50, 기본 20이다. 인증이 필요하며 항목마다 `likeCount`와 `likedByMe`를 준다.
+- **좋아요.** `POST`/`DELETE /api/v1/reviews/{reviewId}/likes`. 공개 후기에만 누를 수 있다. 본인의 비공개 후기는 `REVIEW_003`(409), 남의 비공개 후기는 존재를 알리지 않도록 `REVIEW_001`(404)이다. 여러 번 눌러도 한 번으로 세며, 동시 요청은 DB 유니크 제약과 `ON CONFLICT DO NOTHING`으로 처리한다.
+- **식당별 후기 요약.** `GET /api/v1/restaurants/{restaurantId}/review-summary`. 공개 후기 수, 평균 별점(소수 첫째 자리), 대표 한줄평을 돌려준다. 인증이 필요 없다. 후기가 없으면 0건·평균 `null`·`"후기가 없습니다."`다.
+- **한줄평.** 탐색 스팟의 `oneLineIntro`와 후기 요약의 `oneLineReview`는 같은 규칙을 쓴다. 식당별 가장 최근 공개 후기의 첫 줄이며 50자를 넘으면 잘라 말줄임표를 붙인다. 운영자 소개 문구(`discovery_spot_restaurants.one_line_intro`)는 더 이상 API로 내려가지 않는다. 선정 규칙은 임시이며 구현 현황 21번에서 확정한다.
+- **스키마.** V19에 `reviews`, `review_images`, `review_likes`를 추가했다. 이미지와 좋아요는 후기 삭제 시 함께 지워진다.
+
+### 운영 배포 결과 (2026-10-01 ~ 2026-10-04)
+
+- 2026-10-01: EC2(t3.micro, Elastic IP `3.39.48.167`)에 최초 배포. GitHub Actions의 SSH가 타임아웃되던 문제는 보안 그룹 22번 인바운드가 관리자 IP `/32`로만 열려 있던 탓이었고, `0.0.0.0/0`으로 열고 fail2ban을 적용해 자동 CD가 동작한다.
+- 2026-10-04: `api.pickeat.kr` DNS 연결, Nginx `server_name` 변경, Let's Encrypt 인증서 발급(만료 2027-01-02, 자동 갱신 모의 실행 성공). HTTP는 301로 HTTPS에 리다이렉트한다. CORS는 `https://www.pickeat.kr` 허용을 확인했다.
+- 운영 E2E 스모크 테스트(`pickeat-e2e.sh`)가 HTTPS 기준으로 통과했다. DB 후보가 부족한 지역의 첫 추천은 Google 보충으로 약 1.6초, DB만 쓰면 100ms 안쪽이었다.
+- 남은 운영 작업: 자동 롤백 실검증, 패키지 업데이트 후 재부팅, 후기 이미지용 S3 버킷·IAM 역할 생성.
+
 ### 2026-09-22 기획서 갱신 — 구현 필요 백로그
 
 Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 134개 테스트 통과 시점)와 스펙 사이 gap이다. 문서 정합성을 먼저 맞춘 뒤 M1 데이터 확장 → M2 계약 개편 → M3 계약 개편 순서로 진행한다.
@@ -208,7 +252,7 @@ Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 1
 - [x] **가격대(신규 선택 필터).** V9의 `priceRange` 금액·통화 저장에 이어, 추천 요청 DTO의 생략/NULL 계약과 일부 겹침 필터까지 구현했다. → "M2 가격 필터 + DB 우선 하이브리드 구현 결과" 참고.
 - [x] **추천 점수 공식 재구현.** 기존 구현(원시 평점, w1=0.6/w2=0.4)을 스펙 확정본(평점 정규화 3.0~5.0 클램프, 0.7/0.3, 가산점 0.1)으로 교체했다.
 - [x] **재추천(다시 추천) + 제외 사유.** `RecommendationExclusion` 엔티티, enum(`DISTANCE_TOO_FAR`/`PRICE_TOO_HIGH`/`MENU_UNSATISFACTORY`/`ATMOSPHERE_MISMATCH`/`WANT_DIFFERENT`), `POST /api/v1/recommendations/{sessionId}/exclusions`. → "M2 재추천 + 제외 사유 구현 결과" 참고.
-- [x] **Pick 지도.** REVIEWED만 노출하도록 반영했다. 캘린더는 Phase 2 Review 구현과 함께 진행하며 이번 범위에서 제외했다(Review 전까지 지도 결과가 비어 있는 것은 정상). → "M3 계약 개편 구현 결과" 참고.
+- [x] **Pick 지도.** REVIEWED만 노출하도록 반영했다. 캘린더는 2026-10-04에 구현했다. 지도·캘린더는 후기를 작성한 Pick만 보여 주므로 후기가 없으면 비어 있는 것이 정상이다. → "M3 계약 개편 구현 결과" 참고.
 - [x] **최근 Pick 목록.** `GET /api/v1/me/picks?period=week|month` — SELECTED + REVIEWED를 식당별로 그룹화하고 `pickCount`와 `latestPickedAt`을 제공한다. CANCELED는 제외한다.
 - [x] **Pick 동행 스냅샷.** Pick 생성 시 추천 세션의 동행 유형을 Pick에 복사해 이후 변경과 무관한 기록으로 보존한다.
 - [x] **Member 프로필 확장.** 자기소개(bio) 필드, `GET /api/v1/me`, `PATCH /api/v1/me`를 사용한다. 다른 사용자용 리소스가 필요할 때만 `/api/v1/members/{memberId}`를 추가한다. → 아래 "Member 프로필 구현 결과" 참고.
@@ -229,7 +273,8 @@ Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 1
 - 추천 세션당 최종 Pick은 하나만 허용한다. 같은 식당은 서로 다른 추천 세션에서 다시 Pick할 수 있다.
 - Pick 대상은 요청한 회원이 소유한 추천 세션에 실제 후보로 저장된 식당이어야 한다. 다른 회원의 세션·Pick은 404로 처리해 존재 여부를 노출하지 않는다.
 - 상태는 `SELECTED`, `REVIEWED`, `CANCELED` 세 가지다. `SELECTED`에서 `REVIEWED` 또는 `CANCELED`로만 전환하며, 같은 상태 요청은 멱등 처리하고 종료 상태는 되돌리지 않는다.
+- 2026-10-04부터 `REVIEWED` 전환은 후기 작성(`POST /api/v1/reviews`)으로만 일어난다. `PATCH /api/v1/picks/{pickId}`로 `REVIEWED`를 요청하면 `PICK_005`(400)이고, 이 API로는 취소만 할 수 있다. 후기를 삭제하면 Pick은 `SELECTED`로 돌아간다.
 - `REVIEWED` 전환 시 `visited_at`을 기록한다. (2026-09-22 개편으로 지도는 REVIEWED 전용, 목록은 기간별 집계로 바뀌었다 — 아래 "M3 계약 개편 구현 결과" 참고.)
-- API는 `POST /api/v1/picks`, `PATCH /api/v1/picks/{pickId}`, `GET /api/v1/me/picks`, `GET /api/v1/me/picks/map` 네 개이며 모두 JWT 인증이 필요하다.
+- API는 `POST /api/v1/picks`, `PATCH /api/v1/picks/{pickId}`, `GET /api/v1/me/picks`, `GET /api/v1/me/picks/map`, `GET /api/v1/me/picks/calendar`(2026-10-04 추가) 다섯 개이며 모두 JWT 인증이 필요하다.
 - Flyway V8에 `picks` 테이블, 추천 세션 유일 제약, 회원별 최신순·상태·식당 인덱스를 추가했다.
-- 엔티티 상태 전이, 서비스 권한·중복·후보 검증, DB 제약, JWT 및 JSON 계약을 포함해 전체 테스트 134개가 통과한다.
+- 엔티티 상태 전이, 서비스 권한·중복·후보 검증, DB 제약, JWT 및 JSON 계약을 포함해 당시 기준 전체 테스트 134개가 통과했다.

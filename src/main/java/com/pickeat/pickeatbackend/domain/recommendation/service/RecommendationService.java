@@ -40,7 +40,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RecommendationService {
 
-    private static final double SEARCH_RADIUS_METERS = 5000.0;
+    private static final double DENSE_AREA_RADIUS_METERS = 1000.0;
+    private static final double DEFAULT_RADIUS_METERS = 5000.0;
     private static final int TOP_RESULT_COUNT = 5;
     private static final int STORED_CANDIDATE_COUNT = 10;
     private static final int MIN_DB_CANDIDATES_BEFORE_GOOGLE = 10;
@@ -56,16 +57,17 @@ public class RecommendationService {
 
     @Transactional
     public RecommendationResponse recommend(RecommendationRequest request, Long memberId) {
-        List<RestaurantCandidate> candidates = findValidCandidates(request);
+        double radiusMeters = searchRadiusMeters(request.latitude(), request.longitude());
+        List<RestaurantCandidate> candidates = findValidCandidates(request, radiusMeters);
 
         if (candidates.size() < MIN_DB_CANDIDATES_BEFORE_GOOGLE) {
             Set<String> includedTypes = FoodCategory.toGooglePrimaryTypes(request.foodCategories());
-            findGooglePlaces(request, includedTypes).forEach(restaurantService::upsertFromGoogle);
-            candidates = findValidCandidates(request);
+            findGooglePlaces(request, radiusMeters, includedTypes).forEach(restaurantService::upsertFromGoogle);
+            candidates = findValidCandidates(request, radiusMeters);
         }
 
         List<ScoredCandidate> topCandidates = candidates.stream()
-                .map(candidate -> score(candidate, request.companionType()))
+                .map(candidate -> score(candidate, request.companionType(), radiusMeters))
                 .sorted(Comparator.comparingDouble((ScoredCandidate c) -> c.breakdown().totalScore()).reversed())
                 .limit(STORED_CANDIDATE_COUNT)
                 .toList();
@@ -87,9 +89,18 @@ public class RecommendationService {
         return RecommendationResponse.of(session.getId(), topRanked(savedCandidates));
     }
 
-    // DB에서 5km 이내 후보를 조회한 뒤 카테고리·가격 조건을 통과한 후보만 남긴다.
-    private List<RestaurantCandidate> findValidCandidates(RecommendationRequest request) {
-        return restaurantRepository.findWithinRadius(request.latitude(), request.longitude(), SEARCH_RADIUS_METERS)
+    // 수도권(서울·인천·경기)과 부산은 식당 밀도가 높아 1km, 그 외 지역은 5km 반경을 쓴다.
+    // ponytail: 위경도 사각형 근사라 경계 인접 지역(춘천 서부·철원, 김해·양산 일부 등)이 1km로 잡힐 수 있다.
+    // 정확도가 필요해지면 행정구역 폴리곤이나 역지오코딩으로 교체한다.
+    static double searchRadiusMeters(double latitude, double longitude) {
+        boolean metropolitan = latitude >= 36.89 && latitude <= 38.30 && longitude >= 126.30 && longitude <= 127.70;
+        boolean busan = latitude >= 34.88 && latitude <= 35.39 && longitude >= 128.76 && longitude <= 129.31;
+        return metropolitan || busan ? DENSE_AREA_RADIUS_METERS : DEFAULT_RADIUS_METERS;
+    }
+
+    // DB에서 반경 이내 후보를 조회한 뒤 카테고리·가격 조건을 통과한 후보만 남긴다.
+    private List<RestaurantCandidate> findValidCandidates(RecommendationRequest request, double radiusMeters) {
+        return restaurantRepository.findWithinRadius(request.latitude(), request.longitude(), radiusMeters)
                 .stream()
                 .filter(candidate -> request.foodCategories().contains(candidate.restaurant().getFoodCategory()))
                 .filter(candidate -> matchesPriceRange(candidate.restaurant(), request.priceRange()))
@@ -116,13 +127,15 @@ public class RecommendationService {
         return candidates.stream().filter(candidate -> candidate.getResultRank() <= TOP_RESULT_COUNT).toList();
     }
 
-    private List<GooglePlaceResponse> findGooglePlaces(RecommendationRequest request, Set<String> includedTypes) {
+    private List<GooglePlaceResponse> findGooglePlaces(
+            RecommendationRequest request, double radiusMeters, Set<String> includedTypes) {
         List<String> types = new ArrayList<>(includedTypes);
         Map<String, GooglePlaceResponse> uniquePlaces = new LinkedHashMap<>();
         for (int start = 0; start < types.size(); start += 50) {
             Set<String> batch = Set.copyOf(types.subList(start, Math.min(start + 50, types.size())));
             googlePlacesClient.findNearbyRestaurants(
-                            request.latitude(), request.longitude(), GooglePlacesClient.RankPreference.POPULARITY, batch)
+                            request.latitude(), request.longitude(), radiusMeters,
+                            GooglePlacesClient.RankPreference.POPULARITY, batch)
                     .forEach(place -> uniquePlaces.putIfAbsent(place.id(), place));
         }
         return List.copyOf(uniquePlaces.values());
@@ -170,10 +183,10 @@ public class RecommendationService {
                 .toList();
     }
 
-    private ScoredCandidate score(RestaurantCandidate candidate, CompanionType companionType) {
+    private ScoredCandidate score(RestaurantCandidate candidate, CompanionType companionType, double radiusMeters) {
         boolean companionMatch = isCompanionMatch(companionType, candidate.restaurant());
         RecommendationScoreCalculator.ScoreBreakdown breakdown = scoreCalculator.calculate(
-                candidate.restaurant().getExternalRating(), candidate.distanceMeters(), companionMatch);
+                candidate.restaurant().getExternalRating(), candidate.distanceMeters(), radiusMeters, companionMatch);
         return new ScoredCandidate(candidate.restaurant(), candidate.distanceMeters(), breakdown);
     }
 

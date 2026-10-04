@@ -1,7 +1,10 @@
 package com.pickeat.pickeatbackend.domain.discovery.service;
 
 import com.pickeat.pickeatbackend.domain.discovery.dto.DiscoverySpotsResponse;
+import com.pickeat.pickeatbackend.domain.discovery.entity.DiscoverySpot;
 import com.pickeat.pickeatbackend.domain.discovery.repository.DiscoverySpotRepository;
+import com.pickeat.pickeatbackend.domain.review.service.ReviewSummaryService;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -12,12 +15,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class DiscoverySpotService {
 
     private final DiscoverySpotRepository discoverySpotRepository;
+    private final ReviewSummaryService reviewSummaryService;
 
     @Transactional(readOnly = true)
     public DiscoverySpotsResponse getDiscoverySpots() {
-        // 한줄평은 사용자 후기 기반이다. Review 모듈과 집계 방식이 정해지기 전까지는 후기가 없으므로
-        // 빈 맵을 넘겨 모든 식당이 "후기가 없습니다."로 내려간다. 집계가 정해지면 이 맵만 채우면 된다.
-        Map<Long, String> oneLineReviews = Map.of();
-        return DiscoverySpotsResponse.from(discoverySpotRepository.findAllByOrderByDisplayOrderAsc(), oneLineReviews);
+        List<DiscoverySpot> spots = discoverySpotRepository.findAllByOrderByDisplayOrderAsc();
+        // 한줄평은 식당별 가장 최근 공개 후기에서 가져온다. 후기가 없는 식당은 "후기가 없습니다."로 내려간다.
+        List<Long> restaurantIds = spots.stream()
+                .flatMap(spot -> spot.getRestaurants().stream())
+                .map(item -> item.getRestaurant().getId())
+                .toList();
+        Map<Long, String> oneLineReviews = reviewSummaryService.getOneLineReviews(restaurantIds);
+        return DiscoverySpotsResponse.from(spots, oneLineReviews);
     }
 }

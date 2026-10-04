@@ -87,19 +87,18 @@ class PickApiContractTest {
     @Test
     @DisplayName("Pick 상태 변경 API는 변경된 계약을 반환한다")
     void updatesPickStatusWithDocumentedContract() throws Exception {
-        PickResponse reviewed = new PickResponse(
-                PICK_ID, 10L, "테스트 식당", PickStatus.REVIEWED, SELECTED_AT,
-                Instant.parse("2026-09-21T11:00:00Z"));
+        PickResponse canceled = new PickResponse(
+                PICK_ID, 10L, "테스트 식당", PickStatus.CANCELED, SELECTED_AT, null);
         when(pickService.updateStatus(eq(PICK_ID), any(PickStatusUpdateRequest.class), eq(MEMBER_ID)))
-                .thenReturn(reviewed);
+                .thenReturn(canceled);
 
         mockMvc.perform(patch("/api/v1/picks/{pickId}", PICK_ID)
                         .header("Authorization", authorizationHeader)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":\"REVIEWED\"}"))
+                        .content("{\"status\":\"CANCELED\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("REVIEWED"))
-                .andExpect(jsonPath("$.visitedAt").value("2026-09-21T11:00:00Z"));
+                .andExpect(jsonPath("$.status").value("CANCELED"))
+                .andExpect(jsonPath("$.visitedAt").doesNotExist());
     }
 
     @Test
@@ -164,7 +163,9 @@ class PickApiContractTest {
     @DisplayName("내 Pick 캘린더 API는 날짜별 기록 수와 대표 식당 계약을 반환한다")
     void getsMyPickCalendarWithDocumentedContract() throws Exception {
         PickCalendarResponse response = new PickCalendarResponse(2026, 9, List.of(
-                new PickCalendarResponse.DateItem(LocalDate.of(2026, 9, 21), 2, "테스트 식당", null)));
+                new PickCalendarResponse.DateItem(LocalDate.of(2026, 9, 21), 2, "테스트 식당", null),
+                new PickCalendarResponse.DateItem(
+                        LocalDate.of(2026, 9, 22), 1, "테스트 식당", "https://img.pickeat.kr/reviews/1/a.jpg")));
         when(pickService.getMyPickCalendar(MEMBER_ID, 2026, 9)).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/me/picks/calendar")
@@ -174,7 +175,9 @@ class PickApiContractTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.year").value(2026))
                 .andExpect(jsonPath("$.month").value(9))
-                .andExpect(jsonPath("$.dates.length()").value(1))
+                .andExpect(jsonPath("$.dates.length()").value(2))
+                .andExpect(jsonPath("$.dates[1].representativeImageUrl")
+                        .value("https://img.pickeat.kr/reviews/1/a.jpg"))
                 .andExpect(jsonPath("$.dates[0].date").value("2026-09-21"))
                 .andExpect(jsonPath("$.dates[0].recordCount").value(2))
                 .andExpect(jsonPath("$.dates[0].restaurantName").value("테스트 식당"))
