@@ -62,7 +62,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - 식당 상세 조회 (`GET /api/v1/restaurants/{id}`) — 인증 불필요, 공유 링크 대응
 - 외부 지도 링크 조회 (`GET /api/v1/restaurants/{id}/navigation-links`) — 네이버·카카오
 - Google Places 연동: `GooglePlacesClient`(Nearby Search, 카테고리별 `includedPrimaryTypes` 선처리), Google Place ID 기준 upsert·갱신 정책, primaryType → 7개 음식 카테고리 매핑
-- PostGIS `geography(Point, 4326)` 기반 5km 반경 후보 조회 (`RestaurantRepository.findWithinRadius`, GiST 인덱스)
+- PostGIS `geography(Point, 4326)` 기반 반경 후보 조회(수도권·부산 1km · 그 외 5km) (`RestaurantRepository.findWithinRadius`, GiST 인덱스)
 - 데이트·가족·아이·혼자·단체·반려견 적합도 3상태(`true`/`false`/`NULL`, 큐레이션 전용 — Google 갱신이 건드리지 않음)
 - M2 ADR 확정, 추천 요청 DTO(`RecommendationRequest`), 점수 계산기(`RecommendationScoreCalculator`), 세션·후보 스키마(V7 마이그레이션)
 - 추천 생성·세션 조회 API (`POST`/`GET /api/v1/recommendations`) — DB 우선, 부족할 때만 Google 호출·upsert 하이브리드 조회. 선택적 가격대 필터(`priceRange`)를 지원하며 상위 10개를 세션 후보로 저장하고 상위 5개만 응답한다
@@ -74,7 +74,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - 탐색 스팟 한줄평(`oneLineIntro`)은 앱 내 사용자 후기 기반 — 후기가 없으면 `"후기가 없습니다."` 반환(후기 집계 방식은 미정)
 - 초기 탐색 스팟 조회 API (`GET /api/v1/discovery-spots`) — 인증 없이 신사·혜화·서촌·한남·종로와 지역별 고정 노출 식당을 순서대로 조회
 
-**다음 할 일:** 초기 탐색 스팟의 최종 5개 지역과 25개 목록·JPG 대표 이미지 연결을 완료했습니다. Member 프로필 조회·수정과 Refresh Token도 완료했습니다. 프로필 이미지 업로드(Object Storage 확정 후), 데이트 프랜차이즈 제외, 제네릭 `restaurant` 분류도 남아 있습니다. Pick 캘린더는 Review 기능과 함께 Phase 2로 보류 중입니다.
+**다음 할 일:** 초기 탐색 스팟의 최종 5개 지역과 25개 목록·JPG 대표 이미지 연결을 완료했습니다. Member 프로필 조회·수정, Refresh Token, 지역별 검색 반경(수도권·부산 1km)도 완료했습니다. S3 도입 범위(탐색 스팟 이미지 이전 vs 사용자 업로드) 결정이 다음 순서입니다. 프로필 이미지 업로드(Object Storage 확정 후), 데이트 프랜차이즈 제외, 제네릭 `restaurant` 분류도 남아 있습니다. Pick 캘린더는 Review 기능과 함께 Phase 2로 보류 중입니다.
 
 초기 탐색 스팟은 신사·혜화·서촌·한남·종로 5개 지역과 지역별 5곳(총 25곳)의 운영자 선정 `CURATED` 데이터입니다. 실제 Picker 행동 데이터가 쌓이기 전까지 자동 인기 집계나 실시간 순위는 구현하지 않습니다.
 

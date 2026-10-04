@@ -37,7 +37,7 @@ public class GooglePlacesClient {
 
     // 카테고리에 매핑된 구체적인 Google 주 유형을 넘겨 Google 서버에서 선처리시킨다.
     public List<GooglePlaceResponse> findNearbyRestaurants(
-        double latitude, double longitude, RankPreference rankPreference, Set<String> includedPrimaryTypes
+        double latitude, double longitude, double radiusMeters, RankPreference rankPreference, Set<String> includedPrimaryTypes
     ) {
         if (!Double.isFinite(latitude) || latitude < -90 || latitude > 90
             || !Double.isFinite(longitude) || longitude < -180 || longitude > 180) {
@@ -61,7 +61,7 @@ public class GooglePlacesClient {
             "languageCode", "ko",
             "locationRestriction", Map.of("circle", Map.of(
                 "center", Map.of("latitude", latitude, "longitude", longitude),
-                "radius", 5000.0
+                "radius", radiusMeters
             ))
         );
 

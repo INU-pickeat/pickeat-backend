@@ -9,5 +9,4 @@ public class PickEatBackendApplication {
     public static void main(String[] args) {
         SpringApplication.run(PickEatBackendApplication.class, args);
     }
-
 }
