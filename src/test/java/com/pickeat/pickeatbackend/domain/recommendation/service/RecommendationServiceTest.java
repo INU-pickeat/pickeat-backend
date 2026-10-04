@@ -466,6 +466,73 @@ class RecommendationServiceTest {
         assertThat(response.items()).hasSize(5);
     }
 
+    private Restaurant restaurantNamed(String name, FoodCategory foodCategory) {
+        return Restaurant.builder()
+                .name(name)
+                .foodCategory(foodCategory)
+                .latitude(37.5)
+                .longitude(127.0)
+                .externalRating(BigDecimal.valueOf(4.0))
+                .build();
+    }
+
+    private List<RestaurantCandidate> candidatesOf(FoodCategory foodCategory, int count) {
+        return IntStream.rangeClosed(1, count)
+                .mapToObj(i -> new RestaurantCandidate(restaurantNamed("식당", foodCategory), i * 50))
+                .toList();
+    }
+
+    @Test
+    @DisplayName("합계가 10개 이상이어도 후보가 5개 미만인 카테고리는 그 카테고리만 Google로 보충한다")
+    @SuppressWarnings("unchecked")
+    void fillsOnlyCategoriesWithFewerThanFiveCandidates() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0))
+                .thenReturn(candidatesOf(FoodCategory.JAPANESE, 12));
+        RecommendationRequest mixedRequest = new RecommendationRequest(
+                Set.of(FoodCategory.JAPANESE, FoodCategory.KOREAN), CompanionType.SOLO, null, 37.5, 127.0);
+
+        recommendationService.recommend(mixedRequest, 1L);
+
+        ArgumentCaptor<Set<String>> types = ArgumentCaptor.forClass(Set.class);
+        verify(googlePlacesClient).findNearbyRestaurants(
+                eq(37.5), eq(127.0), eq(1000.0), eq(GooglePlacesClient.RankPreference.POPULARITY), types.capture());
+        assertThat(types.getValue())
+                .containsExactlyInAnyOrderElementsOf(FoodCategory.toGooglePrimaryTypes(Set.of(FoodCategory.KOREAN)));
+    }
+
+    @Test
+    @DisplayName("요청한 카테고리마다 후보가 5개 이상이면 Google을 호출하지 않는다")
+    void skipsGoogleWhenEveryRequestedCategoryHasFiveCandidates() {
+        stubPersistence();
+        List<RestaurantCandidate> candidates = new java.util.ArrayList<>(candidatesOf(FoodCategory.JAPANESE, 5));
+        candidates.addAll(candidatesOf(FoodCategory.KOREAN, 5));
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(candidates);
+        RecommendationRequest mixedRequest = new RecommendationRequest(
+                Set.of(FoodCategory.JAPANESE, FoodCategory.KOREAN), CompanionType.SOLO, null, 37.5, 127.0);
+
+        recommendationService.recommend(mixedRequest, 1L);
+
+        verify(googlePlacesClient, never()).findNearbyRestaurants(
+                anyDouble(), anyDouble(), anyDouble(), any(GooglePlacesClient.RankPreference.class), anySet());
+    }
+
+    @Test
+    @DisplayName("같은 구역·카테고리를 방금 보충했으면 후보가 여전히 부족해도 Google을 다시 호출하지 않는다")
+    void doesNotCallGoogleAgainForRecentlyFilledAreaAndCategory() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0))
+                .thenReturn(candidatesOf(FoodCategory.KOREAN, 2));
+
+        recommendationService.recommend(request(CompanionType.SOLO), 1L);
+        recommendationService.recommend(request(CompanionType.SOLO), 1L);
+
+        verify(googlePlacesClient, times(1)).findNearbyRestaurants(
+                eq(37.5), eq(127.0), eq(1000.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet());
+    }
+
     @Test
     @DisplayName("DB 유효 후보가 10개 미만이면 Google을 호출해 보충한 뒤 DB를 다시 조회한다")
     void callsGoogleAndRequeriesWhenFewerThanTenValidDbCandidatesExist() {
