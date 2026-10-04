@@ -1,6 +1,7 @@
 package com.pickeat.pickeatbackend.domain.pick.service;
 
 import com.pickeat.pickeatbackend.domain.pick.dto.CreatePickRequest;
+import com.pickeat.pickeatbackend.domain.pick.dto.PickCalendarResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickMapResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickPeriod;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickResponse;
@@ -16,7 +17,11 @@ import com.pickeat.pickeatbackend.domain.recommendation.repository.Recommendatio
 import com.pickeat.pickeatbackend.domain.recommendation.repository.RecommendationSessionRepository;
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
+import com.pickeat.pickeatbackend.global.exception.GlobalErrorCode;
 import java.time.Instant;
+import java.time.YearMonth;
+import java.time.ZoneId;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -25,6 +30,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class PickService {
+
+    // 캘린더의 "하루"와 "월" 경계는 서비스 지역인 한국 시간 기준이다.
+    static final ZoneId CALENDAR_ZONE = ZoneId.of("Asia/Seoul");
+    private static final int MIN_CALENDAR_YEAR = 2000;
+    private static final int MAX_CALENDAR_YEAR = 2100;
 
     private final PickRepository pickRepository;
     private final RecommendationSessionRepository sessionRepository;
@@ -78,5 +88,20 @@ public class PickService {
     public PickMapResponse getMyPickMap(Long memberId) {
         return PickMapResponse.from(
                 pickRepository.findByMemberIdAndStatusOrderBySelectedAtDescIdDesc(memberId, PickStatus.REVIEWED));
+    }
+
+    // Pick 캘린더는 REVIEWED만, 달력 월(한국 시간) 단위로 방문일(visitedAt) 기준 집계한다.
+    @Transactional(readOnly = true)
+    public PickCalendarResponse getMyPickCalendar(Long memberId, int year, int month) {
+        if (year < MIN_CALENDAR_YEAR || year > MAX_CALENDAR_YEAR || month < 1 || month > 12) {
+            throw new BusinessException(GlobalErrorCode.INVALID_INPUT);
+        }
+        YearMonth yearMonth = YearMonth.of(year, month);
+        Instant from = yearMonth.atDay(1).atStartOfDay(CALENDAR_ZONE).toInstant();
+        Instant to = yearMonth.plusMonths(1).atDay(1).atStartOfDay(CALENDAR_ZONE).toInstant();
+        List<Pick> picks = pickRepository
+                .findByMemberIdAndStatusAndVisitedAtGreaterThanEqualAndVisitedAtLessThanOrderByVisitedAtAscIdAsc(
+                        memberId, PickStatus.REVIEWED, from, to);
+        return PickCalendarResponse.of(yearMonth, picks, CALENDAR_ZONE);
     }
 }

@@ -1,6 +1,7 @@
 package com.pickeat.pickeatbackend.domain.pick.controller;
 
 import com.pickeat.pickeatbackend.domain.pick.dto.CreatePickRequest;
+import com.pickeat.pickeatbackend.domain.pick.dto.PickCalendarResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickMapResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickPeriod;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickResponse;
@@ -56,5 +57,14 @@ public class PickController {
     @GetMapping("/me/picks/map")
     public ResponseEntity<PickMapResponse> getMyPickMap(@AuthenticationPrincipal Long memberId) {
         return ResponseEntity.ok(pickService.getMyPickMap(memberId));
+    }
+
+    @GetMapping("/me/picks/calendar")
+    public ResponseEntity<PickCalendarResponse> getMyPickCalendar(
+            @AuthenticationPrincipal Long memberId,
+            @RequestParam int year,
+            @RequestParam int month
+    ) {
+        return ResponseEntity.ok(pickService.getMyPickCalendar(memberId, year, month));
     }
 }
