@@ -74,7 +74,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - 내 최근 Pick 목록 API (`GET /api/v1/me/picks?period=week|month`) — SELECTED + REVIEWED를 식당별로 그룹화해 `pickCount`·`latestPickedAt` 반환
 - 내 Pick 지도 API (`GET /api/v1/me/picks/map`) — 본인 데이터만 조회, REVIEWED만 노출(SELECTED·CANCELED 미노출)
 - 내 Pick 캘린더 API (`GET /api/v1/me/picks/calendar?year=2026&month=9`) — REVIEWED만 방문일(`visitedAt`, 한국 시간) 기준 날짜별로 묶어 `recordCount`·그날 첫 식당 이름 반환. `representativeImageUrl`은 그날 사진이 있는 첫 후기의 첫 번째 사진이며 없으면 `null`
-- 후기 작성·조회·수정·삭제 API (`POST /api/v1/reviews`, `GET`/`PATCH`/`DELETE /api/v1/reviews/{reviewId}`) — Pick 하나당 후기 하나. 별점·내용·음식 카테고리·동행 유형·공개 범위(`PUBLIC`/`PRIVATE`)·이미지 최대 5장. 작성하면 Pick이 REVIEWED가 되고, 삭제하면 SELECTED로 돌아간다
+- 후기 작성·조회·수정·삭제 API (`POST /api/v1/reviews`, `GET`/`PATCH`/`DELETE /api/v1/reviews/{reviewId}`) — Pick 하나당 후기 하나. 별점·내용·음식 카테고리·동행 유형·공개 범위(`PUBLIC`/`PRIVATE`)·이미지 1장. 작성하면 Pick이 REVIEWED가 되고, 삭제하면 SELECTED로 돌아간다
 - 후기 이미지 업로드 URL API (`POST /api/v1/reviews/images/upload-urls`) — S3 presigned PUT URL 발급. 버킷이 설정되지 않은 환경에서는 `REVIEW_006`(503)
 - 공개 피드 API (`GET /api/v1/feed?cursor&size`) — 공개 후기만 최신순 커서 조회, 항목마다 좋아요 수와 내 좋아요 여부 포함
 - 후기 좋아요·취소 API (`POST`/`DELETE /api/v1/reviews/{reviewId}/likes`) — 공개 후기에만 가능

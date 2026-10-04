@@ -30,7 +30,7 @@ public class ReviewImage {
     @Column(nullable = false, length = 500)
     private String imageUrl;
 
-    // 0부터 시작한다. 0번 이미지가 Pick 캘린더의 날짜 대표 이미지 후보다.
+    // 0부터 시작한다. 0번 이미지가 Pick 캘린더의 날짜 대표 이미지 후보다. 지금은 후기당 한 장이라 항상 0이다.
     @Column(nullable = false)
     private Integer displayOrder;
 

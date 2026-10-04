@@ -19,9 +19,10 @@ public record CreateReviewRequest(
         @NotNull CompanionType companionType,
         @NotNull ReviewVisibility visibility,
         // 생략하면 이미지 없는 후기다. 업로드 URL API로 올린 뒤 받은 imageUrl만 넣을 수 있다.
+        // 지금은 한 장만 받는다. 장수를 늘릴 때 계약이 바뀌지 않도록 배열로 받는다.
         @Size(max = MAX_IMAGES) List<@NotBlank @Size(max = 500) String> imageUrls
 ) {
-    public static final int MAX_IMAGES = 5;
+    public static final int MAX_IMAGES = 1;
 
     public CreateReviewRequest {
         imageUrls = imageUrls == null ? List.of() : imageUrls;

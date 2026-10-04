@@ -204,21 +204,20 @@ class ReviewServiceTest {
     }
 
     @Test
-    @DisplayName("업로드 URL은 요청한 Content-Type 개수만큼 발급한다")
-    void createsUploadUrlPerContentType() {
+    @DisplayName("업로드 URL을 발급하면 올릴 주소와 저장될 이미지 주소를 돌려준다")
+    void createsUploadUrl() {
         Instant expiresAt = Instant.parse("2026-10-04T03:10:00Z");
         when(reviewImageStorage.createUpload(MEMBER_ID, "image/jpeg"))
                 .thenReturn(new PresignedUpload("https://s3/upload-a", OWN_IMAGE, expiresAt));
-        when(reviewImageStorage.createUpload(MEMBER_ID, "image/png"))
-                .thenReturn(new PresignedUpload("https://s3/upload-b", "https://img.pickeat.kr/reviews/1/b.png", expiresAt));
 
         ReviewImageUploadResponse response = reviewService.createImageUploads(
-                new ReviewImageUploadRequest(List.of("image/jpeg", "image/png")), MEMBER_ID);
+                new ReviewImageUploadRequest(List.of("image/jpeg")), MEMBER_ID);
 
-        assertThat(response.uploads()).hasSize(2);
+        assertThat(response.uploads()).hasSize(1);
         assertThat(response.uploads().get(0).uploadUrl()).isEqualTo("https://s3/upload-a");
         assertThat(response.uploads().get(0).imageUrl()).isEqualTo(OWN_IMAGE);
-        assertThat(response.uploads().get(1).contentType()).isEqualTo("image/png");
+        assertThat(response.uploads().get(0).contentType()).isEqualTo("image/jpeg");
+        assertThat(response.uploads().get(0).expiresAt()).isEqualTo(expiresAt);
     }
 
     private CreateReviewRequest createRequest(List<String> imageUrls) {

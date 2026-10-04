@@ -228,7 +228,7 @@
 ### Review·피드 구현 결과 (2026-10-04)
 
 - **후기.** `POST /api/v1/reviews`, `GET`/`PATCH`/`DELETE /api/v1/reviews/{reviewId}`. 후기는 Pick 하나당 하나이며(`REVIEW_002`), 작성하면 그 Pick이 `REVIEWED`가 된다. 취소한 Pick에는 쓸 수 없다(`PICK_004`). 삭제하면 Pick이 `SELECTED`로 돌아가 지도·캘린더에서 빠지고 다시 후기를 쓸 수 있다.
-- **입력값.** 별점 1~5, 내용 1~1000자, 음식 카테고리, 동행 유형, 공개 범위(`PUBLIC`/`PRIVATE`), 이미지 URL 최대 5개. 음식 카테고리와 동행 유형은 추천 세션 값이 아니라 후기 작성 화면에서 사용자가 직접 고른 값이다. 그래서 선택지 조회 API는 따로 만들지 않았다.
+- **입력값.** 별점 1~5, 내용 1~1000자, 음식 카테고리, 동행 유형, 공개 범위(`PUBLIC`/`PRIVATE`), 이미지 URL 최대 1개(`imageUrls` 배열로 받되 지금은 한 장만 허용한다). 음식 카테고리와 동행 유형은 추천 세션 값이 아니라 후기 작성 화면에서 사용자가 직접 고른 값이다. 그래서 선택지 조회 API는 따로 만들지 않았다.
 - **이미지.** `POST /api/v1/reviews/images/upload-urls`에 Content-Type 목록을 보내면 10분짜리 S3 presigned PUT URL과 저장될 `imageUrl`을 돌려준다. JPEG·PNG·WebP만 허용한다(`REVIEW_005`). 후기에는 본인 경로(`reviews/{memberId}/`) 아래의 URL만 붙일 수 있다(`REVIEW_004`). 버킷이 설정되지 않았으면 발급을 `REVIEW_006`(503)으로 거부한다. presigned PUT은 파일 크기를 제한하지 못하고, 후기에서 뺀 이미지의 S3 객체는 지우지 않는다.
 - **공개 피드.** `GET /api/v1/feed?cursor&size`. `PUBLIC` 후기만 최신순으로 내려준다. 커서는 이전 응답의 `nextCursor`(마지막 `reviewId`)이고 `null`이면 마지막 페이지다. 크기는 1~50, 기본 20이다. 인증이 필요하며 항목마다 `likeCount`와 `likedByMe`를 준다.
 - **좋아요.** `POST`/`DELETE /api/v1/reviews/{reviewId}/likes`. 공개 후기에만 누를 수 있다. 본인의 비공개 후기는 `REVIEW_003`(409), 남의 비공개 후기는 존재를 알리지 않도록 `REVIEW_001`(404)이다. 여러 번 눌러도 한 번으로 세며, 동시 요청은 DB 유니크 제약과 `ON CONFLICT DO NOTHING`으로 처리한다.

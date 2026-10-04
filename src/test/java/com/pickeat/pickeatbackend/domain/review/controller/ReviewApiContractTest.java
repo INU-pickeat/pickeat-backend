@@ -135,6 +135,45 @@ class ReviewApiContractTest {
     }
 
     @Test
+    @DisplayName("후기 이미지는 한 장까지만 받는다")
+    void rejectsMoreThanOneImage() throws Exception {
+        mockMvc.perform(post("/api/v1/reviews")
+                        .header("Authorization", authorizationHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "pickId": 30,
+                                  "rating": 4,
+                                  "content": "맛있어요",
+                                  "foodCategory": "JAPANESE",
+                                  "companionType": "FAMILY",
+                                  "visibility": "PUBLIC",
+                                  "imageUrls": ["https://img.pickeat.kr/reviews/1/a.jpg", "https://img.pickeat.kr/reviews/1/b.jpg"]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+
+        mockMvc.perform(patch("/api/v1/reviews/{reviewId}", REVIEW_ID)
+                        .header("Authorization", authorizationHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"imageUrls\": [\"https://img.pickeat.kr/reviews/1/a.jpg\", \"https://img.pickeat.kr/reviews/1/b.jpg\"]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+
+        mockMvc.perform(post("/api/v1/reviews/images/upload-urls")
+                        .header("Authorization", authorizationHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"contentTypes\": [\"image/jpeg\", \"image/png\"]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+
+        verify(reviewService, never()).create(any(), any());
+        verify(reviewService, never()).update(any(), any(), any());
+        verify(reviewService, never()).createImageUploads(any(), any());
+    }
+
+    @Test
     @DisplayName("이미 후기가 있는 Pick이면 REVIEW_002 충돌을 반환한다")
     void returnsConflictForDuplicateReview() throws Exception {
         when(reviewService.create(any(CreateReviewRequest.class), eq(MEMBER_ID)))
