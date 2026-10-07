@@ -224,6 +224,28 @@ class RecommendationServiceTest {
     }
 
     @Test
+    @DisplayName("영업시간이 있고 30분 뒤에 영업하지 않는 식당은 추천하지 않는다")
+    void excludesRestaurantsClosedAtArrivalTime() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        Restaurant open = restaurant(FoodCategory.KOREAN, 4.0, null);
+        Restaurant unknownHours = restaurant(FoodCategory.KOREAN, 4.0, null);
+        Restaurant neverOpen = restaurant(FoodCategory.KOREAN, 5.0, null);
+        open.updateOpeningHours(new int[] {0, 7 * 1440});
+        neverOpen.updateOpeningHours(new int[] {100, 100});
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(
+                new RestaurantCandidate(open, 200),
+                new RestaurantCandidate(unknownHours, 200),
+                new RestaurantCandidate(neverOpen, 100)));
+
+        RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
+
+        assertThat(response.items()).hasSize(2);
+        assertThat(response.items()).extracting(RecommendationResponse.Item::externalRating)
+                .containsOnly(BigDecimal.valueOf(4.0));
+    }
+
+    @Test
     @DisplayName("후보가 5개보다 많으면 점수가 높은 상위 5개만 반환한다")
     void returnsOnlyTopFiveWhenMoreThanFiveCandidatesExist() {
         stubPersistence();
