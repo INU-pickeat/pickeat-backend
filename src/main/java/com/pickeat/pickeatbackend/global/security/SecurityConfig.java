@@ -9,7 +9,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
+import com.pickeat.pickeatbackend.global.exception.ErrorResponse;
+import com.pickeat.pickeatbackend.global.exception.GlobalErrorCode;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -52,7 +55,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(
-                        (request, response, exception) -> response.sendError(HttpStatus.UNAUTHORIZED.value())
+                        (request, response, exception) -> writeError(response, GlobalErrorCode.UNAUTHORIZED)
                 ))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
@@ -69,6 +72,14 @@ public class SecurityConfig {
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    // 필터 단계 오류는 컨트롤러 예외 처리기를 거치지 않으므로 같은 ErrorResponse 형식을 직접 쓴다.
+    private void writeError(HttpServletResponse response, GlobalErrorCode errorCode) throws IOException {
+        ErrorResponse body = ErrorResponse.from(errorCode);
+        response.setStatus(errorCode.getStatus().value());
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"code\":\"" + body.code() + "\",\"message\":\"" + body.message() + "\"}");
     }
 
     /**
