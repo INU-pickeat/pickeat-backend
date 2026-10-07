@@ -36,6 +36,9 @@ class MemberServiceTest {
     @Mock
     private AuthTokenService authTokenService;
 
+    @Mock
+    private EmailVerificationService emailVerificationService;
+
     @InjectMocks
     private MemberService memberService;
 
@@ -69,6 +72,7 @@ class MemberServiceTest {
 
         memberService.signUp(request());
 
+        verify(emailVerificationService).consume("test@pickeat.com");
         ArgumentCaptor<Member> captor = ArgumentCaptor.forClass(Member.class);
         verify(memberRepository).save(captor.capture());
         assertThat(captor.getValue().getPassword()).isEqualTo("encoded-password");

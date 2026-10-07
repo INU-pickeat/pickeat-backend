@@ -116,7 +116,7 @@ systemctl enable pickeat-backend.service
 cat <<EOF
 Bootstrap complete.
 Next:
-  1. sudoedit $ENV_FILE  # GOOGLE_PLACES_API_KEY 입력
+  1. sudoedit $ENV_FILE  # GOOGLE_PLACES_API_KEY, MAIL_PASSWORD 입력
   2. DNS A 레코드 $SERVER_NAME -> 이 인스턴스의 Elastic IP
   3. sudo certbot --nginx -d $SERVER_NAME  # HTTPS 인증서 발급·자동 갱신
 EOF

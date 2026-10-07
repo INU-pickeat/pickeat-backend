@@ -94,7 +94,7 @@
 
 ## API와 운영
 
-- 인증 없이 접근 가능한 엔드포인트는 `/api/v1/auth/signup`, `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/logout`, `GET /api/v1/discovery-spots`, `GET /images/discovery/**`이다.
+- 인증 없이 접근 가능한 엔드포인트는 `/api/v1/auth/email-verifications`, `/api/v1/auth/email-verifications/confirm`, `/api/v1/auth/signup`, `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/logout`, `GET /api/v1/discovery-spots`, `GET /images/discovery/**`이다.
 - 그 외 모든 비즈니스 엔드포인트는 명시적으로 문서화되지 않는 한 인증(bearer token)이 필요하다.
 - 예외: `GET /api/v1/restaurants/**`는 인증 없이 접근 가능하다. 식당 상세는 민감 정보가 아니고, 공유 링크는 비로그인 사용자도 열 수 있어야 한다. 식당별 후기 요약(`GET /api/v1/restaurants/{id}/review-summary`)도 이 경로 아래라 인증 없이 조회한다. 식당 관련 쓰기/변경 작업은 여전히 인증이 필요하다.
 - OpenAPI와 Swagger UI는 `local` Spring 프로필에서만 활성화된다.
@@ -144,6 +144,16 @@
   19. [ ] **(보류) 동적 지역별 인기맛집.** 후기·좋아요 데이터가 쌓인 뒤 진행한다. 그 전까지 탐색 스팟은 운영자 선정 25곳을 유지한다.
   20. [x] **(제외) 카테고리·동행 유형 조회 API.** 별도 조회 API를 만들지 않는다. 후기 작성 화면에서 사용자가 고른 값을 후기 저장 요청에 함께 받는다(2026-10-04).
   21. [ ] **후기 한줄평 선정 규칙 확정.** 지금은 식당별 가장 최근 공개 후기의 첫 줄(최대 50자)이다. 좋아요 수 등 다른 기준이 정해지면 `ReviewSummaryService`만 바꾼다.
+  22. [x] **회원가입 이메일 인증.** 인증번호 발송·확인 API를 추가하고 인증을 마친 이메일만 가입할 수 있게 했다(V20). → 아래 "이메일 인증 구현 결과" 참고.
+  23. [ ] **이메일 인증 운영 발송 검증.** 운영 서버 `MAIL_PASSWORD`(Gmail 앱 비밀번호)를 설정하고 실제 메일 수신을 확인한다.
+
+### 이메일 인증 구현 결과 (2026-10-07)
+
+- 흐름은 `POST /api/v1/auth/email-verifications`(발송) → `POST /api/v1/auth/email-verifications/confirm`(확인) → 기존 `POST /api/v1/auth/signup`이다. 회원가입 요청 본문은 바꾸지 않았다. 두 인증 API는 인증 없이 호출하며 성공 시 204를 반환한다.
+- 인증번호는 `SecureRandom` 6자리 숫자이고 DB(`email_verifications`, V20)에는 BCrypt 해시만 저장한다. 유효 10분, 재발송 1분 제한, 실패 5회 초과 시 거부, 인증 후 30분 안에 가입해야 한다. 가입에 성공하면 인증 정보를 삭제해 재사용을 막는다.
+- 이메일은 발송·확인·가입·로그인 모두 `strip()` + 소문자로 정규화한다.
+- 오류 코드: `MEMBER_005`(403, 미인증), `MEMBER_006`(400, 잘못된 번호), `MEMBER_007`(410, 만료), `MEMBER_008`(429, 재발송 제한), `MEMBER_009`(503, 메일 발송 실패). 이미 가입된 이메일은 기존 `MEMBER_001`(409).
+- 발신 계정은 Gmail SMTP(`cki08543@gmail.com`)다. 운영 서버에 `MAIL_PASSWORD`로 앱 비밀번호를 넣어야 실제 발송된다.
 
 ### M2 ADR 확정 결과 (2026-09-21, 2026-09-22 개편으로 일부 폐기)
 
