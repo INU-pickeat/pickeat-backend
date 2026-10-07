@@ -227,7 +227,8 @@ public class RecommendationService {
     private ScoredCandidate score(RestaurantCandidate candidate, CompanionType companionType, double radiusMeters) {
         boolean companionMatch = isCompanionMatch(companionType, candidate.restaurant());
         RecommendationScoreCalculator.ScoreBreakdown breakdown = scoreCalculator.calculate(
-                candidate.restaurant().getExternalRating(), candidate.distanceMeters(), radiusMeters, companionMatch);
+                candidate.restaurant().getExternalRating(), candidate.restaurant().getExternalRatingCount(),
+                candidate.distanceMeters(), radiusMeters, companionMatch);
         return new ScoredCandidate(candidate.restaurant(), candidate.distanceMeters(), breakdown);
     }
 

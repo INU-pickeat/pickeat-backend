@@ -92,6 +92,7 @@ class RecommendationServiceTest {
                 .latitude(37.5)
                 .longitude(127.0)
                 .externalRating(java.math.BigDecimal.valueOf(rating))
+                .externalRatingCount(100)
                 .suitableForDate(suitableForDate)
                 .build();
     }
@@ -239,7 +240,8 @@ class RecommendationServiceTest {
                 .containsExactly(1, 2, 3, 4, 5);
         assertThat(response.items()).extracting(RecommendationResponse.Item::score)
                 .isSortedAccordingTo(java.util.Comparator.reverseOrder());
-        assertThat(response.items().get(4).score()).isGreaterThanOrEqualTo(0.24);
+        // 5위(평점 1.0)는 평점 0점, 거리 200m/1km → 0.2 × 0.8 = 0.16
+        assertThat(response.items().get(4).score()).isGreaterThanOrEqualTo(0.16);
     }
 
     @Test
