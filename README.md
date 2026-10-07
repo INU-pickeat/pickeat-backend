@@ -22,10 +22,16 @@ PickEat 프로젝트의 백엔드 서버입니다.
 | `DB_PASSWORD` | (빈 값) |
 | `JWT_SECRET` | 필수 (HS256 기준 32바이트 이상) |
 | `JWT_ACCESS_TOKEN_VALIDITY_MS` | `1800000` (30분) |
+| `JWT_REFRESH_TOKEN_VALIDITY_MS` | `1209600000` (14일) |
+| `CORS_ALLOWED_ORIGINS` | 허용할 프론트 Origin 목록(쉼표 구분). 운영: `https://www.pickeat.kr,https://pickeat.kr` |
 | `GOOGLE_PLACES_API_KEY` | Google Places Nearby Search API 키 |
+| `MAIL_HOST` / `MAIL_PORT` | `smtp.gmail.com` / `587` |
 | `MAIL_USERNAME` | SMTP 발신 계정. 기본값 `cki08543@gmail.com` |
-| `MAIL_PASSWORD` | SMTP 앱 비밀번호 |
+| `MAIL_PASSWORD` | Gmail 앱 비밀번호(영문 소문자 16자, 공백 없이). 비우면 인증 메일 발송이 `503 MEMBER_009`로 실패 |
 | `MAIL_FROM` | 인증 메일 발신 주소. 기본값 `cki08543@gmail.com` |
+| `EMAIL_VERIFICATION_CODE_VALIDITY_MS` | `600000` (인증번호 유효 10분) |
+| `EMAIL_VERIFICATION_RESEND_COOLDOWN_MS` | `60000` (재발송 제한 1분) |
+| `EMAIL_VERIFICATION_SIGNUP_VALIDITY_MS` | `1800000` (인증 후 가입 가능 30분) |
 | `REVIEW_IMAGE_BUCKET` | 후기 이미지 S3 버킷. 비우면 이미지 업로드 URL 발급만 꺼진다 |
 | `REVIEW_IMAGE_REGION` | `ap-northeast-2` |
 | `REVIEW_IMAGE_BASE_URL` | 이미지 제공 주소(CloudFront 등). 비우면 S3 버킷 주소 |
@@ -51,6 +57,8 @@ Swagger UI는 `local` 프로필에서만 활성화됩니다. API 문서 없이 �
 5. 우측 상단 `Authorize` 버튼에 `Bearer <accessToken>` 입력
 6. 인증이 필요한 API 호출
 
+회원가입은 이메일 인증을 마쳐야 하므로, 로컬에서 가입까지 테스트하려면 `MAIL_PASSWORD`를 설정해 실제 메일을 받아야 합니다.
+
 ## 테스트
 
 ```bash
@@ -62,9 +70,14 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 
 ## 현재 구현 범위
 
-**M1 Restaurant, M2 Recommendation, M3 Pick 마일스톤 완료, 운영 배포 완료(`https://api.pickeat.kr`). Phase 2의 Review·공개 피드·좋아요·후기 요약 구현.**
+**M1 Restaurant, M2 Recommendation, M3 Pick 마일스톤 완료, 운영 배포 완료(`https://api.pickeat.kr`). Phase 2의 Review·공개 피드·좋아요·후기 요약과 회원가입 이메일 인증(2026-10-07 운영 검증) 구현.**
 
-- 이메일 인증이 필수인 Member 회원가입·로그인과 JWT 인증 (`POST /api/v1/auth/email-verifications`, `/email-verifications/confirm`, `/signup`, `/login`)
+| 구분 | 주소 |
+|---|---|
+| API (EC2 · Nginx · Let's Encrypt) | `https://api.pickeat.kr` |
+| 프론트엔드 (Vercel) | `https://www.pickeat.kr` (`pickeat.kr`은 `www`로 리다이렉트) |
+
+- 이메일 인증이 필수인 Member 회원가입·로그인과 JWT 인증 (`POST /api/v1/auth/email-verifications`, `/email-verifications/confirm`, `/signup`, `/login`) — 6자리 인증번호(BCrypt 저장, 10분 만료, 1분 재발송 제한, 5회 실패 제한), 인증 후 30분 안에 가입. 이메일은 앞뒤 공백 제거·소문자로 정규화
 - Refresh Token 재발급·로그아웃 (`POST /api/v1/auth/refresh`, `/logout`) — 14일, 사용 시 새 토큰으로 교체(rotation), DB에는 해시만 저장
 - 내 프로필 조회·수정 API (`GET`/`PATCH /api/v1/me`) — 닉네임·자기소개·프로필 이미지 URL 부분 수정
 - 식당 상세 조회 (`GET /api/v1/restaurants/{id}`) — 인증 불필요, 공유 링크 대응
@@ -115,8 +128,9 @@ EC2 최초 설정, GitHub Secrets, systemd, 헬스체크와 롤백 절차는 [`d
 
 ## 브랜치 / PR 전략
 
-작업 단위마다 `feature/*` 브랜치를 새로 만들고 PR로 병합합니다. 자세한 컨벤션은 Notion의 [Git Branch Naming Convention](https://app.notion.com/p/d9f482bdb23e823da7da019c93d5c3ee), [Git Commit Message Convention](https://app.notion.com/p/b61482bdb23e82a5b8de010191af9500) 문서를 참고하세요.
+작업 단위마다 `main`에서 `feat/*`, `fix/*`, `docs/*`, `chore/*` 브랜치를 만들고 PR로 병합합니다(`main` 직접 커밋 금지). 자세한 컨벤션은 Notion의 [Git Branch Naming Convention](https://app.notion.com/p/d9f482bdb23e823da7da019c93d5c3ee), [Git Commit Message Convention](https://app.notion.com/p/b61482bdb23e82a5b8de010191af9500) 문서를 참고하세요.
 
 ## 문서
 
-- 코드/네이밍 컨벤션, ERD, API 명세 등은 Notion "PickEat 프로젝트 > 백엔드" 페이지에 정리되어 있습니다.
+- 코드/네이밍 컨벤션, ERD, API 명세, Backend Task는 Notion [BE](https://app.notion.com/p/3d4482bdb23e80038885edb637243716) 페이지에 정리되어 있습니다.
+- 제품 기획 원본은 Notion [Pick Eat 프로젝트 기획서](https://app.notion.com/p/3de482bdb23e8057a731f00d852cdb5f)입니다.
