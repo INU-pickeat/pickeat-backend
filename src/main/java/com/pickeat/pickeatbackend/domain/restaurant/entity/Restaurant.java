@@ -76,6 +76,11 @@ public class Restaurant {
     @Column(columnDefinition = "text")
     private String openingHoursText;
 
+    // Google 정기 영업시간을 [여는 분, 닫는 분] 쌍으로 펼친 값(분 = 요일×1440 + 시×60 + 분, 0=일요일 0시).
+    // null이면 영업시간을 모른다. OpeningHours 참고.
+    @Column(columnDefinition = "integer[]")
+    private int[] openingWeekMinutes;
+
     @Column(precision = 2, scale = 1)
     private BigDecimal externalRating;
 
@@ -192,6 +197,10 @@ public class Restaurant {
             this.suitableForDogs = googleSuitableForDogs;
         }
         this.externalDataRefreshedAt = Instant.now();
+    }
+
+    public void updateOpeningHours(int[] openingWeekMinutes) {
+        this.openingWeekMinutes = openingWeekMinutes;
     }
 
     @PrePersist

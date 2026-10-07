@@ -2,6 +2,9 @@ package com.pickeat.pickeatbackend;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
+import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +18,12 @@ class RestaurantSchemaIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private RestaurantRepository restaurantRepository;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Test
     @DisplayName("restaurant 마이그레이션과 공간 인덱스가 적용된다")
@@ -35,6 +44,22 @@ class RestaurantSchemaIntegrationTest {
                 SELECT indexdef FROM pg_indexes
                 WHERE schemaname = 'public' AND indexname = 'restaurants_location_gist_idx'
                 """, String.class)).contains("USING gist (location)");
+    }
+
+    @Test
+    @DisplayName("영업시간 배열 컬럼을 저장하고 다시 읽는다")
+    void storesAndReadsOpeningWeekMinutes() {
+        Restaurant restaurant = restaurantRepository.saveAndFlush(Restaurant.builder()
+                .name("영업시간 테스트 식당")
+                .latitude(37.5)
+                .longitude(127.0)
+                .build());
+        restaurant.updateOpeningHours(new int[] {4980, 5580, 5700, 6000});
+        restaurantRepository.saveAndFlush(restaurant);
+        entityManager.clear();
+
+        assertThat(restaurantRepository.findById(restaurant.getId()).orElseThrow().getOpeningWeekMinutes())
+                .containsExactly(4980, 5580, 5700, 6000);
     }
 
     @Test

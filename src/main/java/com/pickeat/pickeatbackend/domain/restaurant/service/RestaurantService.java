@@ -75,6 +75,7 @@ public class RestaurantService {
                 place.goodForGroups(),
                 place.allowsDogs()
         );
+        restaurant.updateOpeningHours(OpeningHours.toWeekMinutes(place.regularOpeningHours()));
 
         return restaurantRepository.save(restaurant);
     }

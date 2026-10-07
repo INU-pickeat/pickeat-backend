@@ -19,11 +19,14 @@ import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantCandidate;
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantRepository;
 import com.pickeat.pickeatbackend.domain.restaurant.service.FranchiseBrands;
+import com.pickeat.pickeatbackend.domain.restaurant.service.OpeningHours;
 import com.pickeat.pickeatbackend.domain.restaurant.service.RestaurantService;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Comparator;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -47,6 +50,8 @@ public class RecommendationService {
 
     private static final double DENSE_AREA_RADIUS_METERS = 1000.0;
     private static final double DEFAULT_RADIUS_METERS = 5000.0;
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+    private static final Duration ARRIVAL_MARGIN = Duration.ofMinutes(30);
     private static final int TOP_RESULT_COUNT = 5;
     private static final int STORED_CANDIDATE_COUNT = 10;
     private static final int MIN_DB_CANDIDATES_BEFORE_GOOGLE = 10;
@@ -138,9 +143,12 @@ public class RecommendationService {
 
     // DB에서 반경 이내 후보를 조회한 뒤 카테고리·가격 조건을 통과한 후보만 남긴다.
     // 동행이 DATE면 프랜차이즈도 뺀다. 다른 동행 유형에는 적용하지 않는다.
+    // 30분 뒤에 영업 중인 식당만 남긴다(마감 30분 전부터 제외, 30분 안에 열면 포함). 영업시간을 모르면 남긴다.
     private List<RestaurantCandidate> findValidCandidates(RecommendationRequest request, double radiusMeters) {
+        ZonedDateTime arrival = ZonedDateTime.now(SEOUL).plus(ARRIVAL_MARGIN);
         return restaurantRepository.findWithinRadius(request.latitude(), request.longitude(), radiusMeters)
                 .stream()
+                .filter(candidate -> OpeningHours.isOpenAt(candidate.restaurant().getOpeningWeekMinutes(), arrival))
                 .filter(candidate -> request.foodCategories().contains(candidate.restaurant().getFoodCategory()))
                 .filter(candidate -> matchesPriceRange(candidate.restaurant(), request.priceRange()))
                 .filter(candidate -> request.companionType() != CompanionType.DATE
