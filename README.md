@@ -23,6 +23,9 @@ PickEat 프로젝트의 백엔드 서버입니다.
 | `JWT_SECRET` | 필수 (HS256 기준 32바이트 이상) |
 | `JWT_ACCESS_TOKEN_VALIDITY_MS` | `1800000` (30분) |
 | `GOOGLE_PLACES_API_KEY` | Google Places Nearby Search API 키 |
+| `MAIL_USERNAME` | SMTP 발신 계정. 기본값 `cki08543@gmail.com` |
+| `MAIL_PASSWORD` | SMTP 앱 비밀번호 |
+| `MAIL_FROM` | 인증 메일 발신 주소. 기본값 `cki08543@gmail.com` |
 | `REVIEW_IMAGE_BUCKET` | 후기 이미지 S3 버킷. 비우면 이미지 업로드 URL 발급만 꺼진다 |
 | `REVIEW_IMAGE_REGION` | `ap-northeast-2` |
 | `REVIEW_IMAGE_BASE_URL` | 이미지 제공 주소(CloudFront 등). 비우면 S3 버킷 주소 |
@@ -41,10 +44,12 @@ Swagger UI는 `local` 프로필에서만 활성화됩니다. API 문서 없이 �
 
 서버가 뜨면 `http://localhost:8080/swagger-ui/index.html` 에서 API를 바로 테스트할 수 있습니다.
 
-1. `POST /api/v1/auth/signup`으로 회원가입
-2. `POST /api/v1/auth/login`으로 로그인 후 `accessToken`·`refreshToken` 발급
-3. 우측 상단 `Authorize` 버튼에 `Bearer <accessToken>` 입력
-4. 인증이 필요한 API 호출
+1. `POST /api/v1/auth/email-verifications`로 인증번호 발송
+2. `POST /api/v1/auth/email-verifications/confirm`으로 인증번호 확인
+3. `POST /api/v1/auth/signup`으로 회원가입
+4. `POST /api/v1/auth/login`으로 로그인 후 `accessToken`·`refreshToken` 발급
+5. 우측 상단 `Authorize` 버튼에 `Bearer <accessToken>` 입력
+6. 인증이 필요한 API 호출
 
 ## 테스트
 
@@ -59,7 +64,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 
 **M1 Restaurant, M2 Recommendation, M3 Pick 마일스톤 완료, 운영 배포 완료(`https://api.pickeat.kr`). Phase 2의 Review·공개 피드·좋아요·후기 요약 구현.**
 
-- Member 회원가입·로그인과 JWT 인증 (`POST /api/v1/auth/signup`, `/login`)
+- 이메일 인증이 필수인 Member 회원가입·로그인과 JWT 인증 (`POST /api/v1/auth/email-verifications`, `/email-verifications/confirm`, `/signup`, `/login`)
 - Refresh Token 재발급·로그아웃 (`POST /api/v1/auth/refresh`, `/logout`) — 14일, 사용 시 새 토큰으로 교체(rotation), DB에는 해시만 저장
 - 내 프로필 조회·수정 API (`GET`/`PATCH /api/v1/me`) — 닉네임·자기소개·프로필 이미지 URL 부분 수정
 - 식당 상세 조회 (`GET /api/v1/restaurants/{id}`) — 인증 불필요, 공유 링크 대응

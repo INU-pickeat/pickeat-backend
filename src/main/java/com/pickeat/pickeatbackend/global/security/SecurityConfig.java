@@ -57,6 +57,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout",
+                                "/api/v1/auth/email-verifications", "/api/v1/auth/email-verifications/confirm",
                                 "/error",
                                 "/actuator/health", "/actuator/health/**"
                         ).permitAll()

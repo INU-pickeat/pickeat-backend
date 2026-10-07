@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.util.Locale;
 
 public record SignUpRequest(
         @NotBlank @Email String email,
@@ -15,6 +16,7 @@ public record SignUpRequest(
     public static final String NICKNAME_PATTERN = "^[가-힣a-zA-Z0-9]+$";
 
     public SignUpRequest {
+        email = email == null ? null : email.strip().toLowerCase(Locale.ROOT);
         nickname = nickname == null ? null : nickname.strip();
     }
 }

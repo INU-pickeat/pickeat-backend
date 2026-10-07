@@ -1,5 +1,7 @@
 package com.pickeat.pickeatbackend.domain.member.controller;
 
+import com.pickeat.pickeatbackend.domain.member.dto.EmailVerificationConfirmRequest;
+import com.pickeat.pickeatbackend.domain.member.dto.EmailVerificationRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.LoginRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.LoginResponse;
 import com.pickeat.pickeatbackend.domain.member.dto.MemberProfileResponse;
@@ -8,6 +10,7 @@ import com.pickeat.pickeatbackend.domain.member.dto.SignUpRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.SignUpResponse;
 import com.pickeat.pickeatbackend.domain.member.dto.UpdateProfileRequest;
 import com.pickeat.pickeatbackend.domain.member.service.AuthTokenService;
+import com.pickeat.pickeatbackend.domain.member.service.EmailVerificationService;
 import com.pickeat.pickeatbackend.domain.member.service.MemberService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +31,23 @@ public class MemberController {
 
     private final MemberService memberService;
     private final AuthTokenService authTokenService;
+    private final EmailVerificationService emailVerificationService;
+
+    @PostMapping("/auth/email-verifications")
+    public ResponseEntity<Void> requestEmailVerification(
+            @Valid @RequestBody EmailVerificationRequest request
+    ) {
+        emailVerificationService.sendCode(request.email());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/auth/email-verifications/confirm")
+    public ResponseEntity<Void> confirmEmailVerification(
+            @Valid @RequestBody EmailVerificationConfirmRequest request
+    ) {
+        emailVerificationService.confirm(request.email(), request.code());
+        return ResponseEntity.noContent().build();
+    }
 
     @PostMapping("/auth/signup")
     public ResponseEntity<SignUpResponse> signUp(@Valid @RequestBody SignUpRequest request) {

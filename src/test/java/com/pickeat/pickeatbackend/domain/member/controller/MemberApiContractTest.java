@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.pickeat.pickeatbackend.domain.member.dto.MemberProfileResponse;
 import com.pickeat.pickeatbackend.domain.member.dto.UpdateProfileRequest;
+import com.pickeat.pickeatbackend.domain.member.service.EmailVerificationService;
 import com.pickeat.pickeatbackend.domain.member.service.MemberService;
 import com.pickeat.pickeatbackend.global.security.jwt.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +37,7 @@ class MemberApiContractTest {
     @Autowired MockMvc mockMvc;
     @Autowired JwtTokenProvider jwtTokenProvider;
     @MockitoBean MemberService memberService;
+    @MockitoBean EmailVerificationService emailVerificationService;
 
     private String authorizationHeader;
     private MemberProfileResponse profile;
@@ -94,6 +96,29 @@ class MemberApiContractTest {
                 .andExpect(status().isOk());
 
         verify(memberService).updateProfile(MEMBER_ID, new UpdateProfileRequest("열글자닉네임입니다요", null, null));
+    }
+
+    @Test
+    @DisplayName("이메일 인증번호 요청 API는 인증 없이 호출할 수 있다")
+    void requestsEmailVerificationWithoutAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/email-verifications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\" Test@PickEat.com \"}"))
+                .andExpect(status().isNoContent());
+
+        verify(emailVerificationService).sendCode("test@pickeat.com");
+    }
+
+    @Test
+    @DisplayName("이메일 인증번호 확인 API는 6자리 숫자만 허용한다")
+    void rejectsInvalidEmailVerificationCode() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/email-verifications/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test@pickeat.com\",\"code\":\"12AB\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+
+        verify(emailVerificationService, never()).confirm(any(), any());
     }
 
     @Test

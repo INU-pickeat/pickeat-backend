@@ -21,12 +21,14 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthTokenService authTokenService;
+    private final EmailVerificationService emailVerificationService;
 
     @Transactional
     public Long signUp(SignUpRequest request) {
         if (memberRepository.existsByEmail(request.email())) {
             throw new BusinessException(MemberErrorCode.DUPLICATE_EMAIL);
         }
+        emailVerificationService.consume(request.email());
 
         Member member = Member.builder()
                 .email(request.email())

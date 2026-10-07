@@ -32,6 +32,12 @@ class RefreshTokenFlowIntegrationTest {
 
     @BeforeEach
     void signUp() throws Exception {
+        jdbcTemplate.update("""
+                INSERT INTO email_verifications
+                    (email, code_hash, expires_at, verified_at, sent_at, failed_attempts)
+                VALUES (?, 'test-only', CURRENT_TIMESTAMP + INTERVAL '30 minutes',
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)
+                """, EMAIL);
         mockMvc.perform(post("/api/v1/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"" + EMAIL + "\",\"password\":\"password123\",\"nickname\":\"리프레시\"}"))
