@@ -55,6 +55,10 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
     systemProperty 'jwt.secret', 'pickeat-test-secret-key-long-enough-for-hs256-signing'
+    // @MockitoBean 조합마다 Spring 컨텍스트가 따로 캐시되고, 컨텍스트마다 Hikari 풀(기본 10개)이 연결을 잡고 있다.
+    // 컨텍스트가 늘면 PostgreSQL max_connections(기본 100)를 넘겨 뒤쪽 테스트가 DB에 접속하지 못하므로 테스트에서는 풀을 작게 둔다.
+    systemProperty 'spring.datasource.hikari.maximum-pool-size', '3'
+    systemProperty 'spring.datasource.hikari.minimum-idle', '1'
 }
 
 tasks.named('bootJar') {
