@@ -2,7 +2,10 @@ package com.pickeat.pickeatbackend.domain.restaurant.dto;
 
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
+import com.pickeat.pickeatbackend.domain.restaurant.service.RestaurantPhotoService;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 public record RestaurantResponse(
         Long id,
@@ -26,7 +29,8 @@ public record RestaurantResponse(
         Boolean suitableForSolo,
         Boolean suitableForGroup,
         Boolean suitableForDogs,
-        String oneLineReview
+        String oneLineReview,
+        List<String> imageUrls
 ) {
 
     // oneLineReview: 앱 내 사용자 후기에서 뽑은 한줄평. 후기가 없으면 호출한 쪽에서 ReviewOneLiner.NO_REVIEW를 넘긴다.
@@ -53,7 +57,25 @@ public record RestaurantResponse(
                 restaurant.getSuitableForSolo(),
                 restaurant.getSuitableForGroup(),
                 restaurant.getSuitableForDogs(),
-                oneLineReview
+                oneLineReview,
+                imageUrls(restaurant)
         );
+    }
+
+    // 상세 화면용 이미지 목록(최대 3장). 첫 번째는 representativeImageUrl과 같다. 자체 이미지가 있으면 그것을
+    // 먼저 두고 나머지를 Google 사진으로 채운다. Google에 사진이 그만큼 없으면 해당 주소는 404를 응답한다.
+    private static List<String> imageUrls(Restaurant restaurant) {
+        List<String> urls = new ArrayList<>();
+        String own = restaurant.getRepresentativeImageUrl();
+        if (own != null && !own.isBlank()) {
+            urls.add(own);
+        }
+        if (restaurant.getId() != null && restaurant.getGooglePlaceId() != null) {
+            String photoPath = RestaurantImageUrl.photoPath(restaurant.getId());
+            for (int index = 0; urls.size() < RestaurantPhotoService.MAX_PHOTOS; index++) {
+                urls.add(index == 0 ? photoPath : photoPath + "?index=" + index);
+            }
+        }
+        return List.copyOf(urls);
     }
 }
