@@ -479,6 +479,58 @@ class RecommendationServiceTest {
     }
 
     @Test
+    @DisplayName("보조 카테고리가 요청 카테고리와 맞는 식당도 후보에 포함한다")
+    void includesRestaurantsMatchingSecondaryCategory() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        Restaurant chicken = restaurantNamed("교촌치킨 연남점", FoodCategory.KOREAN);
+        chicken.updateSecondaryFoodCategory(FoodCategory.PUB_BAR);
+        Restaurant korean = restaurantNamed("연남동 한식당", FoodCategory.KOREAN);
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(
+                new RestaurantCandidate(chicken, 100), new RestaurantCandidate(korean, 200)));
+        RecommendationRequest pubRequest = new RecommendationRequest(
+                Set.of(FoodCategory.PUB_BAR), CompanionType.GROUP, null, 37.5, 127.0);
+
+        RecommendationResponse response = recommendationService.recommend(pubRequest, 1L);
+
+        assertThat(response.items()).extracting(RecommendationResponse.Item::name).containsExactly("교촌치킨 연남점");
+    }
+
+    @Test
+    @DisplayName("팀이 입력한 적합도가 없으면 이름의 메뉴 키워드로 동행 가산점을 준다")
+    void givesCompanionBonusFromNameHintWhenSuitabilityUnknown() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(
+                new RestaurantCandidate(restaurantNamed("연남동 한식당", FoodCategory.KOREAN), 100),
+                new RestaurantCandidate(restaurantNamed("연남 파스타", FoodCategory.KOREAN), 100)));
+
+        RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
+
+        // 평점과 거리가 같으므로 순위 차이는 동행 가산점(0.1)에서만 나온다.
+        assertThat(response.items()).extracting(RecommendationResponse.Item::name)
+                .containsExactly("연남 파스타", "연남동 한식당");
+        assertThat(response.items().get(0).score() - response.items().get(1).score())
+                .isCloseTo(0.1, org.assertj.core.api.Assertions.within(1e-9));
+    }
+
+    @Test
+    @DisplayName("팀이 부적합으로 입력한 식당은 이름 키워드가 있어도 가산점을 주지 않는다")
+    void keepsTeamEnteredSuitabilityOverNameHint() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        Restaurant pasta = restaurantNamed("연남 파스타", FoodCategory.KOREAN);
+        ReflectionTestUtils.setField(pasta, "suitableForDate", false);
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(
+                new RestaurantCandidate(restaurantNamed("연남동 한식당", FoodCategory.KOREAN), 100),
+                new RestaurantCandidate(pasta, 100)));
+
+        RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
+
+        assertThat(response.items().get(0).score()).isEqualTo(response.items().get(1).score());
+    }
+
+    @Test
     @DisplayName("DB 유효 후보가 10개 이상이면 Google을 호출하지 않는다")
     void skipsGoogleWhenTenOrMoreValidDbCandidatesExist() {
         stubPersistence();

@@ -163,6 +163,32 @@ class RestaurantServiceTest {
         Restaurant saved = restaurantService.upsertFromGoogle(place);
 
         assertThat(saved.getFoodCategory()).isEqualTo(FoodCategory.KOREAN);
+        assertThat(saved.getSecondaryFoodCategory()).isNull();
+    }
+
+    @Test
+    @DisplayName("치킨처럼 두 카테고리에 걸치는 식당은 보조 카테고리도 저장한다")
+    void storesSecondaryFoodCategoryForDualKeyword() {
+        GooglePlaceResponse place = new GooglePlaceResponse(
+                "place-chicken",
+                new GooglePlaceResponse.DisplayName("교촌치킨 연남점", "ko"),
+                "서울 마포구",
+                new GooglePlaceResponse.Location(37.56, 126.92),
+                4.1,
+                120,
+                "https://maps.google.com/place-chicken",
+                List.of(),
+                "chicken_restaurant"
+        );
+        when(restaurantRepository.findByGooglePlaceId("place-chicken")).thenReturn(Optional.empty());
+        when(restaurantRepository.save(any(Restaurant.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Restaurant saved = restaurantService.upsertFromGoogle(place);
+
+        assertThat(saved.getFoodCategory()).isEqualTo(FoodCategory.KOREAN);
+        assertThat(saved.getSecondaryFoodCategory()).isEqualTo(FoodCategory.PUB_BAR);
+        assertThat(saved.servesAnyOf(java.util.Set.of(FoodCategory.PUB_BAR))).isTrue();
+        assertThat(saved.servesAnyOf(java.util.Set.of(FoodCategory.JAPANESE))).isFalse();
     }
 
     @Test

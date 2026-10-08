@@ -86,7 +86,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - PostGIS `geography(Point, 4326)` 기반 반경 후보 조회(수도권·부산 1km · 그 외 5km) (`RestaurantRepository.findWithinRadius`, GiST 인덱스)
 - 데이트·가족·아이·혼자·단체·반려견 적합도 3상태(`true`/`false`/`NULL`, 큐레이션 전용 — Google 갱신이 건드리지 않음)
 - M2 ADR 확정, 추천 요청 DTO(`RecommendationRequest`), 점수 계산기(`RecommendationScoreCalculator`), 세션·후보 스키마(V7 마이그레이션)
-- 추천 생성·세션 조회 API (`POST`/`GET /api/v1/recommendations`) — DB 우선, 부족할 때만 Google 호출·upsert 하이브리드 조회(합계 10개 미만이거나 요청 카테고리 중 5개 미만인 카테고리가 있을 때, 부족한 카테고리만 보충). 선택적 가격대 필터(`priceRange`)를 지원하며 상위 10개를 세션 후보로 저장하고 상위 5개만 응답한다. 동행이 `DATE`면 프랜차이즈 식당을 후보에서 뺀다(브랜드 목록: `src/main/resources/curated/franchise-brands.txt`)
+- 추천 생성·세션 조회 API (`POST`/`GET /api/v1/recommendations`) — DB 우선, 부족할 때만 Google 호출·upsert 하이브리드 조회(합계 10개 미만이거나 요청 카테고리 중 5개 미만인 카테고리가 있을 때, 부족한 카테고리만 보충). 선택적 가격대 필터(`priceRange`)를 지원하며 상위 10개를 세션 후보로 저장하고 상위 5개만 응답한다. 식당 이름 키워드로 카테고리를 보정하고(`curated/category-name-keywords.txt`), 데이트·혼밥 적합도가 비어 있으면 메뉴 키워드로 추정해 동행 가산점을 준다(`curated/companion-name-keywords.txt`). 동행이 `DATE`면 프랜차이즈 식당을 후보에서 뺀다(브랜드 목록: `src/main/resources/curated/franchise-brands.txt`)
 - 재추천(제외) API (`POST /api/v1/recommendations/{sessionId}/exclusions`) — 식당을 제외 사유와 함께 제외하면 세션에 저장해 둔 6~10위 대체 후보로 그 자리를 채워 다시 상위 5개를 반환한다. 제외는 해당 세션 안에서만 유효하다
 - Pick 생성·상태 변경 API (`POST /api/v1/picks`, `PATCH /api/v1/picks/{pickId}`) — 추천 세션에 실제 노출된 후보만 선택 가능. 생성 시 추천 세션의 동행 유형을 스냅샷으로 저장. 상태 변경 API로는 취소(`CANCELED`)만 할 수 있고, `REVIEWED`는 후기 작성으로만 전환된다
 - 내 최근 Pick 목록 API (`GET /api/v1/me/picks?period=week|month`) — SELECTED + REVIEWED를 식당별로 그룹화해 `pickCount`·`latestPickedAt` 반환. 식당 카드용으로 `foodCategory`와 `representativeImageUrl`도 함께 반환한다

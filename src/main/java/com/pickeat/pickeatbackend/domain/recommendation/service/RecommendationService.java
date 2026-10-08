@@ -116,8 +116,13 @@ public class RecommendationService {
     // 5개 미만인 카테고리만. 합계만 보면 한 카테고리로 10개가 채워진 지역에서 나머지 카테고리를 영영
     // 가져오지 않는다. 최근에 보충한 구역·카테고리는 건너뛴다.
     private Set<FoodCategory> categoriesToFill(RecommendationRequest request, List<RestaurantCandidate> candidates) {
-        Map<FoodCategory, Long> countByCategory = candidates.stream()
-                .collect(Collectors.groupingBy(c -> c.restaurant().getFoodCategory(), Collectors.counting()));
+        // 보조 카테고리가 있는 식당은 두 카테고리 모두에 센다.
+        Map<FoodCategory, Long> countByCategory = request.foodCategories().stream()
+                .collect(Collectors.toMap(
+                        category -> category,
+                        category -> candidates.stream()
+                                .filter(c -> c.restaurant().servesAnyOf(Set.of(category)))
+                                .count()));
         boolean totalShort = candidates.size() < MIN_DB_CANDIDATES_BEFORE_GOOGLE;
         Instant cooldownStart = Instant.now().minus(GOOGLE_FILL_COOLDOWN);
         return request.foodCategories().stream()
@@ -151,7 +156,7 @@ public class RecommendationService {
         return restaurantRepository.findWithinRadius(request.latitude(), request.longitude(), radiusMeters)
                 .stream()
                 .filter(candidate -> OpeningHours.isOpenAt(candidate.restaurant().getOpeningWeekMinutes(), arrival))
-                .filter(candidate -> request.foodCategories().contains(candidate.restaurant().getFoodCategory()))
+                .filter(candidate -> candidate.restaurant().servesAnyOf(request.foodCategories()))
                 .filter(candidate -> matchesPriceRange(candidate.restaurant(), request.priceRange()))
                 .filter(candidate -> request.companionType() != CompanionType.DATE
                         || !FranchiseBrands.isFranchise(candidate.restaurant().getName()))
@@ -256,7 +261,11 @@ public class RecommendationService {
             case GROUP -> restaurant.getSuitableForGroup();
             case DOG -> restaurant.getSuitableForDogs();
         };
-        return Boolean.TRUE.equals(suitable);
+        // 팀이 입력한 적합도가 없으면 이름의 메뉴 키워드로 추정한다(예: 파스타 → 데이트 적합, 라멘 → 혼밥 적합).
+        if (suitable == null) {
+            return CompanionNameHint.find(restaurant.getName(), companionType).orElse(false);
+        }
+        return suitable;
     }
 
     private List<RecommendationCandidate> toCandidateEntities(RecommendationSession session, List<ScoredCandidate> scored) {
