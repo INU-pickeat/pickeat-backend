@@ -144,6 +144,28 @@ class RestaurantServiceTest {
     }
 
     @Test
+    @DisplayName("이름에 보정 키워드가 있으면 Google 유형보다 그 카테고리로 저장한다")
+    void overridesFoodCategoryByNameKeyword() {
+        GooglePlaceResponse place = new GooglePlaceResponse(
+                "place-kalguksu",
+                new GooglePlaceResponse.DisplayName("더샤브칼국수", "ko"),
+                "인천 연수구 벤처로 10",
+                new GooglePlaceResponse.Location(37.38, 126.63),
+                4.2,
+                29,
+                "https://maps.google.com/place-kalguksu",
+                List.of(),
+                "japanese_restaurant"
+        );
+        when(restaurantRepository.findByGooglePlaceId("place-kalguksu")).thenReturn(Optional.empty());
+        when(restaurantRepository.save(any(Restaurant.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Restaurant saved = restaurantService.upsertFromGoogle(place);
+
+        assertThat(saved.getFoodCategory()).isEqualTo(FoodCategory.KOREAN);
+    }
+
+    @Test
     @DisplayName("신규 식당이면 새로 생성해서 저장한다")
     void createsNewRestaurantWhenNotExisting() {
         when(restaurantRepository.findByGooglePlaceId("place-1")).thenReturn(Optional.empty());

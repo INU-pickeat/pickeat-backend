@@ -51,8 +51,10 @@ public class RestaurantService {
                         .longitude(place.location().longitude())
                         .build());
 
-        // Google이 이번 응답에서 유형을 못 주거나 매핑이 안 되면 기존 분류를 유지한다.
-        FoodCategory foodCategory = FoodCategory.fromGooglePrimaryType(place.primaryType())
+        // 이름에 보정 키워드가 있으면 Google 유형보다 그 카테고리를 우선한다(예: 칼국수·장어 → 한식, 양꼬치 → 중식).
+        // 없으면 Google 유형을 따르고, Google이 유형을 못 주거나 매핑이 안 되면 기존 분류를 유지한다.
+        FoodCategory foodCategory = FoodCategoryNameOverride.find(place.displayName().text())
+                .or(() -> FoodCategory.fromGooglePrimaryType(place.primaryType()))
                 .orElse(restaurant.getFoodCategory());
         BigDecimal rating = place.rating() == null ? null : BigDecimal.valueOf(place.rating());
         GooglePlaceResponse.PriceRange priceRange = place.priceRange();
