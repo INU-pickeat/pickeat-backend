@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -30,9 +31,12 @@ public class RestaurantController {
 
     // <img src>로 바로 쓸 수 있게 Google 사진 주소로 리다이렉트한다. 브라우저도 30분간 다시 묻지 않는다.
     @GetMapping("/{restaurantId}/photo")
-    public ResponseEntity<Void> getPhoto(@PathVariable Long restaurantId) {
+    public ResponseEntity<Void> getPhoto(
+            @PathVariable Long restaurantId,
+            @RequestParam(defaultValue = "0") int index
+    ) {
         return ResponseEntity.status(HttpStatus.FOUND)
-                .location(URI.create(restaurantPhotoService.getPhotoUri(restaurantId)))
+                .location(URI.create(restaurantPhotoService.getPhotoUri(restaurantId, index)))
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(30)).cachePrivate())
                 .build();
     }

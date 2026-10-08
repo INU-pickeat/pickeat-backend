@@ -88,7 +88,12 @@ public class GooglePlacesClient {
     // 매번 Place Details로 사진 이름을 새로 받은 뒤(photos 필드만 요청) Place Photo로 주소를 받는다.
     // 사진이 없는 장소이거나 API 키가 없으면 빈 값을 돌려준다. 통신 오류는 RestClientException으로 던진다.
     public Optional<String> findPhotoUri(String placeId, int maxWidthPx) {
-        if (placeId == null || placeId.isBlank() || apiKey == null || apiKey.isBlank()) {
+        return findPhotoUri(placeId, 0, maxWidthPx);
+    }
+
+    // photoIndex: Google이 돌려준 사진 순서(0부터). 그 순번의 사진이 없으면 빈 값을 돌려준다.
+    public Optional<String> findPhotoUri(String placeId, int photoIndex, int maxWidthPx) {
+        if (placeId == null || placeId.isBlank() || apiKey == null || apiKey.isBlank() || photoIndex < 0) {
             return Optional.empty();
         }
 
@@ -98,10 +103,10 @@ public class GooglePlacesClient {
             .header("X-Goog-FieldMask", PHOTO_FIELD_MASK)
             .retrieve()
             .body(PhotosResponse.class);
-        if (details == null || details.photos() == null || details.photos().isEmpty()) {
+        if (details == null || details.photos() == null || details.photos().size() <= photoIndex) {
             return Optional.empty();
         }
-        String photoName = details.photos().getFirst().name();
+        String photoName = details.photos().get(photoIndex).name();
         if (photoName == null || !photoName.startsWith("places/")) {
             return Optional.empty();
         }

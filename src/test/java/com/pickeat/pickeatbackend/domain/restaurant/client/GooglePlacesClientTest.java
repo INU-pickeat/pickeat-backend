@@ -247,4 +247,35 @@ class GooglePlacesClientTest {
         assertThat(client.findPhotoUri(null, 800)).isEmpty();
         server.verify();
     }
+
+    @Test
+    @DisplayName("사진 순번을 주면 그 순번의 사진 이름으로 Place Photo를 부른다")
+    void findsPhotoUriAtRequestedIndex() {
+        server.expect(requestTo("https://places.googleapis.com/v1/places/test-place"))
+            .andRespond(withSuccess("""
+                {"photos":[{"name":"places/test-place/photos/first-ref"},
+                           {"name":"places/test-place/photos/second-ref"}]}
+                """, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(
+                "https://places.googleapis.com/v1/places/test-place/photos/second-ref/media"
+                    + "?maxWidthPx=800&skipHttpRedirect=true"))
+            .andRespond(withSuccess("""
+                {"name":"places/test-place/photos/second-ref/media","photoUri":"https://lh3.googleusercontent.com/second"}
+                """, MediaType.APPLICATION_JSON));
+
+        assertThat(client.findPhotoUri("test-place", 1, 800)).contains("https://lh3.googleusercontent.com/second");
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("요청한 순번의 사진이 없으면 Place Photo를 부르지 않고 빈 값을 돌려준다")
+    void returnsEmptyWhenPhotoIndexExceedsAvailablePhotos() {
+        server.expect(requestTo("https://places.googleapis.com/v1/places/test-place"))
+            .andRespond(withSuccess("""
+                {"photos":[{"name":"places/test-place/photos/first-ref"}]}
+                """, MediaType.APPLICATION_JSON));
+
+        assertThat(client.findPhotoUri("test-place", 2, 800)).isEmpty();
+        server.verify();
+    }
 }

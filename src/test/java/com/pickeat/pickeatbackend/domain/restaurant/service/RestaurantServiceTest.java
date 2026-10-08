@@ -23,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class RestaurantServiceTest {
@@ -97,6 +98,35 @@ class RestaurantServiceTest {
         RestaurantResponse response = restaurantService.getRestaurant(1L);
 
         assertThat(response.oneLineReview()).isEqualTo("양고기가 부드러워요");
+    }
+
+    @Test
+    @DisplayName("식당 상세는 자체 이미지를 먼저 두고 Google 사진으로 3장까지 채운다")
+    void returnsUpToThreeImageUrlsInRestaurantDetail() {
+        Restaurant curated = Restaurant.builder()
+                .name("큐레이션 식당").googlePlaceId("place-1").latitude(37.58).longitude(127.0).build();
+        ReflectionTestUtils.setField(curated, "id", 1L);
+        ReflectionTestUtils.setField(curated, "representativeImageUrl", "/images/discovery/sinsa_01_main.jpg");
+        Restaurant googleOnly = Restaurant.builder()
+                .name("구글 식당").googlePlaceId("place-2").latitude(37.58).longitude(127.0).build();
+        ReflectionTestUtils.setField(googleOnly, "id", 2L);
+        Restaurant noSource = Restaurant.builder().name("출처 없는 식당").latitude(37.58).longitude(127.0).build();
+        ReflectionTestUtils.setField(noSource, "id", 3L);
+        when(restaurantRepository.findById(1L)).thenReturn(Optional.of(curated));
+        when(restaurantRepository.findById(2L)).thenReturn(Optional.of(googleOnly));
+        when(restaurantRepository.findById(3L)).thenReturn(Optional.of(noSource));
+
+        assertThat(restaurantService.getRestaurant(1L).imageUrls()).containsExactly(
+                "/images/discovery/sinsa_01_main.jpg",
+                "/api/v1/restaurants/1/photo",
+                "/api/v1/restaurants/1/photo?index=1");
+        RestaurantResponse googleResponse = restaurantService.getRestaurant(2L);
+        assertThat(googleResponse.imageUrls()).containsExactly(
+                "/api/v1/restaurants/2/photo",
+                "/api/v1/restaurants/2/photo?index=1",
+                "/api/v1/restaurants/2/photo?index=2");
+        assertThat(googleResponse.imageUrls().getFirst()).isEqualTo(googleResponse.representativeImageUrl());
+        assertThat(restaurantService.getRestaurant(3L).imageUrls()).isEmpty();
     }
 
     private GooglePlaceResponse place(String primaryType, Double rating) {
