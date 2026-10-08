@@ -25,10 +25,12 @@ public record RestaurantResponse(
         Boolean suitableForChildren,
         Boolean suitableForSolo,
         Boolean suitableForGroup,
-        Boolean suitableForDogs
+        Boolean suitableForDogs,
+        String oneLineReview
 ) {
 
-    public static RestaurantResponse from(Restaurant restaurant) {
+    // oneLineReview: 앱 내 사용자 후기에서 뽑은 한줄평. 후기가 없으면 호출한 쪽에서 ReviewOneLiner.NO_REVIEW를 넘긴다.
+    public static RestaurantResponse from(Restaurant restaurant, String oneLineReview) {
         return new RestaurantResponse(
                 restaurant.getId(),
                 restaurant.getName(),
@@ -50,7 +52,8 @@ public record RestaurantResponse(
                 restaurant.getSuitableForChildren(),
                 restaurant.getSuitableForSolo(),
                 restaurant.getSuitableForGroup(),
-                restaurant.getSuitableForDogs()
+                restaurant.getSuitableForDogs(),
+                oneLineReview
         );
     }
 }

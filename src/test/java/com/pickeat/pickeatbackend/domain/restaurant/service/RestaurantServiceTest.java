@@ -11,9 +11,11 @@ import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantRepository;
+import com.pickeat.pickeatbackend.domain.review.service.ReviewSummaryService;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,6 +29,9 @@ class RestaurantServiceTest {
 
     @Mock
     private RestaurantRepository restaurantRepository;
+
+    @Mock
+    private ReviewSummaryService reviewSummaryService;
 
     @InjectMocks
     private RestaurantService restaurantService;
@@ -79,6 +84,19 @@ class RestaurantServiceTest {
 
         assertThat(response.name()).isEqualTo("테스트 식당");
         assertThat(response.foodCategory()).isEqualTo(FoodCategory.KOREAN);
+        assertThat(response.oneLineReview()).isEqualTo("후기가 없습니다.");
+    }
+
+    @Test
+    @DisplayName("식당 상세에 사용자 후기 한줄평을 담는다")
+    void returnsOneLineReviewInRestaurantDetail() {
+        Restaurant restaurant = Restaurant.builder().name("테스트 식당").latitude(37.58).longitude(127.0).build();
+        when(restaurantRepository.findById(1L)).thenReturn(Optional.of(restaurant));
+        when(reviewSummaryService.getOneLineReviews(List.of(1L))).thenReturn(Map.of(1L, "양고기가 부드러워요"));
+
+        RestaurantResponse response = restaurantService.getRestaurant(1L);
+
+        assertThat(response.oneLineReview()).isEqualTo("양고기가 부드러워요");
     }
 
     private GooglePlaceResponse place(String primaryType, Double rating) {

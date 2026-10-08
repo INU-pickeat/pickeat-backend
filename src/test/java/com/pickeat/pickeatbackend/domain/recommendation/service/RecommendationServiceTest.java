@@ -32,6 +32,7 @@ import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantCandidate;
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantRepository;
 import com.pickeat.pickeatbackend.domain.restaurant.service.RestaurantService;
+import com.pickeat.pickeatbackend.domain.review.service.ReviewSummaryService;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.math.BigDecimal;
 import java.util.List;
@@ -66,6 +67,8 @@ class RecommendationServiceTest {
     private MemberRepository memberRepository;
     @Mock
     private Member member;
+    @Mock
+    private ReviewSummaryService reviewSummaryService;
 
     private RecommendationService recommendationService;
 
@@ -73,7 +76,8 @@ class RecommendationServiceTest {
     void setUp() {
         recommendationService = new RecommendationService(
                 googlePlacesClient, restaurantService, restaurantRepository, new RecommendationScoreCalculator(),
-                sessionRepository, candidateRepository, exclusionRepository, memberRepository);
+                sessionRepository, candidateRepository, exclusionRepository, memberRepository,
+                reviewSummaryService);
     }
 
     private RecommendationRequest request(CompanionType companionType) {
