@@ -28,12 +28,13 @@ public interface PickRepository extends JpaRepository<Pick, Long> {
     // 최근 Pick 목록(홈·내 정보): SELECTED + REVIEWED만 집계 대상이며 CANCELED는 제외한다.
     @Query("""
             SELECT new com.pickeat.pickeatbackend.domain.pick.repository.RestaurantPickSummary(
-                p.restaurant.id, p.restaurant.name, COUNT(p), MAX(p.selectedAt))
-            FROM Pick p
+                r.id, r.name, r.foodCategory, r.representativeImageUrl, r.googlePlaceId,
+                COUNT(p), MAX(p.selectedAt))
+            FROM Pick p JOIN p.restaurant r
             WHERE p.member.id = :memberId
               AND p.status <> com.pickeat.pickeatbackend.domain.pick.entity.PickStatus.CANCELED
               AND p.selectedAt >= :since
-            GROUP BY p.restaurant.id, p.restaurant.name
+            GROUP BY r.id, r.name, r.foodCategory, r.representativeImageUrl, r.googlePlaceId
             ORDER BY MAX(p.selectedAt) DESC
             """)
     List<RestaurantPickSummary> findRecentPickSummaries(@Param("memberId") Long memberId, @Param("since") Instant since);

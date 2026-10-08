@@ -22,7 +22,9 @@ class FranchiseBrandsTest {
             "아웃백 스테이크하우스 합정점",
             "홍콩반점0410 연남점",
             "본가 홍대점",
-            "두끼 신촌점"
+            "두끼 신촌점",
+            "투다리 복돼지점",
+            "투다리라이온점"
     })
     @DisplayName("목록에 있는 브랜드로 시작하는 이름은 프랜차이즈로 본다")
     void detectsFranchiseNames(String name) {
@@ -36,6 +38,8 @@ class FranchiseBrandsTest {
             "풍천장어 연남점",
             "본가네 감자탕",
             "두끼니 식당",
+            "본가네감자탕 부천점",
+            "스시로바 하루",
             "연남동 스타벅스 옆 파스타"
     })
     @DisplayName("브랜드로 시작하지 않거나 짧은 브랜드와 첫 단어가 다르면 프랜차이즈가 아니다")

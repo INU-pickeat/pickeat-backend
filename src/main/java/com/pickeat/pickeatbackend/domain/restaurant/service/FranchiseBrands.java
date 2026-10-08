@@ -19,6 +19,8 @@ public final class FranchiseBrands {
 
     private static final String RESOURCE = "/curated/franchise-brands.txt";
     private static final int PREFIX_MATCH_MIN_LENGTH = 4;
+    private static final int SHORT_BRAND_JOINED_LENGTH = 3;
+    private static final String BRANCH_SUFFIX = "점";
 
     private static final Set<String> PREFIX_BRANDS = new HashSet<>();
     private static final Set<String> FIRST_WORD_BRANDS = new HashSet<>();
@@ -53,7 +55,12 @@ public final class FranchiseBrands {
             return true;
         }
         String name = normalize(restaurantName);
-        return PREFIX_BRANDS.stream().anyMatch(name::startsWith);
+        if (PREFIX_BRANDS.stream().anyMatch(name::startsWith)) {
+            return true;
+        }
+        // "투다리라이온점"처럼 3글자 브랜드에 지점명을 붙여 쓴 이름. 2글자 브랜드는 오탐이 많아 적용하지 않는다.
+        return name.endsWith(BRANCH_SUFFIX) && FIRST_WORD_BRANDS.stream()
+                .anyMatch(brand -> brand.length() == SHORT_BRAND_JOINED_LENGTH && name.startsWith(brand));
     }
 
     // 공백·기호를 지우고 소문자로 바꾼다. "본죽&비빔밥 홍대점" → "본죽비빔밥홍대점"

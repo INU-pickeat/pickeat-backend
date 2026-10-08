@@ -19,6 +19,7 @@ import com.pickeat.pickeatbackend.domain.pick.entity.PickStatus;
 import com.pickeat.pickeatbackend.domain.pick.exception.PickErrorCode;
 import com.pickeat.pickeatbackend.domain.pick.repository.PickRepository;
 import com.pickeat.pickeatbackend.domain.pick.repository.RestaurantPickSummary;
+import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.RecommendationSession;
 import com.pickeat.pickeatbackend.domain.recommendation.repository.RecommendationCandidateRepository;
@@ -160,7 +161,8 @@ class PickServiceTest {
     @Test
     @DisplayName("최근 Pick 목록은 식당별로 묶어 개수와 최근 시각을 반환한다")
     void getsMyPicksGroupedByRestaurant() {
-        RestaurantPickSummary summary = new RestaurantPickSummary(10L, "테스트 식당", 3L, Instant.now());
+        RestaurantPickSummary summary = new RestaurantPickSummary(
+                10L, "테스트 식당", FoodCategory.KOREAN, null, "place-1", 3L, Instant.now());
         when(pickRepository.findRecentPickSummaries(org.mockito.ArgumentMatchers.eq(1L), any(Instant.class)))
                 .thenReturn(List.of(summary));
 
@@ -169,6 +171,8 @@ class PickServiceTest {
         assertThat(response.restaurants()).hasSize(1);
         assertThat(response.restaurants().get(0).restaurantId()).isEqualTo(10L);
         assertThat(response.restaurants().get(0).pickCount()).isEqualTo(3L);
+        assertThat(response.restaurants().get(0).foodCategory()).isEqualTo(FoodCategory.KOREAN);
+        assertThat(response.restaurants().get(0).representativeImageUrl()).isEqualTo("/api/v1/restaurants/10/photo");
     }
 
     @Test
