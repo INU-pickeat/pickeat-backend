@@ -13,6 +13,7 @@ import com.pickeat.pickeatbackend.domain.review.service.ReviewSummaryService;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,7 +54,9 @@ public class RestaurantService {
 
         // 이름에 보정 키워드가 있으면 Google 유형보다 그 카테고리를 우선한다(예: 칼국수·장어 → 한식, 양꼬치 → 중식).
         // 없으면 Google 유형을 따르고, Google이 유형을 못 주거나 매핑이 안 되면 기존 분류를 유지한다.
-        FoodCategory foodCategory = FoodCategoryNameOverride.find(place.displayName().text())
+        Optional<FoodCategoryNameOverride.Categories> nameOverride =
+                FoodCategoryNameOverride.find(place.displayName().text());
+        FoodCategory foodCategory = nameOverride.map(FoodCategoryNameOverride.Categories::primary)
                 .or(() -> FoodCategory.fromGooglePrimaryType(place.primaryType()))
                 .orElse(restaurant.getFoodCategory());
         BigDecimal rating = place.rating() == null ? null : BigDecimal.valueOf(place.rating());
@@ -83,6 +86,8 @@ public class RestaurantService {
                 place.goodForGroups(),
                 place.allowsDogs()
         );
+        restaurant.updateSecondaryFoodCategory(
+                nameOverride.map(FoodCategoryNameOverride.Categories::secondary).orElse(null));
         restaurant.updateOpeningHours(OpeningHours.toWeekMinutes(place.regularOpeningHours()));
 
         return restaurantRepository.save(restaurant);

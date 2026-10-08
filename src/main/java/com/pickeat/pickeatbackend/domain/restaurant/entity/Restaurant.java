@@ -17,6 +17,7 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Set;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -60,6 +61,12 @@ public class Restaurant {
     @Enumerated(EnumType.STRING)
     @Column(length = 30)
     private FoodCategory foodCategory;
+
+    // 치킨(한식·주점), 이자카야(일식·주점)처럼 두 카테고리에 걸치는 식당의 두 번째 카테고리. 없으면 null.
+    // 추천 후보를 고를 때만 쓰고, 응답의 foodCategory는 항상 첫 번째 카테고리다.
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private FoodCategory secondaryFoodCategory;
 
     @Column(length = 500)
     private String address;
@@ -158,6 +165,16 @@ public class Restaurant {
     }
 
     // 큐레이션 적합도 필드(suitableFor*)는 내부 편집 값이라 Google 갱신으로 덮어쓰지 않는다.
+    public void updateSecondaryFoodCategory(FoodCategory secondaryFoodCategory) {
+        this.secondaryFoodCategory = secondaryFoodCategory == this.foodCategory ? null : secondaryFoodCategory;
+    }
+
+    // 요청한 카테고리 중 하나라도 이 식당의 카테고리(보조 포함)와 맞는지.
+    public boolean servesAnyOf(Set<FoodCategory> categories) {
+        return (foodCategory != null && categories.contains(foodCategory))
+                || (secondaryFoodCategory != null && categories.contains(secondaryFoodCategory));
+    }
+
     public void updateFromGoogle(
             String name,
             FoodCategory foodCategory,
