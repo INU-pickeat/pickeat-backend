@@ -51,7 +51,8 @@ class RecommendationApiContractTest {
         authorizationHeader = "Bearer " + jwtTokenProvider.createAccessToken(MEMBER_ID);
         response = new RecommendationResponse(SESSION_ID, List.of(
                 new RecommendationResponse.Item(
-                        10L, "테스트 식당", FoodCategory.KOREAN, BigDecimal.valueOf(4.5), 320.5, 1, 0.914)
+                        10L, "테스트 식당", FoodCategory.KOREAN, BigDecimal.valueOf(4.5), 320.5, 1, 0.914,
+                        "/images/discovery/sinsa_01_main.jpg", "후기가 없습니다.")
         ));
     }
 
@@ -83,7 +84,9 @@ class RecommendationApiContractTest {
                 .andExpect(jsonPath("$.items[0].externalRating").value(4.5))
                 .andExpect(jsonPath("$.items[0].distanceMeters").value(320.5))
                 .andExpect(jsonPath("$.items[0].rank").value(1))
-                .andExpect(jsonPath("$.items[0].score").value(0.914));
+                .andExpect(jsonPath("$.items[0].score").value(0.914))
+                .andExpect(jsonPath("$.items[0].representativeImageUrl").value("/images/discovery/sinsa_01_main.jpg"))
+                .andExpect(jsonPath("$.items[0].oneLineReview").value("후기가 없습니다."));
 
         verify(recommendationService).recommend(any(RecommendationRequest.class), eq(MEMBER_ID));
     }

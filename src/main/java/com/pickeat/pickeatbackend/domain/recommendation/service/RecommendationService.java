@@ -21,6 +21,7 @@ import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantReposit
 import com.pickeat.pickeatbackend.domain.restaurant.service.FranchiseBrands;
 import com.pickeat.pickeatbackend.domain.restaurant.service.OpeningHours;
 import com.pickeat.pickeatbackend.domain.restaurant.service.RestaurantService;
+import com.pickeat.pickeatbackend.domain.review.service.ReviewSummaryService;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -72,6 +73,7 @@ public class RecommendationService {
     private final RecommendationCandidateRepository candidateRepository;
     private final RecommendationExclusionRepository exclusionRepository;
     private final MemberRepository memberRepository;
+    private final ReviewSummaryService reviewSummaryService;
 
     @Transactional
     public RecommendationResponse recommend(RecommendationRequest request, Long memberId) {
@@ -107,7 +109,7 @@ public class RecommendationService {
         List<RecommendationCandidate> savedCandidates = candidateRepository.saveAll(
                 toCandidateEntities(session, topCandidates));
 
-        return RecommendationResponse.of(session.getId(), topRanked(savedCandidates));
+        return toResponse(session.getId(), topRanked(savedCandidates));
     }
 
     // Google로 보충할 카테고리를 고른다. 합계가 10개 미만이면 요청한 카테고리 전부, 아니면 후보가
@@ -195,7 +197,7 @@ public class RecommendationService {
         RecommendationSession session = sessionRepository.findByIdAndMemberId(sessionId, memberId)
                 .orElseThrow(() -> new BusinessException(RecommendationErrorCode.SESSION_NOT_FOUND));
 
-        return RecommendationResponse.of(session.getId(), visibleCandidates(sessionId));
+        return toResponse(session.getId(), visibleCandidates(sessionId));
     }
 
     // 제외는 해당 세션 안에서만 유효하다(영구 차단 아님). 대체 후보는 세션 생성 시 저장해 둔
@@ -218,7 +220,12 @@ public class RecommendationService {
                     .build());
         }
 
-        return RecommendationResponse.of(session.getId(), visibleCandidates(sessionId));
+        return toResponse(session.getId(), visibleCandidates(sessionId));
+    }
+
+    private RecommendationResponse toResponse(Long sessionId, List<RecommendationCandidate> candidates) {
+        List<Long> restaurantIds = candidates.stream().map(candidate -> candidate.getRestaurant().getId()).toList();
+        return RecommendationResponse.of(sessionId, candidates, reviewSummaryService.getOneLineReviews(restaurantIds));
     }
 
     private List<RecommendationCandidate> visibleCandidates(Long sessionId) {
