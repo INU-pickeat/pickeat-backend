@@ -205,4 +205,46 @@ class GooglePlacesClientTest {
         assertThatThrownBy(() -> unconfigured.findNearbyRestaurants(0, 0, 5000.0, GooglePlacesClient.RankPreference.DISTANCE, RESTAURANT_TYPE))
             .isInstanceOf(IllegalStateException.class).hasMessageContaining("GOOGLE_PLACES_API_KEY");
     }
+
+    @Test
+    @DisplayName("사진 이름을 Place Details로 새로 받은 뒤 Place Photo로 임시 주소를 받는다")
+    void findsPhotoUriThroughDetailsAndMedia() {
+        server.expect(requestTo("https://places.googleapis.com/v1/places/test-place"))
+            .andExpect(method(HttpMethod.GET))
+            .andExpect(header("X-Goog-Api-Key", "test-key"))
+            .andExpect(header("X-Goog-FieldMask", "photos"))
+            .andRespond(withSuccess("""
+                {"photos":[{"name":"places/test-place/photos/first-ref","widthPx":4000,"heightPx":3000},
+                           {"name":"places/test-place/photos/second-ref"}]}
+                """, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(
+                "https://places.googleapis.com/v1/places/test-place/photos/first-ref/media"
+                    + "?maxWidthPx=800&skipHttpRedirect=true"))
+            .andExpect(method(HttpMethod.GET))
+            .andExpect(header("X-Goog-Api-Key", "test-key"))
+            .andRespond(withSuccess("""
+                {"name":"places/test-place/photos/first-ref/media","photoUri":"https://lh3.googleusercontent.com/photo"}
+                """, MediaType.APPLICATION_JSON));
+
+        assertThat(client.findPhotoUri("test-place", 800)).contains("https://lh3.googleusercontent.com/photo");
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("사진이 없는 장소는 Place Photo를 부르지 않고 빈 값을 돌려준다")
+    void returnsEmptyWhenPlaceHasNoPhotos() {
+        server.expect(requestTo("https://places.googleapis.com/v1/places/test-place"))
+            .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        assertThat(client.findPhotoUri("test-place", 800)).isEmpty();
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("API 키나 장소 ID가 없으면 Google을 부르지 않고 빈 값을 돌려준다")
+    void returnsEmptyPhotoWithoutApiKeyOrPlaceId() {
+        assertThat(new GooglePlacesClient(RestClient.builder(), "").findPhotoUri("test-place", 800)).isEmpty();
+        assertThat(client.findPhotoUri(null, 800)).isEmpty();
+        server.verify();
+    }
 }
