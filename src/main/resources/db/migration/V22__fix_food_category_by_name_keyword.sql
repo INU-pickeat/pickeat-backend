@@ -1,0 +1,55 @@
+-- 이름 키워드로 음식 카테고리를 보정한다(FoodCategoryNameOverride와 같은 규칙, 2026-10-08 시점 키워드).
+-- Google이 샤브칼국수·장어집을 japanese_restaurant로 주는 등 유형이 실제와 다른 식당을 고친다.
+-- Google 출처 식당만 대상이다. 운영자가 고른 탐색 스팟(CURATED)은 건드리지 않는다.
+-- 중식 키워드를 나중에 적용한다. 이름에 한식·중식 키워드가 함께 있는 경우는 현재 키워드에서는 생기지 않는다.
+
+UPDATE restaurants
+SET food_category = 'KOREAN'
+WHERE data_provider = 'GOOGLE'
+  AND food_category IS DISTINCT FROM 'KOREAN'
+  AND (REPLACE(name, ' ', '') LIKE '%칼국수%'
+       OR REPLACE(name, ' ', '') LIKE '%수제비%'
+       OR REPLACE(name, ' ', '') LIKE '%게장%'
+       OR REPLACE(name, ' ', '') LIKE '%찜닭%'
+       OR REPLACE(name, ' ', '') LIKE '%닭갈비%'
+       OR REPLACE(name, ' ', '') LIKE '%닭한마리%'
+       OR REPLACE(name, ' ', '') LIKE '%삼계탕%'
+       OR REPLACE(name, ' ', '') LIKE '%장어%'
+       OR REPLACE(name, ' ', '') LIKE '%해장국%'
+       OR REPLACE(name, ' ', '') LIKE '%국밥%'
+       OR REPLACE(name, ' ', '') LIKE '%순대%'
+       OR REPLACE(name, ' ', '') LIKE '%감자탕%'
+       OR REPLACE(name, ' ', '') LIKE '%설렁탕%'
+       OR REPLACE(name, ' ', '') LIKE '%곰탕%'
+       OR REPLACE(name, ' ', '') LIKE '%추어탕%'
+       OR REPLACE(name, ' ', '') LIKE '%냉면%'
+       OR REPLACE(name, ' ', '') LIKE '%막국수%'
+       OR REPLACE(name, ' ', '') LIKE '%보쌈%'
+       OR REPLACE(name, ' ', '') LIKE '%족발%'
+       OR REPLACE(name, ' ', '') LIKE '%삼겹살%'
+       OR REPLACE(name, ' ', '') LIKE '%갈비%'
+       OR REPLACE(name, ' ', '') LIKE '%곱창%'
+       OR REPLACE(name, ' ', '') LIKE '%막창%'
+       OR REPLACE(name, ' ', '') LIKE '%아구찜%'
+       OR REPLACE(name, ' ', '') LIKE '%해물찜%'
+       OR REPLACE(name, ' ', '') LIKE '%쭈꾸미%'
+       OR REPLACE(name, ' ', '') LIKE '%낙지%'
+       OR REPLACE(name, ' ', '') LIKE '%백반%'
+       OR REPLACE(name, ' ', '') LIKE '%한정식%'
+       OR REPLACE(name, ' ', '') LIKE '%부대찌개%'
+       OR REPLACE(name, ' ', '') LIKE '%김치찌개%'
+       OR REPLACE(name, ' ', '') LIKE '%된장찌개%'
+       OR REPLACE(name, ' ', '') LIKE '%비빔밥%'
+       OR REPLACE(name, ' ', '') LIKE '%육회%');
+
+UPDATE restaurants
+SET food_category = 'CHINESE'
+WHERE data_provider = 'GOOGLE'
+  AND food_category IS DISTINCT FROM 'CHINESE'
+  AND (REPLACE(name, ' ', '') LIKE '%양꼬치%'
+       OR REPLACE(name, ' ', '') LIKE '%마라탕%'
+       OR REPLACE(name, ' ', '') LIKE '%마라샹궈%'
+       OR REPLACE(name, ' ', '') LIKE '%훠궈%'
+       OR REPLACE(name, ' ', '') LIKE '%짜장%'
+       OR REPLACE(name, ' ', '') LIKE '%짬뽕%'
+       OR REPLACE(name, ' ', '') LIKE '%탕수육%');
