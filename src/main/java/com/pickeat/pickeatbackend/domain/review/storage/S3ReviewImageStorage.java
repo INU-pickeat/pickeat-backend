@@ -23,6 +23,7 @@ public class S3ReviewImageStorage implements ReviewImageStorage {
 
     private static final Duration UPLOAD_URL_VALIDITY = Duration.ofMinutes(10);
     private static final String KEY_PREFIX = "reviews/";
+    private static final String PROFILE_KEY_PREFIX = "profiles/";
     private static final Map<String, String> EXTENSIONS = Map.of(
             "image/jpeg", "jpg",
             "image/png", "png",
@@ -46,6 +47,15 @@ public class S3ReviewImageStorage implements ReviewImageStorage {
 
     @Override
     public PresignedUpload createUpload(Long memberId, String contentType) {
+        return createUpload(KEY_PREFIX, memberId, contentType);
+    }
+
+    @Override
+    public PresignedUpload createProfileUpload(Long memberId, String contentType) {
+        return createUpload(PROFILE_KEY_PREFIX, memberId, contentType);
+    }
+
+    private PresignedUpload createUpload(String keyPrefix, Long memberId, String contentType) {
         if (bucket.isEmpty()) {
             throw new BusinessException(ReviewErrorCode.IMAGE_STORAGE_NOT_CONFIGURED);
         }
@@ -54,7 +64,7 @@ public class S3ReviewImageStorage implements ReviewImageStorage {
         if (extension == null) {
             throw new BusinessException(ReviewErrorCode.UNSUPPORTED_IMAGE_TYPE);
         }
-        String key = KEY_PREFIX + memberId + "/" + UUID.randomUUID() + "." + extension;
+        String key = keyPrefix + memberId + "/" + UUID.randomUUID() + "." + extension;
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)

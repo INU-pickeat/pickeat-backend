@@ -39,6 +39,7 @@ import lombok.NoArgsConstructor;
                 SELECT r.*, ST_Distance(r.location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography) AS distance_meters
                 FROM restaurants r
                 WHERE ST_DWithin(r.location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radiusMeters)
+                  AND r.excluded_at IS NULL
                 ORDER BY distance_meters ASC
                 """
 )
@@ -116,6 +117,10 @@ public class Restaurant {
     private Boolean suitableForSolo;
     private Boolean suitableForGroup;
     private Boolean suitableForDogs;
+
+    // 운영자가 신고를 확인해 추천 후보에서 뺀 시각. 앱에서는 읽기만 하고 SQL로 기록한다(docs/OPERATIONS.md).
+    @Column(insertable = false, updatable = false)
+    private Instant excludedAt;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

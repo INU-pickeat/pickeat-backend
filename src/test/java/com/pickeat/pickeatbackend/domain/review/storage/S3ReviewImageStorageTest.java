@@ -19,6 +19,9 @@ class S3ReviewImageStorageTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(ReviewErrorCode.IMAGE_STORAGE_NOT_CONFIGURED.getMessage());
         assertThat(storage.isUploadedBy(1L, "https://example.com/reviews/1/a.jpg")).isFalse();
+        assertThatThrownBy(() -> storage.createProfileUpload(1L, "image/jpeg"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ReviewErrorCode.IMAGE_STORAGE_NOT_CONFIGURED.getMessage());
     }
 
     @Test
@@ -31,6 +34,9 @@ class S3ReviewImageStorageTest {
                 .hasMessage(ReviewErrorCode.UNSUPPORTED_IMAGE_TYPE.getMessage());
         assertThatThrownBy(() -> storage.createUpload(1L, null))
                 .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> storage.createProfileUpload(1L, "image/gif"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ReviewErrorCode.UNSUPPORTED_IMAGE_TYPE.getMessage());
     }
 
     @Test
@@ -45,6 +51,8 @@ class S3ReviewImageStorageTest {
         assertThat(storage.isUploadedBy(1L, "https://evil.example.com/reviews/1/a.jpg")).isFalse();
         assertThat(storage.isUploadedBy(1L, "https://img.pickeat.kr/reviews/1/")).isFalse();
         assertThat(storage.isUploadedBy(1L, null)).isFalse();
+        // 프로필 이미지 경로는 후기 이미지로 붙일 수 없다
+        assertThat(storage.isUploadedBy(1L, "https://img.pickeat.kr/profiles/1/a.jpg")).isFalse();
     }
 
     @Test

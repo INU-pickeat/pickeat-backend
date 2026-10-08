@@ -74,18 +74,18 @@ sudo /usr/local/bin/pickeat-backup          # 수동 백업
 docker exec -i pickeat-postgres pg_restore -U pick_eat -d pick_eat --clean < /var/backups/pickeat/pick_eat-YYYY-MM-DD.dump
 ```
 
-### 후기 이미지 S3
+### 후기·프로필 이미지 S3
 
-후기 이미지는 클라이언트가 presigned URL로 S3에 직접 올린다. 설정하지 않아도 애플리케이션은 정상 동작하고, 업로드 URL 발급만 `REVIEW_006`(503)으로 거부된다.
+후기 이미지(`reviews/{memberId}/`)와 프로필 이미지(`profiles/{memberId}/`)는 같은 버킷을 쓰며, 클라이언트가 presigned URL로 S3에 직접 올린다. 설정하지 않아도 애플리케이션은 정상 동작하고, 업로드 URL 발급만 `REVIEW_006`(503)으로 거부된다.
 
-1. S3 버킷을 만든다(서울 리전). 이미지를 그대로 제공하려면 `reviews/*`에 공개 읽기를 허용하거나 CloudFront를 앞에 둔다.
+1. S3 버킷을 만든다(서울 리전). 이미지를 그대로 제공하려면 `reviews/*`·`profiles/*`에 공개 읽기를 허용하거나 CloudFront를 앞에 둔다.
 2. 버킷 CORS에 프론트 origin의 `PUT`을 허용한다.
 
 ```json
 [{"AllowedOrigins": ["https://www.pickeat.kr", "https://pickeat.kr"], "AllowedMethods": ["PUT"], "AllowedHeaders": ["Content-Type"], "MaxAgeSeconds": 3600}]
 ```
 
-3. EC2 인스턴스 역할에 `s3:PutObject`를 `arn:aws:s3:::<버킷>/reviews/*`에만 허용한다. 액세스 키는 쓰지 않는다.
+3. EC2 인스턴스 역할에 `s3:PutObject`를 `arn:aws:s3:::<버킷>/reviews/*`와 `arn:aws:s3:::<버킷>/profiles/*`에만 허용한다. 액세스 키는 쓰지 않는다. (2026-10-08 프로필 이미지 추가 — 기존 정책이 `reviews/*`만 허용하면 `profiles/*`를 Resource에 추가해야 프로필 업로드 PUT이 403이 나지 않는다.)
 4. `/etc/pickeat/pickeat.env`에 값을 넣고 서비스를 재시작한다.
 
 ```bash

@@ -80,6 +80,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - 이메일 인증이 필수인 Member 회원가입·로그인과 JWT 인증 (`POST /api/v1/auth/email-verifications`, `/email-verifications/confirm`, `/signup`, `/login`) — 6자리 인증번호(BCrypt 저장, 10분 만료, 1분 재발송 제한, 5회 실패 제한), 인증 후 30분 안에 가입. 이메일은 앞뒤 공백 제거·소문자로 정규화
 - Refresh Token 재발급·로그아웃 (`POST /api/v1/auth/refresh`, `/logout`) — 14일, 사용 시 새 토큰으로 교체(rotation), DB에는 해시만 저장
 - 내 프로필 조회·수정 API (`GET`/`PATCH /api/v1/me`) — 닉네임·자기소개·프로필 이미지 URL 부분 수정
+- 프로필 이미지 업로드 URL API (`POST /api/v1/me/profile-image/upload-url`) — 후기 이미지와 같은 S3 버킷의 `profiles/{memberId}/`로 presigned PUT URL 발급. 올린 뒤 `imageUrl`을 `PATCH /api/v1/me`의 `profileImageUrl`로 보낸다
 - 식당 상세 조회 (`GET /api/v1/restaurants/{id}`) — 인증 불필요, 공유 링크 대응
 - 외부 지도 링크 조회 (`GET /api/v1/restaurants/{id}/navigation-links`) — 네이버·카카오
 - Google Places 연동: `GooglePlacesClient`(Nearby Search, 카테고리별 `includedPrimaryTypes` 선처리), Google Place ID 기준 upsert·갱신 정책, primaryType → 7개 음식 카테고리 매핑
@@ -98,17 +99,18 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - 후기 좋아요·취소 API (`POST`/`DELETE /api/v1/reviews/{reviewId}/likes`) — 공개 후기에만 가능
 - 식당 상세(`GET /api/v1/restaurants/{id}`)와 추천 결과 항목에 한줄평(`oneLineReview`) 포함 — 후기가 없으면 `"후기가 없습니다."`. 추천 결과 항목에는 `representativeImageUrl`도 포함(이미지가 없으면 `null`)
 - 식당 사진 API (`GET /api/v1/restaurants/{id}/photo`) — 인증 불필요. Google Places 사진 주소로 302 리다이렉트하며 `<img src>`에 바로 쓸 수 있다. 사진이 없으면 404 `RESTAURANT_002`. `?index=0~2`로 다른 순번의 사진을 받을 수 있고, 식당 상세 응답의 `imageUrls`(최대 3장)에 이 주소들이 담긴다. 자체 이미지가 없는 Google 출처 식당은 `representativeImageUrl`이 이 주소로 내려간다
+- 식당 신고 API (`POST /api/v1/restaurants/{id}/reports`) — 인증 필요. 폐업(`CLOSED`)·정보 오류(`WRONG_INFO`)·음식 종류 오류(`WRONG_CATEGORY`)·기타(`OTHER`)와 선택 메모(300자)를 받아 `PENDING`으로 저장. 검토 전 중복 신고는 409 `RESTAURANT_003`. 운영자가 확인해 받아들이면 식당에 `excluded_at`을 기록해 추천 후보에서 뺀다(절차: [docs/OPERATIONS.md](docs/OPERATIONS.md))
 - 식당별 후기 요약 API (`GET /api/v1/restaurants/{id}/review-summary`) — 인증 불필요. 공개 후기 수·평균 별점·대표 한줄평
 - 탐색 스팟 한줄평(`oneLineIntro`)은 앱 내 사용자 후기 기반 — 식당별 가장 최근 공개 후기의 첫 줄(최대 50자), 후기가 없으면 `"후기가 없습니다."`
 - 초기 탐색 스팟 조회 API (`GET /api/v1/discovery-spots`) — 인증 없이 신사·혜화·서촌·한남·종로와 지역별 고정 노출 식당을 순서대로 조회
 
-**다음 할 일:** 후기 이미지용 S3 버킷·IAM 역할 생성과 운영 환경변수 설정, 프론트엔드 연동 E2E, CD 자동 롤백 실검증이 남아 있습니다. 기능으로는 프로필 이미지 업로드, 후기 한줄평 선정 규칙 확정, 제네릭 `restaurant` 분류가 남아 있고, 동적 지역별 인기맛집은 후기·좋아요 데이터가 쌓인 뒤 진행합니다.
+**다음 할 일:** 후기 이미지용 S3 버킷·IAM 역할 생성과 운영 환경변수 설정, 프론트엔드 연동 E2E, CD 자동 롤백 실검증이 남아 있습니다. 기능으로는 후기 한줄평 선정 규칙 확정, 제네릭 `restaurant` 분류가 남아 있고, 동적 지역별 인기맛집은 후기·좋아요 데이터가 쌓인 뒤 진행합니다.
 
 초기 탐색 스팟은 신사·혜화·서촌·한남·종로 5개 지역과 지역별 5곳(총 25곳)의 운영자 선정 `CURATED` 데이터입니다. 실제 Picker 행동 데이터가 쌓이기 전까지 자동 인기 집계나 실시간 순위는 구현하지 않습니다.
 
 이 고정 25곳은 탐색 화면용이며 M2 위치 기반 추천의 후보 정책을 대신하지 않습니다. 이후 Pick, 후기·피드와 행동 데이터가 충분해지면 동적 인기맛집으로 확장합니다.
 
-가짜 식당과 임의 좌표는 운영 DB용 Flyway 시드에 넣지 않습니다. 확정 목록은 [`src/main/resources/curated/discovery-spots.csv`](src/main/resources/curated/discovery-spots.csv)에 정리했고, Google Places에서 검증한 좌표·Place ID로 V14 실제 탐색 시드를 작성했습니다.
+가짜 식당과 임의 좌표는 운영 DB용 Flyway 시드에 넣지 않습니다. 확정 목록은 [`src/main/resources/curated/discovery-spots.csv`](src/main/resources/curated/discovery-spots.csv)에 정리했고, Google Places에서 검증한 좌표·Place ID로 V14 실제 탐색 시드를 작성했고, 2026-10-08 V25에서 사진과 어긋난 식당·순서를 정정했습니다.
 
 ## 향후 작업 순서
 
@@ -136,3 +138,4 @@ EC2 최초 설정, GitHub Secrets, systemd, 헬스체크와 롤백 절차는 [`d
 
 - 코드/네이밍 컨벤션, ERD, API 명세, Backend Task는 Notion [BE](https://app.notion.com/p/3d4482bdb23e80038885edb637243716) 페이지에 정리되어 있습니다.
 - 제품 기획 원본은 Notion [Pick Eat 프로젝트 기획서](https://app.notion.com/p/3de482bdb23e8057a731f00d852cdb5f)입니다.
+- 운영 중 수동 작업(식당 신고 검토 등)은 [docs/OPERATIONS.md](docs/OPERATIONS.md)에 있습니다.
