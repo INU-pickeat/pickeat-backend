@@ -98,6 +98,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - 후기 좋아요·취소 API (`POST`/`DELETE /api/v1/reviews/{reviewId}/likes`) — 공개 후기에만 가능
 - 식당 상세(`GET /api/v1/restaurants/{id}`)와 추천 결과 항목에 한줄평(`oneLineReview`) 포함 — 후기가 없으면 `"후기가 없습니다."`. 추천 결과 항목에는 `representativeImageUrl`도 포함(이미지가 없으면 `null`)
 - 식당 사진 API (`GET /api/v1/restaurants/{id}/photo`) — 인증 불필요. Google Places 사진 주소로 302 리다이렉트하며 `<img src>`에 바로 쓸 수 있다. 사진이 없으면 404 `RESTAURANT_002`. `?index=0~2`로 다른 순번의 사진을 받을 수 있고, 식당 상세 응답의 `imageUrls`(최대 3장)에 이 주소들이 담긴다. 자체 이미지가 없는 Google 출처 식당은 `representativeImageUrl`이 이 주소로 내려간다
+- 식당 신고 API (`POST /api/v1/restaurants/{id}/reports`) — 인증 필요. 폐업(`CLOSED`)·정보 오류(`WRONG_INFO`)·음식 종류 오류(`WRONG_CATEGORY`)·기타(`OTHER`)와 선택 메모(300자)를 받아 `PENDING`으로 저장. 검토 전 중복 신고는 409 `RESTAURANT_003`. 운영자가 확인해 받아들이면 식당에 `excluded_at`을 기록해 추천 후보에서 뺀다(절차: [docs/OPERATIONS.md](docs/OPERATIONS.md))
 - 식당별 후기 요약 API (`GET /api/v1/restaurants/{id}/review-summary`) — 인증 불필요. 공개 후기 수·평균 별점·대표 한줄평
 - 탐색 스팟 한줄평(`oneLineIntro`)은 앱 내 사용자 후기 기반 — 식당별 가장 최근 공개 후기의 첫 줄(최대 50자), 후기가 없으면 `"후기가 없습니다."`
 - 초기 탐색 스팟 조회 API (`GET /api/v1/discovery-spots`) — 인증 없이 신사·혜화·서촌·한남·종로와 지역별 고정 노출 식당을 순서대로 조회
@@ -136,3 +137,4 @@ EC2 최초 설정, GitHub Secrets, systemd, 헬스체크와 롤백 절차는 [`d
 
 - 코드/네이밍 컨벤션, ERD, API 명세, Backend Task는 Notion [BE](https://app.notion.com/p/3d4482bdb23e80038885edb637243716) 페이지에 정리되어 있습니다.
 - 제품 기획 원본은 Notion [Pick Eat 프로젝트 기획서](https://app.notion.com/p/3de482bdb23e8057a731f00d852cdb5f)입니다.
+- 운영 중 수동 작업(식당 신고 검토 등)은 [docs/OPERATIONS.md](docs/OPERATIONS.md)에 있습니다.

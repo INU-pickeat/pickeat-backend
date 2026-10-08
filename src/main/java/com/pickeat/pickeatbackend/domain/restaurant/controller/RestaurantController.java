@@ -1,17 +1,24 @@
 package com.pickeat.pickeatbackend.domain.restaurant.controller;
 
 import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantNavigationLinksResponse;
+import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantReportRequest;
+import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantReportResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.service.RestaurantPhotoService;
+import com.pickeat.pickeatbackend.domain.restaurant.service.RestaurantReportService;
 import com.pickeat.pickeatbackend.domain.restaurant.service.RestaurantService;
+import jakarta.validation.Valid;
 import java.net.URI;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,6 +30,7 @@ public class RestaurantController {
 
     private final RestaurantService restaurantService;
     private final RestaurantPhotoService restaurantPhotoService;
+    private final RestaurantReportService restaurantReportService;
 
     @GetMapping("/{restaurantId}")
     public ResponseEntity<RestaurantResponse> getRestaurant(@PathVariable Long restaurantId) {
@@ -44,5 +52,16 @@ public class RestaurantController {
     @GetMapping("/{restaurantId}/navigation-links")
     public ResponseEntity<RestaurantNavigationLinksResponse> getNavigationLinks(@PathVariable Long restaurantId) {
         return ResponseEntity.ok(restaurantService.getNavigationLinks(restaurantId));
+    }
+
+    // 폐업·정보 오류 신고. 운영자가 확인한 뒤 추천에서 뺀다(즉시 반영 아님).
+    @PostMapping("/{restaurantId}/reports")
+    public ResponseEntity<RestaurantReportResponse> report(
+            @PathVariable Long restaurantId,
+            @Valid @RequestBody RestaurantReportRequest request,
+            @AuthenticationPrincipal Long memberId
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(restaurantReportService.report(restaurantId, request, memberId));
     }
 }

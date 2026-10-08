@@ -10,7 +10,8 @@ import org.springframework.http.HttpStatus;
 public enum RestaurantErrorCode implements BaseErrorCode {
 
     RESTAURANT_NOT_FOUND("RESTAURANT_001", "존재하지 않는 식당입니다.", HttpStatus.NOT_FOUND),
-    PHOTO_NOT_FOUND("RESTAURANT_002", "식당 사진이 없습니다.", HttpStatus.NOT_FOUND);
+    PHOTO_NOT_FOUND("RESTAURANT_002", "식당 사진이 없습니다.", HttpStatus.NOT_FOUND),
+    REPORT_ALREADY_PENDING("RESTAURANT_003", "이미 신고한 식당입니다. 확인 중이에요.", HttpStatus.CONFLICT);
 
     private final String code;
     private final String message;
