@@ -5,6 +5,8 @@ import com.pickeat.pickeatbackend.domain.member.dto.EmailVerificationRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.LoginRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.LoginResponse;
 import com.pickeat.pickeatbackend.domain.member.dto.MemberProfileResponse;
+import com.pickeat.pickeatbackend.domain.member.dto.ProfileImageUploadRequest;
+import com.pickeat.pickeatbackend.domain.member.dto.ProfileImageUploadResponse;
 import com.pickeat.pickeatbackend.domain.member.dto.RefreshTokenRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.SignUpRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.SignUpResponse;
@@ -12,6 +14,7 @@ import com.pickeat.pickeatbackend.domain.member.dto.UpdateProfileRequest;
 import com.pickeat.pickeatbackend.domain.member.service.AuthTokenService;
 import com.pickeat.pickeatbackend.domain.member.service.EmailVerificationService;
 import com.pickeat.pickeatbackend.domain.member.service.MemberService;
+import com.pickeat.pickeatbackend.domain.member.service.ProfileImageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -32,6 +35,7 @@ public class MemberController {
     private final MemberService memberService;
     private final AuthTokenService authTokenService;
     private final EmailVerificationService emailVerificationService;
+    private final ProfileImageService profileImageService;
 
     @PostMapping("/auth/email-verifications")
     public ResponseEntity<Void> requestEmailVerification(
@@ -83,5 +87,14 @@ public class MemberController {
             @Valid @RequestBody UpdateProfileRequest request
     ) {
         return ResponseEntity.ok(memberService.updateProfile(memberId, request));
+    }
+
+    // 프로필 이미지 업로드 URL 발급. uploadUrl로 PUT 업로드한 뒤 imageUrl을 PATCH /me의 profileImageUrl로 보낸다.
+    @PostMapping("/me/profile-image/upload-url")
+    public ResponseEntity<ProfileImageUploadResponse> createProfileImageUpload(
+            @AuthenticationPrincipal Long memberId,
+            @Valid @RequestBody ProfileImageUploadRequest request
+    ) {
+        return ResponseEntity.ok(profileImageService.createUpload(request, memberId));
     }
 }

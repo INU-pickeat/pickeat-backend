@@ -80,6 +80,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - 이메일 인증이 필수인 Member 회원가입·로그인과 JWT 인증 (`POST /api/v1/auth/email-verifications`, `/email-verifications/confirm`, `/signup`, `/login`) — 6자리 인증번호(BCrypt 저장, 10분 만료, 1분 재발송 제한, 5회 실패 제한), 인증 후 30분 안에 가입. 이메일은 앞뒤 공백 제거·소문자로 정규화
 - Refresh Token 재발급·로그아웃 (`POST /api/v1/auth/refresh`, `/logout`) — 14일, 사용 시 새 토큰으로 교체(rotation), DB에는 해시만 저장
 - 내 프로필 조회·수정 API (`GET`/`PATCH /api/v1/me`) — 닉네임·자기소개·프로필 이미지 URL 부분 수정
+- 프로필 이미지 업로드 URL API (`POST /api/v1/me/profile-image/upload-url`) — 후기 이미지와 같은 S3 버킷의 `profiles/{memberId}/`로 presigned PUT URL 발급. 올린 뒤 `imageUrl`을 `PATCH /api/v1/me`의 `profileImageUrl`로 보낸다
 - 식당 상세 조회 (`GET /api/v1/restaurants/{id}`) — 인증 불필요, 공유 링크 대응
 - 외부 지도 링크 조회 (`GET /api/v1/restaurants/{id}/navigation-links`) — 네이버·카카오
 - Google Places 연동: `GooglePlacesClient`(Nearby Search, 카테고리별 `includedPrimaryTypes` 선처리), Google Place ID 기준 upsert·갱신 정책, primaryType → 7개 음식 카테고리 매핑
@@ -103,7 +104,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - 탐색 스팟 한줄평(`oneLineIntro`)은 앱 내 사용자 후기 기반 — 식당별 가장 최근 공개 후기의 첫 줄(최대 50자), 후기가 없으면 `"후기가 없습니다."`
 - 초기 탐색 스팟 조회 API (`GET /api/v1/discovery-spots`) — 인증 없이 신사·혜화·서촌·한남·종로와 지역별 고정 노출 식당을 순서대로 조회
 
-**다음 할 일:** 후기 이미지용 S3 버킷·IAM 역할 생성과 운영 환경변수 설정, 프론트엔드 연동 E2E, CD 자동 롤백 실검증이 남아 있습니다. 기능으로는 프로필 이미지 업로드, 후기 한줄평 선정 규칙 확정, 제네릭 `restaurant` 분류가 남아 있고, 동적 지역별 인기맛집은 후기·좋아요 데이터가 쌓인 뒤 진행합니다.
+**다음 할 일:** 후기 이미지용 S3 버킷·IAM 역할 생성과 운영 환경변수 설정, 프론트엔드 연동 E2E, CD 자동 롤백 실검증이 남아 있습니다. 기능으로는 후기 한줄평 선정 규칙 확정, 제네릭 `restaurant` 분류가 남아 있고, 동적 지역별 인기맛집은 후기·좋아요 데이터가 쌓인 뒤 진행합니다.
 
 초기 탐색 스팟은 신사·혜화·서촌·한남·종로 5개 지역과 지역별 5곳(총 25곳)의 운영자 선정 `CURATED` 데이터입니다. 실제 Picker 행동 데이터가 쌓이기 전까지 자동 인기 집계나 실시간 순위는 구현하지 않습니다.
 

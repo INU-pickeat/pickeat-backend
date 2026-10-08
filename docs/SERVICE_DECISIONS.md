@@ -375,3 +375,10 @@ Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 1
 - 받아들인 신고는 식당 행에 `excluded_at`을 남기고 추천 후보 조회 SQL에서 뺀다. 식당 행을 지우지 않는 이유는 Pick·후기가 식당을 참조하고, Google 보충이 같은 Place ID를 다시 넣어도 제외 상태가 유지돼야 하기 때문이다.
 - 같은 사람이 같은 식당을 검토 전에 다시 신고하면 409 `RESTAURANT_003`(부분 유니크 인덱스로도 막는다). 검토가 끝나면 다시 신고할 수 있다.
 - 세션 안에서만 유효한 "다른 식당 보기"(제외 사유 `DISTANCE_TOO_FAR` 등)와는 별개다. 그쪽은 취향 피드백, 신고는 데이터 오류다.
+
+## 프로필 이미지 업로드 (2026-10-08)
+
+- `POST /api/v1/me/profile-image/upload-url` `{ "contentType": "image/jpeg" }` → `{ uploadUrl, imageUrl, contentType, expiresAt }`. 클라이언트가 `uploadUrl`에 같은 `Content-Type`으로 PUT한 뒤 `imageUrl`을 `PATCH /api/v1/me`의 `profileImageUrl`로 보낸다.
+- 후기 이미지와 같은 버킷·같은 서명 방식(10분 유효, JPEG·PNG·WebP)을 쓰고 경로만 `profiles/{memberId}/`로 나눈다. 별도 저장소를 두지 않은 이유는 버킷·CloudFront·CORS 설정을 한 번으로 끝내기 위해서다. 오류 코드도 후기 이미지와 같다(400 `REVIEW_005`, 503 `REVIEW_006`).
+- 프로필 경로의 이미지는 후기에 붙일 수 없다(후기 첨부는 `reviews/{memberId}/`만 허용).
+- `PATCH /api/v1/me`의 `profileImageUrl`은 기존처럼 http(s) URL이면 받는다. 업로드 URL로 올린 이미지만 받도록 좁히는 것은 프론트 연동이 끝난 뒤 결정한다.
