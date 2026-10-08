@@ -11,14 +11,18 @@ public final class RestaurantImageUrl {
     }
 
     public static String of(Restaurant restaurant) {
-        String own = restaurant.getRepresentativeImageUrl();
-        if (own != null && !own.isBlank()) {
-            return own;
+        return of(restaurant.getId(), restaurant.getRepresentativeImageUrl(), restaurant.getGooglePlaceId());
+    }
+
+    // 엔티티 없이 집계 쿼리 결과만 있을 때 쓴다.
+    public static String of(Long restaurantId, String ownImageUrl, String googlePlaceId) {
+        if (ownImageUrl != null && !ownImageUrl.isBlank()) {
+            return ownImageUrl;
         }
-        if (restaurant.getId() == null || restaurant.getGooglePlaceId() == null) {
+        if (restaurantId == null || googlePlaceId == null) {
             return null;
         }
-        return photoPath(restaurant.getId());
+        return photoPath(restaurantId);
     }
 
     public static String photoPath(Long restaurantId) {

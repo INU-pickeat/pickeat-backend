@@ -20,6 +20,7 @@ import com.pickeat.pickeatbackend.domain.pick.dto.PickStatusUpdateRequest;
 import com.pickeat.pickeatbackend.domain.pick.dto.RecentPicksResponse;
 import com.pickeat.pickeatbackend.domain.pick.entity.PickStatus;
 import com.pickeat.pickeatbackend.domain.pick.repository.RestaurantPickSummary;
+import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
 import com.pickeat.pickeatbackend.domain.pick.service.PickService;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
 import com.pickeat.pickeatbackend.global.security.jwt.JwtTokenProvider;
@@ -105,7 +106,8 @@ class PickApiContractTest {
     @DisplayName("내 최근 Pick 목록 API는 식당별 집계 계약을 반환한다")
     void getsMyRecentPicksWithRestaurantSummaryContract() throws Exception {
         RecentPicksResponse response = new RecentPicksResponse(List.of(
-                new RecentPicksResponse.Item(10L, "테스트 식당", 3L, SELECTED_AT)));
+                new RecentPicksResponse.Item(
+                        10L, "테스트 식당", FoodCategory.KOREAN, "/api/v1/restaurants/10/photo", 3L, SELECTED_AT)));
         when(pickService.getMyPicks(MEMBER_ID, PickPeriod.WEEK)).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/me/picks")
@@ -114,6 +116,8 @@ class PickApiContractTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.restaurants.length()").value(1))
                 .andExpect(jsonPath("$.restaurants[0].restaurantId").value(10))
+                .andExpect(jsonPath("$.restaurants[0].foodCategory").value("KOREAN"))
+                .andExpect(jsonPath("$.restaurants[0].representativeImageUrl").value("/api/v1/restaurants/10/photo"))
                 .andExpect(jsonPath("$.restaurants[0].pickCount").value(3))
                 .andExpect(jsonPath("$.restaurants[0].latestPickedAt").value("2026-09-21T10:00:00Z"));
     }

@@ -89,7 +89,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - 추천 생성·세션 조회 API (`POST`/`GET /api/v1/recommendations`) — DB 우선, 부족할 때만 Google 호출·upsert 하이브리드 조회(합계 10개 미만이거나 요청 카테고리 중 5개 미만인 카테고리가 있을 때, 부족한 카테고리만 보충). 선택적 가격대 필터(`priceRange`)를 지원하며 상위 10개를 세션 후보로 저장하고 상위 5개만 응답한다. 동행이 `DATE`면 프랜차이즈 식당을 후보에서 뺀다(브랜드 목록: `src/main/resources/curated/franchise-brands.txt`)
 - 재추천(제외) API (`POST /api/v1/recommendations/{sessionId}/exclusions`) — 식당을 제외 사유와 함께 제외하면 세션에 저장해 둔 6~10위 대체 후보로 그 자리를 채워 다시 상위 5개를 반환한다. 제외는 해당 세션 안에서만 유효하다
 - Pick 생성·상태 변경 API (`POST /api/v1/picks`, `PATCH /api/v1/picks/{pickId}`) — 추천 세션에 실제 노출된 후보만 선택 가능. 생성 시 추천 세션의 동행 유형을 스냅샷으로 저장. 상태 변경 API로는 취소(`CANCELED`)만 할 수 있고, `REVIEWED`는 후기 작성으로만 전환된다
-- 내 최근 Pick 목록 API (`GET /api/v1/me/picks?period=week|month`) — SELECTED + REVIEWED를 식당별로 그룹화해 `pickCount`·`latestPickedAt` 반환
+- 내 최근 Pick 목록 API (`GET /api/v1/me/picks?period=week|month`) — SELECTED + REVIEWED를 식당별로 그룹화해 `pickCount`·`latestPickedAt` 반환. 식당 카드용으로 `foodCategory`와 `representativeImageUrl`도 함께 반환한다
 - 내 Pick 지도 API (`GET /api/v1/me/picks/map`) — 본인 데이터만 조회, REVIEWED만 노출(SELECTED·CANCELED 미노출)
 - 내 Pick 캘린더 API (`GET /api/v1/me/picks/calendar?year=2026&month=9`) — REVIEWED만 방문일(`visitedAt`, 한국 시간) 기준 날짜별로 묶어 `recordCount`·그날 첫 식당 이름 반환. `representativeImageUrl`은 그날 사진이 있는 첫 후기의 첫 번째 사진이며 없으면 `null`
 - 후기 작성·조회·수정·삭제 API (`POST /api/v1/reviews`, `GET`/`PATCH`/`DELETE /api/v1/reviews/{reviewId}`) — Pick 하나당 후기 하나. 별점·내용·음식 카테고리·동행 유형·공개 범위(`PUBLIC`/`PRIVATE`)·이미지 1장. 작성하면 Pick이 REVIEWED가 되고, 삭제하면 SELECTED로 돌아간다
