@@ -46,7 +46,7 @@ public record RestaurantResponse(
                 restaurant.getPriceRangeStart(),
                 restaurant.getPriceRangeEnd(),
                 restaurant.getPriceCurrencyCode(),
-                restaurant.getRepresentativeImageUrl(),
+                RestaurantImageUrl.of(restaurant),
                 restaurant.getSuitableForDate(),
                 restaurant.getSuitableForFamily(),
                 restaurant.getSuitableForChildren(),

@@ -1,6 +1,7 @@
 package com.pickeat.pickeatbackend.domain.recommendation.dto;
 
 import com.pickeat.pickeatbackend.domain.recommendation.entity.RecommendationCandidate;
+import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantImageUrl;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewOneLiner;
 import java.math.BigDecimal;
@@ -42,7 +43,7 @@ public record RecommendationResponse(Long sessionId, List<Item> items) {
                     candidate.getDistanceMeters(),
                     rank,
                     candidate.getTotalScore(),
-                    candidate.getRestaurant().getRepresentativeImageUrl(),
+                    RestaurantImageUrl.of(candidate.getRestaurant()),
                     oneLineReview == null || oneLineReview.isBlank() ? ReviewOneLiner.NO_REVIEW : oneLineReview
             );
         }
