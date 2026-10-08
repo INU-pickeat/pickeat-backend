@@ -109,7 +109,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 
 이 고정 25곳은 탐색 화면용이며 M2 위치 기반 추천의 후보 정책을 대신하지 않습니다. 이후 Pick, 후기·피드와 행동 데이터가 충분해지면 동적 인기맛집으로 확장합니다.
 
-가짜 식당과 임의 좌표는 운영 DB용 Flyway 시드에 넣지 않습니다. 확정 목록은 [`src/main/resources/curated/discovery-spots.csv`](src/main/resources/curated/discovery-spots.csv)에 정리했고, Google Places에서 검증한 좌표·Place ID로 V14 실제 탐색 시드를 작성했습니다.
+가짜 식당과 임의 좌표는 운영 DB용 Flyway 시드에 넣지 않습니다. 확정 목록은 [`src/main/resources/curated/discovery-spots.csv`](src/main/resources/curated/discovery-spots.csv)에 정리했고, Google Places에서 검증한 좌표·Place ID로 V14 실제 탐색 시드를 작성했고, 2026-10-08 V25에서 사진과 어긋난 식당·순서를 정정했습니다.
 
 ## 향후 작업 순서
 
