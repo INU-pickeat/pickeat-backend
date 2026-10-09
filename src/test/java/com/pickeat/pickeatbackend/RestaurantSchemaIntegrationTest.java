@@ -45,6 +45,8 @@ class RestaurantSchemaIntegrationTest {
                 "SELECT success FROM flyway_schema_history WHERE version = '15'", Boolean.class)).isTrue();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT success FROM flyway_schema_history WHERE version = '25'", Boolean.class)).isTrue();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT success FROM flyway_schema_history WHERE version = '28'", Boolean.class)).isTrue();
         assertThat(jdbcTemplate.queryForObject("""
                 SELECT indexdef FROM pg_indexes
                 WHERE schemaname = 'public' AND indexname = 'restaurants_location_gist_idx'
@@ -127,6 +129,22 @@ class RestaurantSchemaIntegrationTest {
                 """, String.class);
 
         assertThat(actual).containsExactlyElementsOf(expected);
+    }
+
+    @Test
+    @DisplayName("대장장이화덕피자 정보를 최신 확정 내용으로 저장한다")
+    void storesCorrectedForgePizzaDetails() {
+        assertThat(jdbcTemplate.queryForMap("""
+                SELECT r.phone_number, r.opening_hours_text, dsr.one_line_intro
+                FROM restaurants r
+                JOIN discovery_spot_restaurants dsr ON dsr.restaurant_id = r.id
+                WHERE r.google_place_id = 'ChIJ4Q1Ca8WifDURRr2G9wHjgHc'
+                """))
+                .containsEntry("phone_number", "0507-1315-4298")
+                .containsEntry("one_line_intro", "북촌 골목의 감성적인 분위기 속 식사")
+                .containsEntry("opening_hours_text",
+                        "수~금 11:30~21:30 (15:00~17:00 브레이크타임, 20:40 라스트오더), "
+                                + "토~일 11:30~21:30 (15:00~16:30 브레이크타임, 20:40 라스트오더), 월~화 휴무");
     }
 
     @Test
