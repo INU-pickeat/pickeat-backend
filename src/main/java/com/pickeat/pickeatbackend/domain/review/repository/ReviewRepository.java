@@ -14,6 +14,14 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     boolean existsByPickId(Long pickId);
 
+    // Pick마다 연결된 후기 id. Pick 지도에서 핀을 눌렀을 때 후기 상세로 이동하는 데 쓴다.
+    @Query("""
+            SELECT new com.pickeat.pickeatbackend.domain.review.repository.PickReviewId(r.pick.id, r.id)
+            FROM Review r
+            WHERE r.pick.id IN :pickIds
+            """)
+    List<PickReviewId> findIdsByPickIds(@Param("pickIds") Collection<Long> pickIds);
+
     @EntityGraph(attributePaths = {"restaurant", "pick"})
     Optional<Review> findByIdAndMemberId(Long id, Long memberId);
 
