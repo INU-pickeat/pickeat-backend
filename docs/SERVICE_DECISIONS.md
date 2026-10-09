@@ -227,7 +227,7 @@
 ### M3 계약 개편 구현 결과 (2026-09-22)
 
 - **Pick 동행 스냅샷.** `Pick`에 `companion_type` 컬럼을 추가하고(V12), 생성 시 추천 세션의 `companionType`을 그대로 복사해 저장한다. 이후 세션이 바뀌어도 이미 생성된 Pick의 값은 변하지 않는다. 기존 행은 연결된 세션의 현재 `companion_type`으로 백필했다.
-- **Pick 지도 REVIEWED 전용.** 기존 "CANCELED만 제외"에서 "REVIEWED만 노출"로 바꿨다(`findByMemberIdAndStatusOrderBySelectedAtDescIdDesc`). `PickMapResponse.Item`에 스냅샷된 `companionType`을 추가해 지도 팝업에 표시할 수 있게 했다. Review 기능이 아직 없어 REVIEWED Pick이 생기기 전까지는 지도 결과가 비어 있는 것이 정상이다.
+- **Pick 지도 REVIEWED 전용.** 기존 "CANCELED만 제외"에서 "REVIEWED만 노출"로 바꿨다(`findByMemberIdAndStatusOrderBySelectedAtDescIdDesc`). `PickMapResponse.Item`에 스냅샷된 `companionType`과 후기 첫 사진인 `representativeImageUrl`을 담는다. 후기 사진이 없으면 `representativeImageUrl`은 `null`이다.
 - **최근 Pick 목록 개편.** `GET /api/v1/me/picks`의 계약을 페이지 조회에서 `period=week|month` 필수 쿼리 파라미터 기반 식당별 집계로 완전히 교체했다(기존 `page`/`size`, `PickListResponse`는 제거). SELECTED + REVIEWED만 집계하고 CANCELED는 제외하며, 식당별로 `pickCount`와 `latestPickedAt`을 반환한다. `period`는 `week`(최근 7일)·`month`(최근 30일) 롤링 윈도우로 해석했다 — 기획서에 "일주일 기준"/"한 달 기준"의 정확한 경계(캘린더 월 vs 롤링 30일)가 명시되어 있지 않아 내린 구현 판단이며, 기획자 확인이 필요하면 조정한다. `period`가 `week`/`month`가 아니면 `GLOBAL_001`로 거부한다.
 - **Pick 캘린더는 당시 범위 밖.** 대표 이미지 출처가 리뷰 사진인데 Review 모듈이 없어 이 작업에서는 구현하지 않았다. 2026-10-04에 구현했다 — "Pick 캘린더 구현 결과" 참고.
 - 단위·API 계약·Flyway 통합 테스트를 갱신해 당시 기준 전체 테스트 184개가 통과했다.

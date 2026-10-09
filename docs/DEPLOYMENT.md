@@ -82,7 +82,7 @@ docker exec -i pickeat-postgres pg_restore -U pick_eat -d pick_eat --clean < /va
 2. 버킷 CORS에 프론트 origin의 `PUT`을 허용한다.
 
 ```json
-[{"AllowedOrigins": ["https://www.pickeat.kr", "https://pickeat.kr"], "AllowedMethods": ["PUT"], "AllowedHeaders": ["Content-Type"], "MaxAgeSeconds": 3600}]
+[{"AllowedOrigins": ["https://www.pickeat.kr", "https://pickeat.kr", "http://localhost:5173"], "AllowedMethods": ["PUT"], "AllowedHeaders": ["Content-Type"], "MaxAgeSeconds": 3600}]
 ```
 
 3. EC2 인스턴스 역할에 `s3:PutObject`를 `arn:aws:s3:::<버킷>/reviews/*`와 `arn:aws:s3:::<버킷>/profiles/*`에만 허용한다. 액세스 키는 쓰지 않는다. (2026-10-08 프로필 이미지 추가 — 기존 정책이 `reviews/*`만 허용하면 `profiles/*`를 Resource에 추가해야 프로필 업로드 PUT이 403이 나지 않는다.)
