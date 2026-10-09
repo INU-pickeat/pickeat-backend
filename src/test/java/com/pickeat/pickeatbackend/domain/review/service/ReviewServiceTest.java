@@ -194,7 +194,6 @@ class ReviewServiceTest {
         assertThat(response.content()).isEqualTo("정말 맛있어요");
         assertThat(response.visibility()).isEqualTo(ReviewVisibility.PRIVATE);
         assertThat(response.imageUrls()).containsExactly(OWN_IMAGE);
-        verify(reviewImageStorage, never()).isUploadedBy(any(), any());
     }
 
     @Test

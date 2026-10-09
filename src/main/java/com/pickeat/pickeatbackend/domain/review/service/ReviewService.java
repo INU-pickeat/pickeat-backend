@@ -81,11 +81,8 @@ public class ReviewService {
     public ReviewResponse update(Long reviewId, UpdateReviewRequest request, Long memberId) {
         Review review = reviewRepository.findByIdAndMemberId(reviewId, memberId)
                 .orElseThrow(() -> new BusinessException(ReviewErrorCode.REVIEW_NOT_FOUND));
-        if (request.imageUrls() != null) {
-            validateOwnImages(request.imageUrls(), memberId);
-        }
         review.update(request.content(), request.foodCategory(), request.companionType(),
-                request.visibility(), request.imageUrls());
+                request.visibility());
         return toResponse(review, memberId);
     }
 

@@ -227,6 +227,19 @@ class ReviewApiContractTest {
     }
 
     @Test
+    @DisplayName("후기 수정 요청으로 사진을 변경할 수 없다")
+    void rejectsImagesOnUpdate() throws Exception {
+        mockMvc.perform(patch("/api/v1/reviews/{reviewId}", REVIEW_ID)
+                        .header("Authorization", authorizationHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"imageUrls\": []}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+
+        verify(reviewService, never()).update(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("이미지 업로드 URL 발급 API는 업로드 주소와 저장될 이미지 주소를 반환한다")
     void createsImageUploadUrls() throws Exception {
         ReviewImageUploadResponse response = new ReviewImageUploadResponse(List.of(

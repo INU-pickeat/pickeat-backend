@@ -64,7 +64,7 @@ public class ReviewController {
         return ResponseEntity.noContent().build();
     }
 
-    // 후기 이미지를 S3에 직접 올릴 임시 URL을 발급한다. 올린 뒤 받은 imageUrl을 후기 작성·수정에 넣는다.
+    // 후기 이미지를 S3에 직접 올릴 임시 URL을 발급한다. 올린 뒤 받은 imageUrl을 후기 작성 요청에 넣는다.
     @PostMapping("/images/upload-urls")
     public ResponseEntity<ReviewImageUploadResponse> createImageUploads(
             @Valid @RequestBody ReviewImageUploadRequest request,

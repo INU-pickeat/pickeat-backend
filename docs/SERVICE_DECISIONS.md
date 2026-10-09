@@ -271,6 +271,7 @@
 - **나의 기록.** `GET /api/v1/me/reviews?period=week|month`. Pick 시각(`selected_at`) 기준 최근 7일·30일 후기를 최신 Pick 순으로 반환하며 공개·비공개 후기를 모두 포함한다.
 - **이미지.** `POST /api/v1/reviews/images/upload-urls`에 Content-Type 목록을 보내면 10분짜리 S3 presigned PUT URL과 저장될 `imageUrl`을 돌려준다. JPEG·PNG·WebP만 허용한다(`REVIEW_005`). 후기에는 본인 경로(`reviews/{memberId}/`) 아래의 URL만 붙일 수 있다(`REVIEW_004`). 버킷이 설정되지 않았으면 발급을 `REVIEW_006`(503)으로 거부한다. presigned PUT은 파일 크기를 제한하지 못하고, 후기에서 뺀 이미지의 S3 객체는 지우지 않는다.
 - **공개 피드.** `GET /api/v1/feed?cursor&size`. `PUBLIC` 후기만 최신순으로 내려준다. 커서는 이전 응답의 `nextCursor`(마지막 `reviewId`)이고 `null`이면 마지막 페이지다. 크기는 1~50, 기본 20이다. 인증이 필요하며 항목마다 `likeCount`와 `likedByMe`를 준다.
+- **후기 사진 수정 제한.** 사진은 후기 작성 시에만 최대 5장 등록할 수 있다. 후기 수정은 내용·음식 카테고리·동행 유형·공개 범위만 허용하며, `imageUrls`가 포함된 수정 요청은 400 `GLOBAL_001`로 거부한다.
 - **좋아요.** `POST`/`DELETE /api/v1/reviews/{reviewId}/likes`. 공개 후기에만 누를 수 있다. 본인의 비공개 후기는 `REVIEW_003`(409), 남의 비공개 후기는 존재를 알리지 않도록 `REVIEW_001`(404)이다. 여러 번 눌러도 한 번으로 세며, 동시 요청은 DB 유니크 제약과 `ON CONFLICT DO NOTHING`으로 처리한다.
 - **식당별 후기 요약.** `GET /api/v1/restaurants/{restaurantId}/review-summary`. 공개 후기 수와 대표 한줄평을 돌려준다. 인증이 필요 없다. 후기가 없으면 0건·`"후기가 없습니다."`다.
 - **한줄평.** 탐색 스팟의 `oneLineIntro`와 후기 요약의 `oneLineReview`는 같은 규칙을 쓴다. 식당별 가장 최근 공개 후기의 첫 줄이며 50자를 넘으면 잘라 말줄임표를 붙인다. 운영자 소개 문구(`discovery_spot_restaurants.one_line_intro`)는 더 이상 API로 내려가지 않는다. 선정 규칙은 임시이며 구현 현황 21번에서 확정한다.
