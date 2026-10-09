@@ -194,16 +194,21 @@ class PickServiceTest {
     }
 
     @Test
-    @DisplayName("지도 조회는 REVIEWED 상태만 노출하고 핀마다 후기 id를 담는다")
+    @DisplayName("지도 조회는 REVIEWED 상태만 노출하고 핀마다 후기 id와 대표 사진을 담는다")
     void getsMapWithOnlyReviewedPicks() {
         when(pickRepository.findByMemberIdAndStatusOrderBySelectedAtDescIdDesc(1L, PickStatus.REVIEWED))
                 .thenReturn(List.of(persistedPick(30L)));
         when(reviewRepository.findIdsByPickIds(List.of(30L))).thenReturn(List.of(new PickReviewId(30L, 70L)));
+        when(reviewImageRepository.findFirstImagesByPickIds(List.of(30L)))
+                .thenReturn(List.of(new PickImage(30L, "https://cdn.pickeat.kr/reviews/30/main.jpg")));
 
         PickMapResponse response = pickService.getMyPickMap(1L);
 
         assertThat(response.picks()).singleElement()
                 .extracting(PickMapResponse.Item::reviewId).isEqualTo(70L);
+        assertThat(response.picks()).singleElement()
+                .extracting(PickMapResponse.Item::representativeImageUrl)
+                .isEqualTo("https://cdn.pickeat.kr/reviews/30/main.jpg");
         verify(pickRepository).findByMemberIdAndStatusOrderBySelectedAtDescIdDesc(1L, PickStatus.REVIEWED);
     }
 

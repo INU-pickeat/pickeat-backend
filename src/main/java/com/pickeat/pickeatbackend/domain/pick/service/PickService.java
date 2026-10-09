@@ -100,12 +100,12 @@ public class PickService {
     public PickMapResponse getMyPickMap(Long memberId) {
         List<Pick> picks = pickRepository.findByMemberIdAndStatusOrderBySelectedAtDescIdDesc(memberId, PickStatus.REVIEWED);
         if (picks.isEmpty()) {
-            return PickMapResponse.from(picks, Map.of());
+            return PickMapResponse.from(picks, Map.of(), Map.of());
         }
         Map<Long, Long> reviewIdByPickId = reviewRepository.findIdsByPickIds(picks.stream().map(Pick::getId).toList())
                 .stream()
                 .collect(Collectors.toMap(PickReviewId::pickId, PickReviewId::reviewId));
-        return PickMapResponse.from(picks, reviewIdByPickId);
+        return PickMapResponse.from(picks, reviewIdByPickId, firstReviewImageByPickId(picks));
     }
 
     // Pick 캘린더는 선택일(selectedAt)을 기준으로 한다. SELECTED는 기록하기 카드, REVIEWED는 날짜 사진에 쓴다.

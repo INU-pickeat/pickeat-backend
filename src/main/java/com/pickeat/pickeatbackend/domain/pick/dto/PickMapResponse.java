@@ -8,9 +8,11 @@ import java.util.Map;
 
 public record PickMapResponse(List<Item> picks) {
 
-    public static PickMapResponse from(List<Pick> picks, Map<Long, Long> reviewIdByPickId) {
+    public static PickMapResponse from(
+            List<Pick> picks, Map<Long, Long> reviewIdByPickId, Map<Long, String> imageByPickId) {
         return new PickMapResponse(picks.stream()
-                .map(pick -> Item.from(pick, reviewIdByPickId.get(pick.getId())))
+                .map(pick -> Item.from(
+                        pick, reviewIdByPickId.get(pick.getId()), imageByPickId.get(pick.getId())))
                 .toList());
     }
 
@@ -22,9 +24,10 @@ public record PickMapResponse(List<Item> picks) {
             double latitude,
             double longitude,
             PickStatus status,
-            CompanionType companionType
+            CompanionType companionType,
+            String representativeImageUrl
     ) {
-        private static Item from(Pick pick, Long reviewId) {
+        private static Item from(Pick pick, Long reviewId, String representativeImageUrl) {
             return new Item(
                     pick.getId(),
                     reviewId,
@@ -33,7 +36,8 @@ public record PickMapResponse(List<Item> picks) {
                     pick.getRestaurant().getLatitude(),
                     pick.getRestaurant().getLongitude(),
                     pick.getStatus(),
-                    pick.getCompanionType()
+                    pick.getCompanionType(),
+                    representativeImageUrl
             );
         }
     }

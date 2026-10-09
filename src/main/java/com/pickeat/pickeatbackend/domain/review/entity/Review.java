@@ -94,9 +94,9 @@ public class Review {
         replaceImages(imageUrls);
     }
 
-    // null인 값은 건드리지 않는 부분 수정. imageUrls는 null이면 유지, 빈 목록이면 전부 삭제다.
+    // null인 값은 건드리지 않는 부분 수정. 작성 시 등록한 이미지는 변경하지 않는다.
     public void update(String content, FoodCategory foodCategory, CompanionType companionType,
-                       ReviewVisibility visibility, List<String> imageUrls) {
+                       ReviewVisibility visibility) {
         if (content != null) {
             this.content = content.strip();
         }
@@ -108,9 +108,6 @@ public class Review {
         }
         if (visibility != null) {
             this.visibility = visibility;
-        }
-        if (imageUrls != null) {
-            replaceImages(imageUrls);
         }
     }
 
