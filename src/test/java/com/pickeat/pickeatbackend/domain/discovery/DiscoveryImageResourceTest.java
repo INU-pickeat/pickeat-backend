@@ -9,7 +9,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 // V15가 대표 이미지 URL을 "/images/discovery/{지역 코드 소문자}_{순서}_main.jpg"로 만든다.
-// 파일 이름이 지역 코드와 다르면 운영에서 404가 난다(서촌: SEOCHEON인데 파일은 seochon_이었다).
+// 파일 이름이 지역 코드와 다르면 운영에서 404가 난다(서촌: 코드와 파일 이름이 SEOCHEON·seochon_으로 어긋났었다).
 class DiscoveryImageResourceTest {
 
     @ParameterizedTest
