@@ -27,7 +27,9 @@ import com.pickeat.pickeatbackend.domain.recommendation.repository.Recommendatio
 import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantRepository;
 import com.pickeat.pickeatbackend.domain.review.repository.PickImage;
+import com.pickeat.pickeatbackend.domain.review.repository.PickReviewId;
 import com.pickeat.pickeatbackend.domain.review.repository.ReviewImageRepository;
+import com.pickeat.pickeatbackend.domain.review.repository.ReviewRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -51,6 +53,7 @@ class PickServiceTest {
     @Mock RecommendationCandidateRepository candidateRepository;
     @Mock RestaurantRepository restaurantRepository;
     @Mock ReviewImageRepository reviewImageRepository;
+    @Mock ReviewRepository reviewRepository;
 
     private PickService pickService;
     private Member member;
@@ -60,7 +63,7 @@ class PickServiceTest {
     @BeforeEach
     void setUp() {
         pickService = new PickService(
-                pickRepository, sessionRepository, candidateRepository, restaurantRepository, reviewImageRepository);
+                pickRepository, sessionRepository, candidateRepository, restaurantRepository, reviewImageRepository, reviewRepository);
         member = Member.builder().email("user@pickeat.com").password("password").nickname("사용자").build();
         ReflectionTestUtils.setField(member, "id", 1L);
         restaurant = Restaurant.builder().name("테스트 식당").latitude(37.5).longitude(127.0).build();
@@ -191,14 +194,16 @@ class PickServiceTest {
     }
 
     @Test
-    @DisplayName("지도 조회는 REVIEWED 상태만 노출하도록 저장소에 위임한다")
+    @DisplayName("지도 조회는 REVIEWED 상태만 노출하고 핀마다 후기 id를 담는다")
     void getsMapWithOnlyReviewedPicks() {
         when(pickRepository.findByMemberIdAndStatusOrderBySelectedAtDescIdDesc(1L, PickStatus.REVIEWED))
                 .thenReturn(List.of(persistedPick(30L)));
+        when(reviewRepository.findIdsByPickIds(List.of(30L))).thenReturn(List.of(new PickReviewId(30L, 70L)));
 
         PickMapResponse response = pickService.getMyPickMap(1L);
 
-        assertThat(response.picks()).hasSize(1);
+        assertThat(response.picks()).singleElement()
+                .extracting(PickMapResponse.Item::reviewId).isEqualTo(70L);
         verify(pickRepository).findByMemberIdAndStatusOrderBySelectedAtDescIdDesc(1L, PickStatus.REVIEWED);
     }
 

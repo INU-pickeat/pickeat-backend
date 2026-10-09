@@ -126,13 +126,14 @@ class PickApiContractTest {
     @DisplayName("내 Pick 지도 API는 좌표와 동행 유형 계약을 반환한다")
     void getsMyPickMapWithCoordinateContract() throws Exception {
         PickMapResponse response = new PickMapResponse(List.of(
-                new PickMapResponse.Item(PICK_ID, 10L, "테스트 식당", 37.5, 127.0, PickStatus.REVIEWED, CompanionType.SOLO)));
+                new PickMapResponse.Item(PICK_ID, 70L, 10L, "테스트 식당", 37.5, 127.0, PickStatus.REVIEWED, CompanionType.SOLO)));
         when(pickService.getMyPickMap(MEMBER_ID)).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/me/picks/map")
                         .header("Authorization", authorizationHeader))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.picks[0].pickId").value(PICK_ID))
+                .andExpect(jsonPath("$.picks[0].reviewId").value(70))
                 .andExpect(jsonPath("$.picks[0].latitude").value(37.5))
                 .andExpect(jsonPath("$.picks[0].longitude").value(127.0))
                 .andExpect(jsonPath("$.picks[0].companionType").value("SOLO"));

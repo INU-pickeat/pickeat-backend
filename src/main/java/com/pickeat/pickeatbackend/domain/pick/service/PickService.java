@@ -17,7 +17,9 @@ import com.pickeat.pickeatbackend.domain.recommendation.repository.Recommendatio
 import com.pickeat.pickeatbackend.domain.recommendation.repository.RecommendationSessionRepository;
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantRepository;
 import com.pickeat.pickeatbackend.domain.review.repository.PickImage;
+import com.pickeat.pickeatbackend.domain.review.repository.PickReviewId;
 import com.pickeat.pickeatbackend.domain.review.repository.ReviewImageRepository;
+import com.pickeat.pickeatbackend.domain.review.repository.ReviewRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import com.pickeat.pickeatbackend.global.exception.GlobalErrorCode;
 import java.time.Instant;
@@ -45,6 +47,7 @@ public class PickService {
     private final RecommendationCandidateRepository candidateRepository;
     private final RestaurantRepository restaurantRepository;
     private final ReviewImageRepository reviewImageRepository;
+    private final ReviewRepository reviewRepository;
 
     @Transactional
     public PickResponse create(CreatePickRequest request, Long memberId) {
@@ -95,8 +98,14 @@ public class PickService {
     // Pick 지도는 REVIEWED(방문 후기 작성 완료)만 노출한다. SELECTED·CANCELED는 미노출.
     @Transactional(readOnly = true)
     public PickMapResponse getMyPickMap(Long memberId) {
-        return PickMapResponse.from(
-                pickRepository.findByMemberIdAndStatusOrderBySelectedAtDescIdDesc(memberId, PickStatus.REVIEWED));
+        List<Pick> picks = pickRepository.findByMemberIdAndStatusOrderBySelectedAtDescIdDesc(memberId, PickStatus.REVIEWED);
+        if (picks.isEmpty()) {
+            return PickMapResponse.from(picks, Map.of());
+        }
+        Map<Long, Long> reviewIdByPickId = reviewRepository.findIdsByPickIds(picks.stream().map(Pick::getId).toList())
+                .stream()
+                .collect(Collectors.toMap(PickReviewId::pickId, PickReviewId::reviewId));
+        return PickMapResponse.from(picks, reviewIdByPickId);
     }
 
     // Pick 캘린더는 REVIEWED만, 달력 월(한국 시간) 단위로 방문일(visitedAt) 기준 집계한다.
