@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.pickeat.pickeatbackend.domain.member.entity.Member;
 import com.pickeat.pickeatbackend.domain.pick.entity.Pick;
 import com.pickeat.pickeatbackend.domain.pick.entity.PickStatus;
+import com.pickeat.pickeatbackend.domain.pick.dto.PickPeriod;
 import com.pickeat.pickeatbackend.domain.pick.exception.PickErrorCode;
 import com.pickeat.pickeatbackend.domain.pick.repository.PickRepository;
 import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
@@ -19,6 +20,7 @@ import com.pickeat.pickeatbackend.domain.review.ReviewFixtures;
 import com.pickeat.pickeatbackend.domain.review.dto.CreateReviewRequest;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewImageUploadRequest;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewImageUploadResponse;
+import com.pickeat.pickeatbackend.domain.review.dto.MyReviewsResponse;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewResponse;
 import com.pickeat.pickeatbackend.domain.review.dto.UpdateReviewRequest;
 import com.pickeat.pickeatbackend.domain.review.entity.Review;
@@ -160,15 +162,35 @@ class ReviewServiceTest {
     }
 
     @Test
+    @DisplayName("나의 기록은 Pick 선택 시각 기준 기간의 후기 목록을 반환한다")
+    void getsMyReviewsByPickPeriod() {
+        Instant selectedAt = Instant.parse("2026-10-04T02:00:00Z");
+        ReflectionTestUtils.setField(pick, "selectedAt", selectedAt);
+        Review review = ReviewFixtures.review(100L, pick, ReviewVisibility.PRIVATE, "맛있어요", List.of(OWN_IMAGE));
+        when(reviewRepository.findByMemberIdAndPickSelectedAtGreaterThanEqualOrderByPickSelectedAtDescIdDesc(
+                org.mockito.ArgumentMatchers.eq(MEMBER_ID), any(Instant.class)))
+                .thenReturn(List.of(review));
+
+        MyReviewsResponse response = reviewService.getMine(MEMBER_ID, PickPeriod.WEEK);
+
+        assertThat(response.reviews()).singleElement().satisfies(item -> {
+            assertThat(item.reviewId()).isEqualTo(100L);
+            assertThat(item.pickId()).isEqualTo(30L);
+            assertThat(item.selectedAt()).isEqualTo(selectedAt);
+            assertThat(item.visibility()).isEqualTo(ReviewVisibility.PRIVATE);
+            assertThat(item.imageUrls()).containsExactly(OWN_IMAGE);
+        });
+    }
+
+    @Test
     @DisplayName("본인 후기를 부분 수정한다")
     void updatesOwnReview() {
         Review review = ReviewFixtures.review(100L, pick, ReviewVisibility.PUBLIC, "맛있어요", List.of(OWN_IMAGE));
         when(reviewRepository.findByIdAndMemberId(100L, MEMBER_ID)).thenReturn(Optional.of(review));
 
         ReviewResponse response = reviewService.update(
-                100L, new UpdateReviewRequest(5, "정말 맛있어요", null, null, ReviewVisibility.PRIVATE, null), MEMBER_ID);
+                100L, new UpdateReviewRequest("정말 맛있어요", null, null, ReviewVisibility.PRIVATE, null), MEMBER_ID);
 
-        assertThat(response.rating()).isEqualTo(5);
         assertThat(response.content()).isEqualTo("정말 맛있어요");
         assertThat(response.visibility()).isEqualTo(ReviewVisibility.PRIVATE);
         assertThat(response.imageUrls()).containsExactly(OWN_IMAGE);
@@ -181,7 +203,7 @@ class ReviewServiceTest {
         when(reviewRepository.findByIdAndMemberId(100L, 2L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> reviewService.update(
-                100L, new UpdateReviewRequest(5, null, null, null, null, null), 2L))
+                100L, new UpdateReviewRequest(null, null, null, null, null), 2L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(ReviewErrorCode.REVIEW_NOT_FOUND.getMessage());
         assertThatThrownBy(() -> reviewService.delete(100L, 2L))
@@ -222,6 +244,7 @@ class ReviewServiceTest {
 
     private CreateReviewRequest createRequest(List<String> imageUrls) {
         return new CreateReviewRequest(
-                30L, 4, "양고기가 부드러워요", FoodCategory.JAPANESE, CompanionType.FAMILY, ReviewVisibility.PUBLIC, imageUrls);
+                30L, "양고기가 부드러워요", FoodCategory.JAPANESE, CompanionType.FAMILY,
+                ReviewVisibility.PUBLIC, imageUrls);
     }
 }

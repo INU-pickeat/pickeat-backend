@@ -38,7 +38,6 @@ public final class ReviewFixtures {
     public static Review review(Long id, Pick pick, ReviewVisibility visibility, String content, List<String> imageUrls) {
         Review review = Review.builder()
                 .pick(pick)
-                .rating(4)
                 .content(content)
                 .foodCategory(FoodCategory.KOREAN)
                 .companionType(CompanionType.SOLO)

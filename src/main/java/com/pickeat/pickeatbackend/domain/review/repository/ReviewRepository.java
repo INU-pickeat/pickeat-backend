@@ -1,6 +1,8 @@
 package com.pickeat.pickeatbackend.domain.review.repository;
 
 import com.pickeat.pickeatbackend.domain.review.entity.Review;
+import com.pickeat.pickeatbackend.domain.review.entity.ReviewVisibility;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -25,6 +27,10 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     @EntityGraph(attributePaths = {"restaurant", "pick"})
     Optional<Review> findByIdAndMemberId(Long id, Long memberId);
 
+    @EntityGraph(attributePaths = {"restaurant", "pick"})
+    List<Review> findByMemberIdAndPickSelectedAtGreaterThanEqualOrderByPickSelectedAtDescIdDesc(
+            Long memberId, Instant since);
+
     @Query("SELECT r FROM Review r JOIN FETCH r.restaurant JOIN FETCH r.member WHERE r.id = :id")
     Optional<Review> findDetailById(@Param("id") Long id);
 
@@ -46,13 +52,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findPublicFeedBefore(@Param("cursor") Long cursor, Pageable pageable);
 
     // 식당별 후기 요약은 공개 후기만 집계한다.
-    @Query("""
-            SELECT new com.pickeat.pickeatbackend.domain.review.repository.ReviewStats(COUNT(r), AVG(r.rating))
-            FROM Review r
-            WHERE r.restaurant.id = :restaurantId
-              AND r.visibility = com.pickeat.pickeatbackend.domain.review.entity.ReviewVisibility.PUBLIC
-            """)
-    ReviewStats findPublicStats(@Param("restaurantId") Long restaurantId);
+    long countByRestaurantIdAndVisibility(Long restaurantId, ReviewVisibility visibility);
 
     // 식당마다 가장 최근 공개 후기 한 건. 대표 한줄평의 원본이다.
     @Query("""

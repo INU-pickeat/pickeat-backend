@@ -208,13 +208,13 @@ class PickServiceTest {
     }
 
     @Test
-    @DisplayName("캘린더는 한국 시간 달력 월 구간의 REVIEWED만 조회한다")
+    @DisplayName("캘린더는 한국 시간 달력 월 구간의 취소되지 않은 Pick을 선택 시각으로 조회한다")
     void queriesCalendarMonthInKoreaTime() {
         Instant from = Instant.parse("2026-08-31T15:00:00Z");
         Instant to = Instant.parse("2026-09-30T15:00:00Z");
         when(pickRepository
-                .findByMemberIdAndStatusAndVisitedAtGreaterThanEqualAndVisitedAtLessThanOrderByVisitedAtAscIdAsc(
-                        1L, PickStatus.REVIEWED, from, to))
+                .findByMemberIdAndStatusNotAndSelectedAtGreaterThanEqualAndSelectedAtLessThanOrderBySelectedAtAscIdAsc(
+                        1L, PickStatus.CANCELED, from, to))
                 .thenReturn(List.of());
 
         PickCalendarResponse response = pickService.getMyPickCalendar(1L, 2026, 9);
@@ -222,9 +222,10 @@ class PickServiceTest {
         assertThat(response.year()).isEqualTo(2026);
         assertThat(response.month()).isEqualTo(9);
         assertThat(response.dates()).isEmpty();
+        assertThat(response.picks()).isEmpty();
         verify(pickRepository)
-                .findByMemberIdAndStatusAndVisitedAtGreaterThanEqualAndVisitedAtLessThanOrderByVisitedAtAscIdAsc(
-                        1L, PickStatus.REVIEWED, from, to);
+                .findByMemberIdAndStatusNotAndSelectedAtGreaterThanEqualAndSelectedAtLessThanOrderBySelectedAtAscIdAsc(
+                        1L, PickStatus.CANCELED, from, to);
     }
 
     @Test
@@ -237,8 +238,8 @@ class PickServiceTest {
         Pick sameDay = reviewedPick(31L, second, Instant.parse("2026-09-21T10:00:00Z"));
         Pick nextDay = reviewedPick(32L, second, Instant.parse("2026-09-22T03:00:00Z"));
         when(pickRepository
-                .findByMemberIdAndStatusAndVisitedAtGreaterThanEqualAndVisitedAtLessThanOrderByVisitedAtAscIdAsc(
-                        org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(PickStatus.REVIEWED),
+                .findByMemberIdAndStatusNotAndSelectedAtGreaterThanEqualAndSelectedAtLessThanOrderBySelectedAtAscIdAsc(
+                        org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(PickStatus.CANCELED),
                         any(Instant.class), any(Instant.class)))
                 .thenReturn(List.of(first, sameDay, nextDay));
 
@@ -261,8 +262,8 @@ class PickServiceTest {
         Pick withImage = reviewedPick(31L, restaurant, Instant.parse("2026-09-21T03:00:00Z"));
         Pick laterWithImage = reviewedPick(32L, restaurant, Instant.parse("2026-09-21T05:00:00Z"));
         when(pickRepository
-                .findByMemberIdAndStatusAndVisitedAtGreaterThanEqualAndVisitedAtLessThanOrderByVisitedAtAscIdAsc(
-                        org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(PickStatus.REVIEWED),
+                .findByMemberIdAndStatusNotAndSelectedAtGreaterThanEqualAndSelectedAtLessThanOrderBySelectedAtAscIdAsc(
+                        org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(PickStatus.CANCELED),
                         any(Instant.class), any(Instant.class)))
                 .thenReturn(List.of(withoutImage, withImage, laterWithImage));
         when(reviewImageRepository.findFirstImagesByPickIds(List.of(30L, 31L, 32L)))
@@ -279,6 +280,30 @@ class PickServiceTest {
     }
 
     @Test
+    @DisplayName("후기 미작성 Pick도 캘린더 하단 기록하기 카드에 포함한다")
+    void includesSelectedPickForReviewEntry() {
+        Pick selected = persistedPick(30L);
+        Instant selectedAt = Instant.parse("2026-09-20T15:30:00Z");
+        ReflectionTestUtils.setField(selected, "selectedAt", selectedAt);
+        when(pickRepository
+                .findByMemberIdAndStatusNotAndSelectedAtGreaterThanEqualAndSelectedAtLessThanOrderBySelectedAtAscIdAsc(
+                        org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(PickStatus.CANCELED),
+                        any(Instant.class), any(Instant.class)))
+                .thenReturn(List.of(selected));
+
+        PickCalendarResponse response = pickService.getMyPickCalendar(1L, 2026, 9);
+
+        assertThat(response.dates()).isEmpty();
+        assertThat(response.picks()).singleElement().satisfies(item -> {
+            assertThat(item.pickId()).isEqualTo(30L);
+            assertThat(item.reviewId()).isNull();
+            assertThat(item.date()).isEqualTo(LocalDate.of(2026, 9, 21));
+            assertThat(item.status()).isEqualTo(PickStatus.SELECTED);
+            assertThat(item.companionType()).isEqualTo(CompanionType.DATE);
+        });
+    }
+
+    @Test
     @DisplayName("범위를 벗어난 연·월은 입력 오류로 거부한다")
     void rejectsOutOfRangeCalendarMonth() {
         assertThatThrownBy(() -> pickService.getMyPickCalendar(1L, 2026, 13))
@@ -289,13 +314,13 @@ class PickServiceTest {
                 .isInstanceOf(BusinessException.class);
     }
 
-    private Pick reviewedPick(Long id, Restaurant pickedRestaurant, Instant visitedAt) {
+    private Pick reviewedPick(Long id, Restaurant pickedRestaurant, Instant selectedAt) {
         Pick pick = Pick.builder()
                 .member(member).restaurant(pickedRestaurant).recommendationSession(session)
                 .companionType(CompanionType.DATE).build();
         ReflectionTestUtils.setField(pick, "id", id);
         ReflectionTestUtils.setField(pick, "status", PickStatus.REVIEWED);
-        ReflectionTestUtils.setField(pick, "visitedAt", visitedAt);
+        ReflectionTestUtils.setField(pick, "selectedAt", selectedAt);
         return pick;
     }
 

@@ -54,9 +54,6 @@ public class Review {
     @JoinColumn(name = "restaurant_id", nullable = false, updatable = false)
     private Restaurant restaurant;
 
-    @Column(nullable = false)
-    private Integer rating;
-
     @Column(nullable = false, length = 1000)
     private String content;
 
@@ -85,12 +82,11 @@ public class Review {
     private List<ReviewImage> images = new ArrayList<>();
 
     @Builder
-    public Review(Pick pick, Integer rating, String content, FoodCategory foodCategory,
+    public Review(Pick pick, String content, FoodCategory foodCategory,
                   CompanionType companionType, ReviewVisibility visibility, List<String> imageUrls) {
         this.pick = pick;
         this.member = pick.getMember();
         this.restaurant = pick.getRestaurant();
-        this.rating = rating;
         this.content = content.strip();
         this.foodCategory = foodCategory;
         this.companionType = companionType;
@@ -99,11 +95,8 @@ public class Review {
     }
 
     // null인 값은 건드리지 않는 부분 수정. imageUrls는 null이면 유지, 빈 목록이면 전부 삭제다.
-    public void update(Integer rating, String content, FoodCategory foodCategory, CompanionType companionType,
+    public void update(String content, FoodCategory foodCategory, CompanionType companionType,
                        ReviewVisibility visibility, List<String> imageUrls) {
-        if (rating != null) {
-            this.rating = rating;
-        }
         if (content != null) {
             this.content = content.strip();
         }

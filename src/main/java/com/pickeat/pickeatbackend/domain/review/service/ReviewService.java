@@ -1,10 +1,12 @@
 package com.pickeat.pickeatbackend.domain.review.service;
 
+import com.pickeat.pickeatbackend.domain.pick.dto.PickPeriod;
 import com.pickeat.pickeatbackend.domain.pick.entity.Pick;
 import com.pickeat.pickeatbackend.domain.pick.entity.PickStatus;
 import com.pickeat.pickeatbackend.domain.pick.exception.PickErrorCode;
 import com.pickeat.pickeatbackend.domain.pick.repository.PickRepository;
 import com.pickeat.pickeatbackend.domain.review.dto.CreateReviewRequest;
+import com.pickeat.pickeatbackend.domain.review.dto.MyReviewsResponse;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewImageUploadRequest;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewImageUploadResponse;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewResponse;
@@ -15,6 +17,7 @@ import com.pickeat.pickeatbackend.domain.review.repository.ReviewLikeRepository;
 import com.pickeat.pickeatbackend.domain.review.repository.ReviewRepository;
 import com.pickeat.pickeatbackend.domain.review.storage.ReviewImageStorage;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
+import java.time.Instant;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -44,7 +47,6 @@ public class ReviewService {
 
         Review review = Review.builder()
                 .pick(pick)
-                .rating(request.rating())
                 .content(request.content())
                 .foodCategory(request.foodCategory())
                 .companionType(request.companionType())
@@ -67,6 +69,14 @@ public class ReviewService {
         return toResponse(review, memberId);
     }
 
+    @Transactional(readOnly = true)
+    public MyReviewsResponse getMine(Long memberId, PickPeriod period) {
+        Instant since = Instant.now().minus(period.window());
+        return MyReviewsResponse.from(
+                reviewRepository.findByMemberIdAndPickSelectedAtGreaterThanEqualOrderByPickSelectedAtDescIdDesc(
+                        memberId, since));
+    }
+
     @Transactional
     public ReviewResponse update(Long reviewId, UpdateReviewRequest request, Long memberId) {
         Review review = reviewRepository.findByIdAndMemberId(reviewId, memberId)
@@ -74,7 +84,7 @@ public class ReviewService {
         if (request.imageUrls() != null) {
             validateOwnImages(request.imageUrls(), memberId);
         }
-        review.update(request.rating(), request.content(), request.foodCategory(), request.companionType(),
+        review.update(request.content(), request.foodCategory(), request.companionType(),
                 request.visibility(), request.imageUrls());
         return toResponse(review, memberId);
     }
