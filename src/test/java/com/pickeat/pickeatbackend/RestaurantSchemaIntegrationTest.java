@@ -73,7 +73,7 @@ class RestaurantSchemaIntegrationTest {
         assertThat(jdbcTemplate.queryForList("""
                 SELECT region_code FROM discovery_spots ORDER BY display_order
                 """, String.class))
-                .containsExactly("SINSA", "HYEHWA", "SEOCHEON", "HANNAM", "JONGNO");
+                .containsExactly("SINSA", "HYEHWA", "SEOCHON", "HANNAM", "JONGNO");
     }
 
     @Test
