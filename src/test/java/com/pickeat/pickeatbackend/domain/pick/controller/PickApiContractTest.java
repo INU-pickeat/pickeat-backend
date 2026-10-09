@@ -170,7 +170,10 @@ class PickApiContractTest {
         PickCalendarResponse response = new PickCalendarResponse(2026, 9, List.of(
                 new PickCalendarResponse.DateItem(LocalDate.of(2026, 9, 21), 2, "테스트 식당", null),
                 new PickCalendarResponse.DateItem(
-                        LocalDate.of(2026, 9, 22), 1, "테스트 식당", "https://img.pickeat.kr/reviews/1/a.jpg")));
+                        LocalDate.of(2026, 9, 22), 1, "테스트 식당", "https://img.pickeat.kr/reviews/1/a.jpg")),
+                List.of(new PickCalendarResponse.PickItem(
+                        PICK_ID, null, LocalDate.of(2026, 9, 21), PickStatus.SELECTED, 10L, "테스트 식당",
+                        FoodCategory.KOREAN, CompanionType.DATE, "/api/v1/restaurants/10/photo", null)));
         when(pickService.getMyPickCalendar(MEMBER_ID, 2026, 9)).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/me/picks/calendar")
@@ -186,7 +189,12 @@ class PickApiContractTest {
                 .andExpect(jsonPath("$.dates[0].date").value("2026-09-21"))
                 .andExpect(jsonPath("$.dates[0].recordCount").value(2))
                 .andExpect(jsonPath("$.dates[0].restaurantName").value("테스트 식당"))
-                .andExpect(jsonPath("$.dates[0].representativeImageUrl").doesNotExist());
+                .andExpect(jsonPath("$.dates[0].representativeImageUrl").doesNotExist())
+                .andExpect(jsonPath("$.picks[0].pickId").value(PICK_ID))
+                .andExpect(jsonPath("$.picks[0].reviewId").doesNotExist())
+                .andExpect(jsonPath("$.picks[0].date").value("2026-09-21"))
+                .andExpect(jsonPath("$.picks[0].status").value("SELECTED"))
+                .andExpect(jsonPath("$.picks[0].companionType").value("DATE"));
     }
 
     @Test

@@ -108,8 +108,8 @@ public class PickService {
         return PickMapResponse.from(picks, reviewIdByPickId);
     }
 
-    // Pick 캘린더는 REVIEWED만, 달력 월(한국 시간) 단위로 방문일(visitedAt) 기준 집계한다.
-    // 날짜 대표 이미지는 그날 가장 먼저 쓴 후기 중 사진이 있는 첫 후기의 첫 번째 사진이다.
+    // Pick 캘린더는 선택일(selectedAt)을 기준으로 한다. SELECTED는 기록하기 카드, REVIEWED는 날짜 사진에 쓴다.
+    // 날짜 대표 이미지는 그날 Pick한 식당의 후기 중 사진이 있는 첫 후기의 첫 번째 사진이다.
     @Transactional(readOnly = true)
     public PickCalendarResponse getMyPickCalendar(Long memberId, int year, int month) {
         if (year < MIN_CALENDAR_YEAR || year > MAX_CALENDAR_YEAR || month < 1 || month > 12) {
@@ -119,9 +119,11 @@ public class PickService {
         Instant from = yearMonth.atDay(1).atStartOfDay(CALENDAR_ZONE).toInstant();
         Instant to = yearMonth.plusMonths(1).atDay(1).atStartOfDay(CALENDAR_ZONE).toInstant();
         List<Pick> picks = pickRepository
-                .findByMemberIdAndStatusAndVisitedAtGreaterThanEqualAndVisitedAtLessThanOrderByVisitedAtAscIdAsc(
-                        memberId, PickStatus.REVIEWED, from, to);
-        return PickCalendarResponse.of(yearMonth, picks, CALENDAR_ZONE, firstReviewImageByPickId(picks));
+                .findByMemberIdAndStatusNotAndSelectedAtGreaterThanEqualAndSelectedAtLessThanOrderBySelectedAtAscIdAsc(
+                        memberId, PickStatus.CANCELED, from, to);
+        Map<Long, String> imageByPickId = firstReviewImageByPickId(picks);
+        Map<Long, Long> reviewIdByPickId = reviewIdsByPickId(picks);
+        return PickCalendarResponse.of(yearMonth, picks, CALENDAR_ZONE, imageByPickId, reviewIdByPickId);
     }
 
     private Map<Long, String> firstReviewImageByPickId(List<Pick> picks) {
@@ -131,5 +133,13 @@ public class PickService {
         List<Long> pickIds = picks.stream().map(Pick::getId).toList();
         return reviewImageRepository.findFirstImagesByPickIds(pickIds).stream()
                 .collect(Collectors.toMap(PickImage::pickId, PickImage::imageUrl, (first, ignored) -> first));
+    }
+
+    private Map<Long, Long> reviewIdsByPickId(List<Pick> picks) {
+        if (picks.isEmpty()) {
+            return Map.of();
+        }
+        return reviewRepository.findIdsByPickIds(picks.stream().map(Pick::getId).toList()).stream()
+                .collect(Collectors.toMap(PickReviewId::pickId, PickReviewId::reviewId));
     }
 }

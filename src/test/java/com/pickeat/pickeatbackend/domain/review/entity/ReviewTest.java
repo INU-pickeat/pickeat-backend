@@ -36,9 +36,8 @@ class ReviewTest {
     void keepsUnsetFieldsOnPartialUpdate() {
         Review review = ReviewFixtures.review(1L, pick, ReviewVisibility.PUBLIC, "맛있어요", List.of("https://img/a.jpg"));
 
-        review.update(2, null, null, CompanionType.FAMILY, ReviewVisibility.PRIVATE, null);
+        review.update(null, null, CompanionType.FAMILY, ReviewVisibility.PRIVATE, null);
 
-        assertThat(review.getRating()).isEqualTo(2);
         assertThat(review.getContent()).isEqualTo("맛있어요");
         assertThat(review.getFoodCategory()).isEqualTo(FoodCategory.KOREAN);
         assertThat(review.getCompanionType()).isEqualTo(CompanionType.FAMILY);
@@ -51,11 +50,11 @@ class ReviewTest {
     void replacesOrClearsImages() {
         Review review = ReviewFixtures.review(1L, pick, ReviewVisibility.PUBLIC, "맛있어요", List.of("https://img/a.jpg"));
 
-        review.update(null, null, null, null, null, List.of("https://img/c.jpg", "https://img/d.jpg"));
+        review.update(null, null, null, null, List.of("https://img/c.jpg", "https://img/d.jpg"));
         assertThat(review.getImageUrls()).containsExactly("https://img/c.jpg", "https://img/d.jpg");
         assertThat(review.getImages()).extracting(ReviewImage::getDisplayOrder).containsExactly(0, 1);
 
-        review.update(null, null, null, null, null, List.of());
+        review.update(null, null, null, null, List.of());
         assertThat(review.getImageUrls()).isEmpty();
     }
 }

@@ -16,6 +16,7 @@ import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
 import com.pickeat.pickeatbackend.domain.review.dto.CreateReviewRequest;
 import com.pickeat.pickeatbackend.domain.review.dto.FeedResponse;
+import com.pickeat.pickeatbackend.domain.review.dto.MyReviewsResponse;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewImageUploadRequest;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewImageUploadResponse;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewLikeResponse;
@@ -70,7 +71,7 @@ class ReviewApiContractTest {
     void setUp() {
         authorizationHeader = "Bearer " + jwtTokenProvider.createAccessToken(MEMBER_ID);
         reviewResponse = new ReviewResponse(
-                REVIEW_ID, 30L, 10L, "테스트 식당", 4, "양고기가 부드러워요", FoodCategory.JAPANESE,
+                REVIEW_ID, 30L, 10L, "테스트 식당", "양고기가 부드러워요", FoodCategory.JAPANESE,
                 CompanionType.FAMILY, ReviewVisibility.PUBLIC, List.of(IMAGE_URL), 0, false, CREATED_AT, CREATED_AT);
     }
 
@@ -99,7 +100,6 @@ class ReviewApiContractTest {
                 .andExpect(jsonPath("$.pickId").value(30))
                 .andExpect(jsonPath("$.restaurantId").value(10))
                 .andExpect(jsonPath("$.restaurantName").value("테스트 식당"))
-                .andExpect(jsonPath("$.rating").value(4))
                 .andExpect(jsonPath("$.content").value("양고기가 부드러워요"))
                 .andExpect(jsonPath("$.foodCategory").value("JAPANESE"))
                 .andExpect(jsonPath("$.companionType").value("FAMILY"))
@@ -111,7 +111,7 @@ class ReviewApiContractTest {
     }
 
     @Test
-    @DisplayName("별점 범위를 벗어나거나 필수 값이 없는 후기 작성 요청은 공통 입력 오류를 반환한다")
+    @DisplayName("필수 값이 없는 후기 작성 요청은 공통 입력 오류를 반환한다")
     void rejectsInvalidCreateRequest() throws Exception {
         mockMvc.perform(post("/api/v1/reviews")
                         .header("Authorization", authorizationHeader)
@@ -119,8 +119,7 @@ class ReviewApiContractTest {
                         .content("""
                                 {
                                   "pickId": 30,
-                                  "rating": 6,
-                                  "content": "맛있어요",
+                                  "content": "   ",
                                   "foodCategory": "JAPANESE",
                                   "companionType": "FAMILY",
                                   "visibility": "PUBLIC"
@@ -132,7 +131,7 @@ class ReviewApiContractTest {
         mockMvc.perform(post("/api/v1/reviews")
                         .header("Authorization", authorizationHeader)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"pickId\": 30, \"rating\": 4, \"content\": \"맛있어요\"}"))
+                        .content("{\"pickId\": 30, \"content\": \"맛있어요\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("GLOBAL_001"));
 
@@ -148,7 +147,6 @@ class ReviewApiContractTest {
                         .content("""
                                 {
                                   "pickId": 30,
-                                  "rating": 4,
                                   "content": "맛있어요",
                                   "foodCategory": "JAPANESE",
                                   "companionType": "FAMILY",
@@ -206,7 +204,7 @@ class ReviewApiContractTest {
         mockMvc.perform(patch("/api/v1/reviews/{reviewId}", REVIEW_ID)
                         .header("Authorization", authorizationHeader)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"rating\": 5, \"visibility\": \"PRIVATE\"}"))
+                        .content("{\"visibility\": \"PRIVATE\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.reviewId").value(REVIEW_ID));
 
@@ -266,7 +264,7 @@ class ReviewApiContractTest {
     @DisplayName("공개 피드 API는 후기 목록과 다음 커서를 반환한다")
     void getsPublicFeed() throws Exception {
         FeedResponse response = new FeedResponse(List.of(new FeedResponse.Item(
-                REVIEW_ID, 10L, "테스트 식당", "작성자", null, 4, "양고기가 부드러워요", FoodCategory.JAPANESE,
+                REVIEW_ID, 10L, "테스트 식당", "작성자", null, "양고기가 부드러워요", FoodCategory.JAPANESE,
                 CompanionType.FAMILY, List.of(IMAGE_URL), 12, true, CREATED_AT)), 100L);
         when(reviewFeedService.getFeed(MEMBER_ID, 150L, 10)).thenReturn(response);
 
@@ -284,6 +282,26 @@ class ReviewApiContractTest {
                 .andExpect(jsonPath("$.items[0].likeCount").value(12))
                 .andExpect(jsonPath("$.items[0].likedByMe").value(true))
                 .andExpect(jsonPath("$.nextCursor").value(100));
+    }
+
+    @Test
+    @DisplayName("나의 기록 API는 Pick 선택 시각과 공개 여부를 포함한 후기 목록을 반환한다")
+    void getsMyReviews() throws Exception {
+        MyReviewsResponse response = new MyReviewsResponse(List.of(new MyReviewsResponse.Item(
+                REVIEW_ID, 30L, 10L, "테스트 식당", "양고기가 부드러워요", FoodCategory.JAPANESE,
+                CompanionType.FAMILY, ReviewVisibility.PRIVATE, List.of(IMAGE_URL), CREATED_AT, CREATED_AT,
+                CREATED_AT)));
+        when(reviewService.getMine(MEMBER_ID, com.pickeat.pickeatbackend.domain.pick.dto.PickPeriod.WEEK))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/me/reviews")
+                        .header("Authorization", authorizationHeader)
+                        .param("period", "week"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reviews[0].reviewId").value(REVIEW_ID))
+                .andExpect(jsonPath("$.reviews[0].pickId").value(30))
+                .andExpect(jsonPath("$.reviews[0].visibility").value("PRIVATE"))
+                .andExpect(jsonPath("$.reviews[0].selectedAt").value("2026-10-04T03:00:00Z"));
     }
 
     @Test
@@ -328,16 +346,15 @@ class ReviewApiContractTest {
     }
 
     @Test
-    @DisplayName("식당별 후기 요약 API는 인증 없이 후기 수·평균 별점·한줄평을 반환한다")
+    @DisplayName("식당별 후기 요약 API는 인증 없이 후기 수와 한줄평을 반환한다")
     void getsReviewSummaryWithoutAuthentication() throws Exception {
         when(reviewSummaryService.getSummary(10L))
-                .thenReturn(new ReviewSummaryResponse(10L, 3, 4.3, "양고기가 부드러워요"));
+                .thenReturn(new ReviewSummaryResponse(10L, 3, "양고기가 부드러워요"));
 
         mockMvc.perform(get("/api/v1/restaurants/{restaurantId}/review-summary", 10L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.restaurantId").value(10))
                 .andExpect(jsonPath("$.reviewCount").value(3))
-                .andExpect(jsonPath("$.averageRating").value(4.3))
                 .andExpect(jsonPath("$.oneLineReview").value("양고기가 부드러워요"));
     }
 
@@ -345,7 +362,6 @@ class ReviewApiContractTest {
         return """
                 {
                   "pickId": 30,
-                  "rating": 4,
                   "content": "양고기가 부드러워요",
                   "foodCategory": "JAPANESE",
                   "companionType": "FAMILY",

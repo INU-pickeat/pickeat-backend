@@ -257,22 +257,24 @@
 - 행정구역을 조회하지 않는 위경도 사각형 근사다. 경계 오판은 구현 현황 16번 참고.
 - `recommendation_candidates.distance_meters` CHECK(0~5000)는 최대 반경과 같아 변경하지 않았다.
 
-### Pick 캘린더 구현 결과 (2026-10-04)
+### Pick 캘린더 구현 결과 (2026-10-04, 2026-10-10 개편)
 
-- `GET /api/v1/me/picks/calendar?year&month`. REVIEWED만 방문일(`visited_at`)을 한국 시간 날짜로 묶어 `recordCount`, 그날 첫 기록의 `restaurantName`, `representativeImageUrl`을 돌려준다.
+- `GET /api/v1/me/picks/calendar?year&month`. Pick 시각(`selected_at`)을 한국 시간 날짜로 변환해 SELECTED·REVIEWED Pick의 `picks`를 반환한다. SELECTED 항목은 캘린더 하단의 후기 작성 진입점이며 후기를 작성하면 REVIEWED가 된다.
+- 캘린더 날짜별 `dates`는 REVIEWED만 묶어 `recordCount`, 그날 첫 기록의 `restaurantName`, `representativeImageUrl`을 돌려준다. 후기를 쓰기 전 SELECTED Pick은 날짜 대표 이미지에 표시하지 않는다.
 - 월 경계도 한국 시간 기준이다. 연 2000~2100·월 1~12 밖이거나 누락·숫자 아님이면 `GLOBAL_001`이다. 쿼리 파라미터 누락·타입 오류를 공통 예외 핸들러에서 `GLOBAL_001`로 응답하도록 함께 바꿨다.
 - 대표 이미지는 그날 가장 먼저 쓴 후기 중 사진이 있는 첫 후기의 첫 번째(0번) 사진이다. 그날 후기에 사진이 하나도 없으면 `null`이다.
 
 ### Review·피드 구현 결과 (2026-10-04)
 
 - **후기.** `POST /api/v1/reviews`, `GET`/`PATCH`/`DELETE /api/v1/reviews/{reviewId}`. 후기는 Pick 하나당 하나이며(`REVIEW_002`), 작성하면 그 Pick이 `REVIEWED`가 된다. 취소한 Pick에는 쓸 수 없다(`PICK_004`). 삭제하면 Pick이 `SELECTED`로 돌아가 지도·캘린더에서 빠지고 다시 후기를 쓸 수 있다.
-- **입력값.** 별점 1~5, 내용 1~1000자, 음식 카테고리, 동행 유형, 공개 범위(`PUBLIC`/`PRIVATE`), 이미지 URL 최대 5개(`imageUrls` 배열, 순서가 표시 순서. 2026-10-10 1장에서 5장으로 늘렸다). 음식 카테고리와 동행 유형은 추천 세션 값이 아니라 후기 작성 화면에서 사용자가 직접 고른 값이다. 그래서 선택지 조회 API는 따로 만들지 않았다.
+- **입력값.** 내용 1~1000자, 음식 카테고리, 동행 유형, 공개 범위(`PUBLIC`/`PRIVATE`), 이미지 URL 최대 5개(`imageUrls` 배열, 순서가 표시 순서. 2026-10-10 1장에서 5장으로 늘렸다). 평점은 받거나 저장하지 않는다. 음식 카테고리와 동행 유형은 추천 세션 값이 아니라 후기 작성 화면에서 사용자가 직접 고른 값이다. 그래서 선택지 조회 API는 따로 만들지 않았다.
+- **나의 기록.** `GET /api/v1/me/reviews?period=week|month`. Pick 시각(`selected_at`) 기준 최근 7일·30일 후기를 최신 Pick 순으로 반환하며 공개·비공개 후기를 모두 포함한다.
 - **이미지.** `POST /api/v1/reviews/images/upload-urls`에 Content-Type 목록을 보내면 10분짜리 S3 presigned PUT URL과 저장될 `imageUrl`을 돌려준다. JPEG·PNG·WebP만 허용한다(`REVIEW_005`). 후기에는 본인 경로(`reviews/{memberId}/`) 아래의 URL만 붙일 수 있다(`REVIEW_004`). 버킷이 설정되지 않았으면 발급을 `REVIEW_006`(503)으로 거부한다. presigned PUT은 파일 크기를 제한하지 못하고, 후기에서 뺀 이미지의 S3 객체는 지우지 않는다.
 - **공개 피드.** `GET /api/v1/feed?cursor&size`. `PUBLIC` 후기만 최신순으로 내려준다. 커서는 이전 응답의 `nextCursor`(마지막 `reviewId`)이고 `null`이면 마지막 페이지다. 크기는 1~50, 기본 20이다. 인증이 필요하며 항목마다 `likeCount`와 `likedByMe`를 준다.
 - **좋아요.** `POST`/`DELETE /api/v1/reviews/{reviewId}/likes`. 공개 후기에만 누를 수 있다. 본인의 비공개 후기는 `REVIEW_003`(409), 남의 비공개 후기는 존재를 알리지 않도록 `REVIEW_001`(404)이다. 여러 번 눌러도 한 번으로 세며, 동시 요청은 DB 유니크 제약과 `ON CONFLICT DO NOTHING`으로 처리한다.
-- **식당별 후기 요약.** `GET /api/v1/restaurants/{restaurantId}/review-summary`. 공개 후기 수, 평균 별점(소수 첫째 자리), 대표 한줄평을 돌려준다. 인증이 필요 없다. 후기가 없으면 0건·평균 `null`·`"후기가 없습니다."`다.
+- **식당별 후기 요약.** `GET /api/v1/restaurants/{restaurantId}/review-summary`. 공개 후기 수와 대표 한줄평을 돌려준다. 인증이 필요 없다. 후기가 없으면 0건·`"후기가 없습니다."`다.
 - **한줄평.** 탐색 스팟의 `oneLineIntro`와 후기 요약의 `oneLineReview`는 같은 규칙을 쓴다. 식당별 가장 최근 공개 후기의 첫 줄이며 50자를 넘으면 잘라 말줄임표를 붙인다. 운영자 소개 문구(`discovery_spot_restaurants.one_line_intro`)는 더 이상 API로 내려가지 않는다. 선정 규칙은 임시이며 구현 현황 21번에서 확정한다.
-- **스키마.** V19에 `reviews`, `review_images`, `review_likes`를 추가했다. 이미지와 좋아요는 후기 삭제 시 함께 지워진다.
+- **스키마.** V19에 `reviews`, `review_images`, `review_likes`를 추가했다. 이미지와 좋아요는 후기 삭제 시 함께 지워진다. V27에서 사용하지 않는 `reviews.rating` 컬럼과 제약을 제거했다.
 
 ### 운영 배포 결과 (2026-10-01 ~ 2026-10-04)
 
@@ -365,7 +367,7 @@ Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 1
 - 팀이 입력한 적합도가 없는 식당은 이름의 메뉴 키워드로 추정한다(`CompanionNameHint`, `curated/companion-name-keywords.txt`). 데이트는 파스타·스테이크·오마카세·스시 등이 적합, 국밥·해장국·족발·분식 등이 부적합. 혼밥은 라멘·우동·덮밥·국밥 등이 적합, 삼겹살·갈비·전골·오마카세 등이 부적합이다.
 - 추정값은 DB에 저장하지 않고 점수를 계산할 때만 쓴다. 적합이면 가산점을 주고, 부적합이나 모름이면 가산점만 주지 않는다. 추정으로 후보에서 빼지는 않는다. 팀이 입력한 값이 있으면 그 값이 우선이다.
 - 조명·음악·뷰·좌석 간격·1인석·키오스크처럼 메뉴로 알 수 없는 특징은 다루지 않는다. Google이 데이터를 주지 않아 근거 없는 태그가 되기 때문이다.
-- 이후 방향: 후기에 이미 동행 유형과 별점을 받고 있으므로, 후기가 쌓이면 "데이트로 방문한 후기의 별점"처럼 실제 근거로 대체한다.
+- 이후 방향: 후기에 저장된 동행 유형과 내용이 쌓이면 해당 동행 유형의 실제 후기 데이터를 이용해 적합도 추정 규칙을 개선한다.
 
 
 ## 식당 신고와 추천 제외 (2026-10-08)

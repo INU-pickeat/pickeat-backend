@@ -92,15 +92,16 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - Pick 생성·상태 변경 API (`POST /api/v1/picks`, `PATCH /api/v1/picks/{pickId}`) — 추천 세션에 실제 노출된 후보만 선택 가능. 생성 시 추천 세션의 동행 유형을 스냅샷으로 저장. 상태 변경 API로는 취소(`CANCELED`)만 할 수 있고, `REVIEWED`는 후기 작성으로만 전환된다
 - 내 최근 Pick 목록 API (`GET /api/v1/me/picks?period=week|month`) — SELECTED + REVIEWED를 식당별로 그룹화해 `pickCount`·`latestPickedAt` 반환. 식당 카드용으로 `foodCategory`와 `representativeImageUrl`도 함께 반환한다
 - 내 Pick 지도 API (`GET /api/v1/me/picks/map`) — 본인 데이터만 조회, REVIEWED만 노출(SELECTED·CANCELED 미노출). 핀마다 `reviewId`를 담아 핀을 누르면 `GET /api/v1/reviews/{reviewId}`로 후기를 띄울 수 있다
-- 내 Pick 캘린더 API (`GET /api/v1/me/picks/calendar?year=2026&month=9`) — REVIEWED만 방문일(`visitedAt`, 한국 시간) 기준 날짜별로 묶어 `recordCount`·그날 첫 식당 이름 반환. `representativeImageUrl`은 그날 사진이 있는 첫 후기의 첫 번째 사진이며 없으면 `null`
-- 후기 작성·조회·수정·삭제 API (`POST /api/v1/reviews`, `GET`/`PATCH`/`DELETE /api/v1/reviews/{reviewId}`) — Pick 하나당 후기 하나. 별점·내용·음식 카테고리·동행 유형·공개 범위(`PUBLIC`/`PRIVATE`)·이미지 최대 5장(배열 순서가 표시 순서). 작성하면 Pick이 REVIEWED가 되고, 삭제하면 SELECTED로 돌아간다
+- 내 Pick 캘린더 API (`GET /api/v1/me/picks/calendar?year=2026&month=9`) — Pick 시각(`selectedAt`, 한국 시간) 기준으로 SELECTED·REVIEWED Pick 카드를 반환해 후기 작성 진입점을 제공한다. 날짜별 기록과 대표 이미지는 REVIEWED만 집계하며, 대표 이미지는 그날 사진이 있는 첫 후기의 첫 번째 사진이고 없으면 `null`
+- 후기 작성·조회·수정·삭제 API (`POST /api/v1/reviews`, `GET`/`PATCH`/`DELETE /api/v1/reviews/{reviewId}`) — Pick 하나당 후기 하나. 내용·음식 카테고리·동행 유형·공개 범위(`PUBLIC`/`PRIVATE`)·이미지 최대 5장(배열 순서가 표시 순서). 작성하면 Pick이 REVIEWED가 되고, 삭제하면 SELECTED로 돌아간다
+- 내 후기 목록 API (`GET /api/v1/me/reviews?period=week|month`) — Pick 시각(`selectedAt`) 기준 최근 7일·30일 후기를 최신 Pick 순으로 반환한다
 - 후기 이미지 업로드 URL API (`POST /api/v1/reviews/images/upload-urls`) — S3 presigned PUT URL 발급. 버킷이 설정되지 않은 환경에서는 `REVIEW_006`(503)
 - 공개 피드 API (`GET /api/v1/feed?cursor&size`) — 공개 후기만 최신순 커서 조회, 항목마다 좋아요 수와 내 좋아요 여부 포함
 - 후기 좋아요·취소 API (`POST`/`DELETE /api/v1/reviews/{reviewId}/likes`) — 공개 후기에만 가능
 - 식당 상세(`GET /api/v1/restaurants/{id}`)와 추천 결과 항목에 한줄평(`oneLineReview`) 포함 — 후기가 없으면 `"후기가 없습니다."`. 추천 결과 항목에는 `representativeImageUrl`도 포함(이미지가 없으면 `null`)
 - 식당 사진 API (`GET /api/v1/restaurants/{id}/photo`) — 인증 불필요. Google Places 사진 주소로 302 리다이렉트하며 `<img src>`에 바로 쓸 수 있다. 사진이 없으면 404 `RESTAURANT_002`. `?index=0~2`로 다른 순번의 사진을 받을 수 있고, 식당 상세 응답의 `imageUrls`(최대 3장)에 이 주소들이 담긴다. 자체 이미지가 없는 Google 출처 식당은 `representativeImageUrl`이 이 주소로 내려간다
 - 식당 신고 API (`POST /api/v1/restaurants/{id}/reports`) — 인증 필요. 폐업(`CLOSED`)·정보 오류(`WRONG_INFO`)·음식 종류 오류(`WRONG_CATEGORY`)·기타(`OTHER`)와 선택 메모(300자)를 받아 `PENDING`으로 저장. 검토 전 중복 신고는 409 `RESTAURANT_003`. 운영자가 확인해 받아들이면 식당에 `excluded_at`을 기록해 추천 후보에서 뺀다(절차: [docs/OPERATIONS.md](docs/OPERATIONS.md))
-- 식당별 후기 요약 API (`GET /api/v1/restaurants/{id}/review-summary`) — 인증 불필요. 공개 후기 수·평균 별점·대표 한줄평
+- 식당별 후기 요약 API (`GET /api/v1/restaurants/{id}/review-summary`) — 인증 불필요. 공개 후기 수·대표 한줄평
 - 탐색 스팟 한줄평(`oneLineIntro`)은 앱 내 사용자 후기 기반 — 식당별 가장 최근 공개 후기의 첫 줄(최대 50자), 후기가 없으면 `"후기가 없습니다."`
 - 초기 탐색 스팟 조회 API (`GET /api/v1/discovery-spots`) — 인증 없이 신사·혜화·서촌·한남·종로와 지역별 고정 노출 식당을 순서대로 조회
 

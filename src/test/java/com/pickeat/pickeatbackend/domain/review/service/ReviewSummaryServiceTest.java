@@ -12,7 +12,6 @@ import com.pickeat.pickeatbackend.domain.review.dto.ReviewSummaryResponse;
 import com.pickeat.pickeatbackend.domain.review.entity.Review;
 import com.pickeat.pickeatbackend.domain.review.entity.ReviewVisibility;
 import com.pickeat.pickeatbackend.domain.review.repository.ReviewRepository;
-import com.pickeat.pickeatbackend.domain.review.repository.ReviewStats;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.util.List;
 import java.util.Map;
@@ -37,34 +36,32 @@ class ReviewSummaryServiceTest {
     }
 
     @Test
-    @DisplayName("공개 후기 수·평균 별점(소수 첫째 자리)·최근 후기 한줄평을 돌려준다")
+    @DisplayName("공개 후기 수와 최근 후기 한줄평을 돌려준다")
     void summarizesPublicReviews() {
         Review latest = ReviewFixtures.review(
                 101L,
                 ReviewFixtures.pick(30L, ReviewFixtures.member(1L, "작성자"), ReviewFixtures.restaurant(10L, "테스트 식당")),
                 ReviewVisibility.PUBLIC, "양고기가 부드러워요\n또 올게요", List.of());
         when(restaurantRepository.existsById(10L)).thenReturn(true);
-        when(reviewRepository.findPublicStats(10L)).thenReturn(new ReviewStats(3L, 4.3333333));
+        when(reviewRepository.countByRestaurantIdAndVisibility(10L, ReviewVisibility.PUBLIC)).thenReturn(3L);
         when(reviewRepository.findLatestPublicByRestaurantIds(List.of(10L))).thenReturn(List.of(latest));
 
         ReviewSummaryResponse response = reviewSummaryService.getSummary(10L);
 
         assertThat(response.reviewCount()).isEqualTo(3L);
-        assertThat(response.averageRating()).isEqualTo(4.3);
         assertThat(response.oneLineReview()).isEqualTo("양고기가 부드러워요");
     }
 
     @Test
-    @DisplayName("후기가 없으면 0건·평균 null·'후기가 없습니다.'를 돌려준다")
+    @DisplayName("후기가 없으면 0건과 '후기가 없습니다.'를 돌려준다")
     void returnsEmptySummary() {
         when(restaurantRepository.existsById(10L)).thenReturn(true);
-        when(reviewRepository.findPublicStats(10L)).thenReturn(new ReviewStats(0L, null));
+        when(reviewRepository.countByRestaurantIdAndVisibility(10L, ReviewVisibility.PUBLIC)).thenReturn(0L);
         when(reviewRepository.findLatestPublicByRestaurantIds(List.of(10L))).thenReturn(List.of());
 
         ReviewSummaryResponse response = reviewSummaryService.getSummary(10L);
 
         assertThat(response.reviewCount()).isZero();
-        assertThat(response.averageRating()).isNull();
         assertThat(response.oneLineReview()).isEqualTo("후기가 없습니다.");
     }
 
