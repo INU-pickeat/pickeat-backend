@@ -3,6 +3,7 @@ package com.pickeat.pickeatbackend.domain.member.service;
 import com.pickeat.pickeatbackend.domain.member.dto.LoginRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.LoginResponse;
 import com.pickeat.pickeatbackend.domain.member.dto.MemberProfileResponse;
+import com.pickeat.pickeatbackend.domain.member.dto.PasswordResetRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.SignUpRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.UpdateProfileRequest;
 import com.pickeat.pickeatbackend.domain.member.entity.Member;
@@ -49,6 +50,16 @@ public class MemberService {
         }
 
         return authTokenService.issue(member);
+    }
+
+    // 인증을 마친 이메일의 비밀번호를 바꾸고, 모든 기기의 refresh token을 폐기해 다시 로그인하게 한다.
+    @Transactional
+    public void resetPassword(PasswordResetRequest request) {
+        Member member = memberRepository.findByEmail(request.email())
+                .orElseThrow(() -> new BusinessException(MemberErrorCode.MEMBER_NOT_FOUND));
+        emailVerificationService.consume(request.email());
+        member.changePassword(passwordEncoder.encode(request.newPassword()));
+        authTokenService.revokeAll(member.getId());
     }
 
     @Transactional(readOnly = true)

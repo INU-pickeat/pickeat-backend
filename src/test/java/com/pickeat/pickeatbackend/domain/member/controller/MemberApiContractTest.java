@@ -1,5 +1,6 @@
 package com.pickeat.pickeatbackend.domain.member.controller;
 
+import com.pickeat.pickeatbackend.domain.member.dto.PasswordResetRequest;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -153,5 +154,32 @@ class MemberApiContractTest {
                 .andExpect(jsonPath("$.code").value("GLOBAL_001"));
 
         verify(memberService, never()).updateProfile(any(), any());
+    }
+
+    @Test
+    @DisplayName("비밀번호 재설정 API는 인증 없이 호출하고 이메일을 정규화한다")
+    void resetsPasswordWithoutAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/password-reset/email-verifications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\" Test@PickEat.com \"}"))
+                .andExpect(status().isNoContent());
+        verify(emailVerificationService).sendPasswordResetCode("test@pickeat.com");
+
+        mockMvc.perform(post("/api/v1/auth/password-reset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test@pickeat.com\",\"newPassword\":\"newpassword1\"}"))
+                .andExpect(status().isNoContent());
+        verify(memberService).resetPassword(new PasswordResetRequest("test@pickeat.com", "newpassword1"));
+    }
+
+    @Test
+    @DisplayName("비밀번호 재설정 API는 8자 미만 비밀번호를 거부한다")
+    void rejectsShortPasswordOnReset() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/password-reset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test@pickeat.com\",\"newPassword\":\"short\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+        verify(memberService, never()).resetPassword(any());
     }
 }
