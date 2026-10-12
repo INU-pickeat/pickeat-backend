@@ -49,8 +49,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RecommendationService {
 
-    private static final double DENSE_AREA_RADIUS_METERS = 1000.0;
-    private static final double DEFAULT_RADIUS_METERS = 5000.0;
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final Duration ARRIVAL_MARGIN = Duration.ofMinutes(30);
     private static final int TOP_RESULT_COUNT = 5;
@@ -77,15 +75,15 @@ public class RecommendationService {
 
     @Transactional
     public RecommendationResponse recommend(RecommendationRequest request, Long memberId) {
-        double radiusMeters = searchRadiusMeters(request.latitude(), request.longitude());
+        int radiusMeters = SearchRadius.resolve(request.latitude(), request.longitude(), request.radiusMeters());
         List<RestaurantCandidate> candidates = findValidCandidates(request, radiusMeters);
 
-        Set<FoodCategory> categoriesToFill = categoriesToFill(request, candidates);
+        Set<FoodCategory> categoriesToFill = categoriesToFill(request, candidates, radiusMeters);
         if (!categoriesToFill.isEmpty()) {
             Set<String> includedTypes = FoodCategory.toGooglePrimaryTypes(categoriesToFill);
             findGooglePlaces(request, radiusMeters, includedTypes).forEach(restaurantService::upsertFromGoogle);
             Instant now = Instant.now();
-            categoriesToFill.forEach(category -> lastGoogleFillAt.put(fillKey(request, category), now));
+            categoriesToFill.forEach(category -> lastGoogleFillAt.put(fillKey(request, category, radiusMeters), now));
             candidates = findValidCandidates(request, radiusMeters);
         }
 
@@ -103,19 +101,21 @@ public class RecommendationService {
                 .longitude(request.longitude())
                 .priceRangeMin(priceRange == null ? null : priceRange.min())
                 .priceRangeMax(priceRange == null ? null : priceRange.max())
+                .radiusMeters(radiusMeters)
                 .foodCategories(request.foodCategories())
                 .build());
 
         List<RecommendationCandidate> savedCandidates = candidateRepository.saveAll(
                 toCandidateEntities(session, topCandidates));
 
-        return toResponse(session.getId(), topRanked(savedCandidates));
+        return toResponse(session, topRanked(savedCandidates));
     }
 
     // Google로 보충할 카테고리를 고른다. 합계가 10개 미만이면 요청한 카테고리 전부, 아니면 후보가
     // 5개 미만인 카테고리만. 합계만 보면 한 카테고리로 10개가 채워진 지역에서 나머지 카테고리를 영영
     // 가져오지 않는다. 최근에 보충한 구역·카테고리는 건너뛴다.
-    private Set<FoodCategory> categoriesToFill(RecommendationRequest request, List<RestaurantCandidate> candidates) {
+    private Set<FoodCategory> categoriesToFill(
+            RecommendationRequest request, List<RestaurantCandidate> candidates, int radiusMeters) {
         // 보조 카테고리가 있는 식당은 두 카테고리 모두에 센다.
         Map<FoodCategory, Long> countByCategory = request.foodCategories().stream()
                 .collect(Collectors.toMap(
@@ -129,23 +129,21 @@ public class RecommendationService {
                 .filter(category -> totalShort
                         || countByCategory.getOrDefault(category, 0L) < MIN_DB_CANDIDATES_PER_CATEGORY)
                 .filter(category -> {
-                    Instant last = lastGoogleFillAt.get(fillKey(request, category));
+                    Instant last = lastGoogleFillAt.get(fillKey(request, category, radiusMeters));
                     return last == null || last.isBefore(cooldownStart);
                 })
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    private String fillKey(RecommendationRequest request, FoodCategory category) {
-        return category + ":" + Math.round(request.latitude() * 100) + ":" + Math.round(request.longitude() * 100);
+    // 반경도 키에 넣는다. 500m로 보충한 직후 2km로 다시 찾으면 넓어진 범위는 아직 채운 적이 없기 때문이다.
+    private String fillKey(RecommendationRequest request, FoodCategory category, int radiusMeters) {
+        return category + ":" + Math.round(request.latitude() * 100) + ":" + Math.round(request.longitude() * 100)
+                + ":" + radiusMeters;
     }
 
-    // 수도권(서울·인천·경기)과 부산은 식당 밀도가 높아 1km, 그 외 지역은 5km 반경을 쓴다.
-    // ponytail: 위경도 사각형 근사라 경계 인접 지역(춘천 서부·철원, 김해·양산 일부 등)이 1km로 잡힐 수 있다.
-    // 정확도가 필요해지면 행정구역 폴리곤이나 역지오코딩으로 교체한다.
+    // 반경을 고르지 않았을 때의 지역 기본값. 선택지·검증은 SearchRadius 참고.
     static double searchRadiusMeters(double latitude, double longitude) {
-        boolean metropolitan = latitude >= 36.89 && latitude <= 38.30 && longitude >= 126.30 && longitude <= 127.70;
-        boolean busan = latitude >= 34.88 && latitude <= 35.39 && longitude >= 128.76 && longitude <= 129.31;
-        return metropolitan || busan ? DENSE_AREA_RADIUS_METERS : DEFAULT_RADIUS_METERS;
+        return SearchRadius.defaultMeters(latitude, longitude);
     }
 
     // DB에서 반경 이내 후보를 조회한 뒤 카테고리·가격 조건을 통과한 후보만 남긴다.
@@ -202,7 +200,7 @@ public class RecommendationService {
         RecommendationSession session = sessionRepository.findByIdAndMemberId(sessionId, memberId)
                 .orElseThrow(() -> new BusinessException(RecommendationErrorCode.SESSION_NOT_FOUND));
 
-        return toResponse(session.getId(), visibleCandidates(sessionId));
+        return toResponse(session, visibleCandidates(sessionId));
     }
 
     // 제외는 해당 세션 안에서만 유효하다(영구 차단 아님). 대체 후보는 세션 생성 시 저장해 둔
@@ -225,12 +223,18 @@ public class RecommendationService {
                     .build());
         }
 
-        return toResponse(session.getId(), visibleCandidates(sessionId));
+        return toResponse(session, visibleCandidates(sessionId));
     }
 
-    private RecommendationResponse toResponse(Long sessionId, List<RecommendationCandidate> candidates) {
+    private RecommendationResponse toResponse(RecommendationSession session, List<RecommendationCandidate> candidates) {
         List<Long> restaurantIds = candidates.stream().map(candidate -> candidate.getRestaurant().getId()).toList();
-        return RecommendationResponse.of(sessionId, candidates, reviewSummaryService.getOneLineReviews(restaurantIds));
+        double latitude = session.getLatitude();
+        double longitude = session.getLongitude();
+        int radiusMeters = session.getRadiusMeters() != null
+                ? session.getRadiusMeters()
+                : SearchRadius.defaultMeters(latitude, longitude);
+        return RecommendationResponse.of(session.getId(), radiusMeters, SearchRadius.options(latitude, longitude),
+                candidates, reviewSummaryService.getOneLineReviews(restaurantIds));
     }
 
     private List<RecommendationCandidate> visibleCandidates(Long sessionId) {

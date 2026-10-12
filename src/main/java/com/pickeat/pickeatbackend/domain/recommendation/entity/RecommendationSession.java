@@ -55,6 +55,9 @@ public class RecommendationSession {
     @Column(precision = 19, scale = 2)
     private BigDecimal priceRangeMax;
 
+    // 요청 당시 검색 반경(m). V30 이전 세션은 null이라 지역 기본값으로 본다.
+    private Integer radiusMeters;
+
     @ElementCollection
     @CollectionTable(name = "recommendation_session_food_categories", joinColumns = @JoinColumn(name = "session_id"))
     @Enumerated(EnumType.STRING)
@@ -72,6 +75,7 @@ public class RecommendationSession {
             Double longitude,
             BigDecimal priceRangeMin,
             BigDecimal priceRangeMax,
+            Integer radiusMeters,
             Set<FoodCategory> foodCategories
     ) {
         this.member = member;
@@ -80,6 +84,7 @@ public class RecommendationSession {
         this.longitude = longitude;
         this.priceRangeMin = priceRangeMin;
         this.priceRangeMax = priceRangeMax;
+        this.radiusMeters = radiusMeters;
         this.foodCategories = new LinkedHashSet<>(foodCategories);
     }
 

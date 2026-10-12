@@ -33,6 +33,7 @@ import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantCandida
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantRepository;
 import com.pickeat.pickeatbackend.domain.restaurant.service.RestaurantService;
 import com.pickeat.pickeatbackend.domain.review.service.ReviewSummaryService;
+import com.pickeat.pickeatbackend.domain.recommendation.exception.RecommendationErrorCode;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.math.BigDecimal;
 import java.util.List;
@@ -81,12 +82,12 @@ class RecommendationServiceTest {
     }
 
     private RecommendationRequest request(CompanionType companionType) {
-        return new RecommendationRequest(Set.of(FoodCategory.KOREAN), companionType, null, 37.5, 127.0);
+        return new RecommendationRequest(Set.of(FoodCategory.KOREAN), companionType, null, 37.5, 127.0, null);
     }
 
     private RecommendationRequest requestWithPriceRange(BigDecimal min, BigDecimal max) {
         return new RecommendationRequest(
-                Set.of(FoodCategory.KOREAN), CompanionType.DATE, new PriceRange(min, max), 37.5, 127.0);
+                Set.of(FoodCategory.KOREAN), CompanionType.DATE, new PriceRange(min, max), 37.5, 127.0, null);
     }
 
     private Restaurant restaurant(FoodCategory foodCategory, double rating, Boolean suitableForDate) {
@@ -316,7 +317,7 @@ class RecommendationServiceTest {
         when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of());
 
         RecommendationRequest otherRequest = new RecommendationRequest(
-                Set.of(FoodCategory.OTHER), CompanionType.DATE, null, 37.5, 127.0);
+                Set.of(FoodCategory.OTHER), CompanionType.DATE, null, 37.5, 127.0, null);
         recommendationService.recommend(otherRequest, 1L);
 
         verify(googlePlacesClient, org.mockito.Mockito.times(2)).findNearbyRestaurants(
@@ -489,7 +490,7 @@ class RecommendationServiceTest {
         when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(
                 new RestaurantCandidate(chicken, 100), new RestaurantCandidate(korean, 200)));
         RecommendationRequest pubRequest = new RecommendationRequest(
-                Set.of(FoodCategory.PUB_BAR), CompanionType.GROUP, null, 37.5, 127.0);
+                Set.of(FoodCategory.PUB_BAR), CompanionType.GROUP, null, 37.5, 127.0, null);
 
         RecommendationResponse response = recommendationService.recommend(pubRequest, 1L);
 
@@ -571,7 +572,7 @@ class RecommendationServiceTest {
         when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0))
                 .thenReturn(candidatesOf(FoodCategory.JAPANESE, 12));
         RecommendationRequest mixedRequest = new RecommendationRequest(
-                Set.of(FoodCategory.JAPANESE, FoodCategory.KOREAN), CompanionType.SOLO, null, 37.5, 127.0);
+                Set.of(FoodCategory.JAPANESE, FoodCategory.KOREAN), CompanionType.SOLO, null, 37.5, 127.0, null);
 
         recommendationService.recommend(mixedRequest, 1L);
 
@@ -590,7 +591,7 @@ class RecommendationServiceTest {
         candidates.addAll(candidatesOf(FoodCategory.KOREAN, 5));
         when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(candidates);
         RecommendationRequest mixedRequest = new RecommendationRequest(
-                Set.of(FoodCategory.JAPANESE, FoodCategory.KOREAN), CompanionType.SOLO, null, 37.5, 127.0);
+                Set.of(FoodCategory.JAPANESE, FoodCategory.KOREAN), CompanionType.SOLO, null, 37.5, 127.0, null);
 
         recommendationService.recommend(mixedRequest, 1L);
 
@@ -734,5 +735,64 @@ class RecommendationServiceTest {
         assertThat(RecommendationService.searchRadiusMeters(36.3504, 127.3845)).isEqualTo(5000.0); // 대전
         assertThat(RecommendationService.searchRadiusMeters(35.8714, 128.6014)).isEqualTo(5000.0); // 대구
         assertThat(RecommendationService.searchRadiusMeters(37.8813, 127.7298)).isEqualTo(5000.0); // 춘천
+    }
+
+    @Test
+    @DisplayName("반경을 고르지 않으면 지역 기본 반경과 선택지를 응답한다")
+    void returnsDefaultRadiusAndOptionsWhenRadiusOmitted() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of());
+
+        RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
+
+        assertThat(response.radiusMeters()).isEqualTo(1000);
+        assertThat(response.radiusOptions()).containsExactly(500, 1000, 2000);
+    }
+
+    @Test
+    @DisplayName("고른 반경으로 DB·Google을 조회하고 세션에 저장한다")
+    void searchesAndStoresRequestedRadius() {
+        stubPersistence();
+        when(googlePlacesClient.findNearbyRestaurants(
+                eq(37.5), eq(127.0), eq(2000.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet()))
+                .thenReturn(List.of());
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 2000.0)).thenReturn(List.of());
+        RecommendationRequest request = new RecommendationRequest(
+                Set.of(FoodCategory.KOREAN), CompanionType.DATE, null, 37.5, 127.0, 2000);
+
+        RecommendationResponse response = recommendationService.recommend(request, 1L);
+
+        ArgumentCaptor<RecommendationSession> captor = ArgumentCaptor.forClass(RecommendationSession.class);
+        verify(sessionRepository).save(captor.capture());
+        assertThat(captor.getValue().getRadiusMeters()).isEqualTo(2000);
+        assertThat(response.radiusMeters()).isEqualTo(2000);
+        assertThat(response.radiusOptions()).containsExactly(500, 1000, 2000);
+    }
+
+    @Test
+    @DisplayName("그 지역 선택지에 없는 반경은 400 RECOMMENDATION_003으로 거부한다")
+    void rejectsRadiusOutsideRegionalOptions() {
+        RecommendationRequest seoulFiveKm = new RecommendationRequest(
+                Set.of(FoodCategory.KOREAN), CompanionType.DATE, null, 37.5, 127.0, 5000);
+
+        assertThatThrownBy(() -> recommendationService.recommend(seoulFiveKm, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(RecommendationErrorCode.INVALID_RADIUS.getMessage());
+        verify(restaurantRepository, never()).findWithinRadius(anyDouble(), anyDouble(), anyDouble());
+        verify(sessionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("반경이 저장되지 않은 이전 세션은 지역 기본 반경으로 응답한다")
+    void returnsDefaultRadiusForLegacySession() {
+        when(sessionRepository.findByIdAndMemberId(10L, 1L)).thenReturn(Optional.of(sessionWithId(10L)));
+        when(candidateRepository.findBySessionIdOrderByResultRankAsc(10L)).thenReturn(List.of());
+        when(exclusionRepository.findBySessionId(10L)).thenReturn(List.of());
+
+        RecommendationResponse response = recommendationService.getSession(10L, 1L);
+
+        assertThat(response.radiusMeters()).isEqualTo(1000);
+        assertThat(response.radiusOptions()).containsExactly(500, 1000, 2000);
     }
 }
