@@ -45,7 +45,21 @@ public class EmailVerificationService {
         if (memberRepository.existsByEmail(email)) {
             throw new BusinessException(MemberErrorCode.DUPLICATE_EMAIL);
         }
+        issueCode(email, "[Pick Eat] 이메일 인증번호", "Pick Eat 이메일 인증번호는 %s입니다. 10분 안에 입력해 주세요.");
+    }
 
+    // 가입한 이메일에만 보낸다. 가입용 인증은 미가입 이메일에만 생기므로 같은 테이블·확인 API를 써도
+    // 두 용도가 섞이지 않는다. 확인은 POST /auth/email-verifications/confirm을 그대로 쓴다.
+    @Transactional
+    public void sendPasswordResetCode(String email) {
+        if (!memberRepository.existsByEmail(email)) {
+            throw new BusinessException(MemberErrorCode.MEMBER_NOT_FOUND);
+        }
+        issueCode(email, "[Pick Eat] 비밀번호 재설정 인증번호",
+                "Pick Eat 비밀번호 재설정 인증번호는 %s입니다. 10분 안에 입력해 주세요.");
+    }
+
+    private void issueCode(String email, String subject, String textFormat) {
         Instant now = Instant.now();
         EmailVerification verification = verificationRepository.findById(email).orElse(null);
         if (verification != null && verification.getSentAt().plusMillis(resendCooldownMs).isAfter(now)) {
@@ -68,8 +82,8 @@ public class EmailVerificationService {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(from);
         message.setTo(email);
-        message.setSubject("[Pick Eat] 이메일 인증번호");
-        message.setText("Pick Eat 이메일 인증번호는 " + code + "입니다. 10분 안에 입력해 주세요.");
+        message.setSubject(subject);
+        message.setText(textFormat.formatted(code));
         try {
             mailSender.send(message);
         } catch (MailException exception) {

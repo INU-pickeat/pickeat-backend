@@ -96,4 +96,21 @@ class EmailVerificationServiceTest {
                 .verifiedAt(verified ? now : null)
                 .build();
     }
+
+    @Test
+    @DisplayName("비밀번호 재설정 인증번호는 가입한 이메일에만 보낸다")
+    void sendsPasswordResetCodeOnlyToExistingMember() {
+        when(memberRepository.existsByEmail("none@pickeat.com")).thenReturn(false);
+        assertThatThrownBy(() -> service.sendPasswordResetCode("none@pickeat.com"))
+                .isInstanceOf(BusinessException.class);
+
+        when(memberRepository.existsByEmail("test@pickeat.com")).thenReturn(true);
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded-code");
+        service.sendPasswordResetCode("test@pickeat.com");
+
+        ArgumentCaptor<SimpleMailMessage> messageCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(messageCaptor.capture());
+        assertThat(messageCaptor.getValue().getSubject()).contains("비밀번호 재설정");
+        assertThat(messageCaptor.getValue().getText()).containsPattern("\\d{6}");
+    }
 }

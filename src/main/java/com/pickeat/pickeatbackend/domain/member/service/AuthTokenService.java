@@ -77,6 +77,11 @@ public class AuthTokenService {
         refreshTokenRepository.deleteByTokenHash(hash(refreshToken));
     }
 
+    @Transactional
+    public void revokeAll(Long memberId) {
+        refreshTokenRepository.deleteByMemberId(memberId);
+    }
+
     private static String generateToken() {
         byte[] bytes = new byte[TOKEN_BYTES];
         RANDOM.nextBytes(bytes);
