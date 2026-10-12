@@ -1,5 +1,6 @@
 package com.pickeat.pickeatbackend.domain.member.service;
 
+import com.pickeat.pickeatbackend.domain.member.dto.PasswordResetRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -130,5 +131,19 @@ class MemberServiceTest {
         assertThat(response.nickname()).isEqualTo("픽잇러");
         assertThat(response.bio()).isEqualTo("혼밥 전문");
         assertThat(response.profileImageUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("비밀번호 재설정은 인증을 소모하고 새 비밀번호를 저장한 뒤 모든 refresh token을 폐기한다")
+    void resetsPasswordAndRevokesAllTokens() {
+        Member member = savedMember();
+        when(memberRepository.findByEmail("test@pickeat.com")).thenReturn(Optional.of(member));
+        when(passwordEncoder.encode("newpassword1")).thenReturn("encoded-new");
+
+        memberService.resetPassword(new PasswordResetRequest("test@pickeat.com", "newpassword1"));
+
+        verify(emailVerificationService).consume("test@pickeat.com");
+        assertThat(member.getPassword()).isEqualTo("encoded-new");
+        verify(authTokenService).revokeAll(member.getId());
     }
 }

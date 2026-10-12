@@ -18,6 +18,10 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     int deleteByTokenHash(@Param("tokenHash") String tokenHash);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("DELETE FROM RefreshToken t WHERE t.member.id = :memberId")
+    int deleteByMemberId(@Param("memberId") Long memberId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("DELETE FROM RefreshToken t WHERE t.member.id = :memberId AND t.expiresAt <= :now")
     int deleteExpiredByMemberId(@Param("memberId") Long memberId, @Param("now") Instant now);
 }

@@ -5,6 +5,7 @@ import com.pickeat.pickeatbackend.domain.member.dto.EmailVerificationRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.LoginRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.LoginResponse;
 import com.pickeat.pickeatbackend.domain.member.dto.MemberProfileResponse;
+import com.pickeat.pickeatbackend.domain.member.dto.PasswordResetRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.ProfileImageUploadRequest;
 import com.pickeat.pickeatbackend.domain.member.dto.ProfileImageUploadResponse;
 import com.pickeat.pickeatbackend.domain.member.dto.RefreshTokenRequest;
@@ -50,6 +51,21 @@ public class MemberController {
             @Valid @RequestBody EmailVerificationConfirmRequest request
     ) {
         emailVerificationService.confirm(request.email(), request.code());
+        return ResponseEntity.noContent().build();
+    }
+
+    // 비밀번호 찾기: 인증번호 발송 → 기존 /auth/email-verifications/confirm으로 확인 → 새 비밀번호 저장.
+    @PostMapping("/auth/password-reset/email-verifications")
+    public ResponseEntity<Void> requestPasswordResetVerification(
+            @Valid @RequestBody EmailVerificationRequest request
+    ) {
+        emailVerificationService.sendPasswordResetCode(request.email());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/auth/password-reset")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
+        memberService.resetPassword(request);
         return ResponseEntity.noContent().build();
     }
 
