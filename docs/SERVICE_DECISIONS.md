@@ -152,6 +152,8 @@
   25. [x] **공통 예외 응답 통일.** 401·404·405·깨진 JSON·예상하지 못한 500도 `{code, message}` 형식으로 응답한다. → 아래 "공통 예외 응답 구현 결과" 참고.
   26. [ ] **후기 이미지 S3 운영 설정.** 버킷·IAM 역할·CORS·환경변수를 설정하고 업로드부터 피드 표시까지 운영에서 확인한다.
   27. [x] **비밀번호 찾기.** 이메일 인증번호로 본인을 확인한 뒤 새 비밀번호를 저장한다(2026-10-12). → 아래 "비밀번호 찾기 구현 결과" 참고.
+  28. [x] **Google 식당 연락처·영업시간 텍스트 저장.** 이전에는 탐색 스팟(CURATED) 25곳만 `phoneNumber`·`openingHoursText`가 있었고 Google 식당은 항상 null이었다. 필드 마스크에 `nationalPhoneNumber`를 추가하고 `regularOpeningHours.weekdayDescriptions`(요일별 7줄, `\n` 구분)를 저장한다. CURATED 식당은 덮어쓰지 않고, Google이 값을 주지 않으면 기존 값을 유지한다. 두 필드 모두 이미 쓰던 `regularOpeningHours`와 같은 Enterprise SKU라 호출 단가는 그대로다(2026-10-12).
+  29. [ ] **기존 Google 식당 연락처 백필.** 약 2,170곳(2026-10-12 운영 최대 ID 기준). 한 번에 하면 약 $23(Place Details Enterprise, 월 1,000건 무료 후 1,000건당 $20)이라 `RestaurantContactBackfillJob`으로 매월 1일 1,000곳씩 무료 한도 안에서 채운다. `contact_fetched_at`(V29)이 비어 있는 GOOGLE 식당이 대상이고, Google이 값을 주지 않은 식당도 시각을 기록해 다시 조회하지 않는다. 운영에서 `CONTACT_BACKFILL_ENABLED=true`로 켜고, 대상이 0이 되면 끄고 체크한다. → `docs/DEPLOYMENT.md` 참고.
 
 ### 비밀번호 찾기 구현 결과 (2026-10-12)
 

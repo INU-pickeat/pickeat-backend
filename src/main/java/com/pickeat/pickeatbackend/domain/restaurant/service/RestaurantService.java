@@ -89,6 +89,8 @@ public class RestaurantService {
         restaurant.updateSecondaryFoodCategory(
                 nameOverride.map(FoodCategoryNameOverride.Categories::secondary).orElse(null));
         restaurant.updateOpeningHours(OpeningHours.toWeekMinutes(place.regularOpeningHours()));
+        restaurant.updateContactFromGoogle(
+                place.nationalPhoneNumber(), OpeningHours.toText(place.regularOpeningHours()));
 
         return restaurantRepository.save(restaurant);
     }

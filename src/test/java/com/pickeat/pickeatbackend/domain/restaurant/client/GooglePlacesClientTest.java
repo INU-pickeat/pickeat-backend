@@ -278,4 +278,22 @@ class GooglePlacesClientTest {
         assertThat(client.findPhotoUri("test-place", 2, 800)).isEmpty();
         server.verify();
     }
+
+    @Test
+    @DisplayName("연락처 조회는 전화번호와 영업시간 필드만 한국어로 요청한다")
+    void requestsOnlyContactFieldsInKorean() {
+        server.expect(requestTo("https://places.googleapis.com/v1/places/place-1?languageCode=ko"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("X-Goog-FieldMask", "nationalPhoneNumber,regularOpeningHours"))
+                .andRespond(withSuccess("""
+                        {"nationalPhoneNumber":"02-123-4567",
+                         "regularOpeningHours":{"periods":[],"weekdayDescriptions":["월요일: 휴무일"]}}
+                        """, MediaType.APPLICATION_JSON));
+
+        GooglePlaceResponse response = client.findContact("place-1");
+
+        assertThat(response.nationalPhoneNumber()).isEqualTo("02-123-4567");
+        assertThat(response.regularOpeningHours().weekdayDescriptions()).containsExactly("월요일: 휴무일");
+        server.verify();
+    }
 }

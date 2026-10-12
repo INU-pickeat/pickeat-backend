@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.pickeat.pickeatbackend.domain.restaurant.client.GooglePlaceResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantNavigationLinksResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantResponse;
+import com.pickeat.pickeatbackend.domain.restaurant.entity.DataProvider;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantRepository;
@@ -288,5 +289,39 @@ class RestaurantServiceTest {
         assertThat(updated.getSuitableForChildren()).isTrue();
         assertThat(updated.getSuitableForGroup()).isTrue();
         assertThat(updated.getSuitableForDogs()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Google 전화번호와 요일별 영업시간을 저장하되 CURATED 식당은 덮어쓰지 않는다")
+    void storesGooglePhoneAndOpeningHoursTextExceptCurated() {
+        when(restaurantRepository.save(any(Restaurant.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        GooglePlaceResponse place = new GooglePlaceResponse(
+                "place-1",
+                new GooglePlaceResponse.DisplayName("맛있는 식당", "ko"),
+                "서울시 강남구",
+                new GooglePlaceResponse.Location(37.5, 127.0),
+                4.5, 42, "https://maps.google.com/place-1", List.of(), "korean_restaurant",
+                List.of(), null, null, null, null, null,
+                new GooglePlaceResponse.OpeningHours(List.of(), List.of("월요일: 오전 11:00~오후 9:00", "화요일: 휴무일")),
+                "02-123-4567");
+
+        when(restaurantRepository.findByGooglePlaceId("place-1")).thenReturn(Optional.empty());
+        Restaurant created = restaurantService.upsertFromGoogle(place);
+        assertThat(created.getPhoneNumber()).isEqualTo("02-123-4567");
+        assertThat(created.getOpeningHoursText()).isEqualTo("월요일: 오전 11:00~오후 9:00\n화요일: 휴무일");
+
+        Restaurant curated = Restaurant.builder()
+                .dataProvider(DataProvider.CURATED)
+                .googlePlaceId("place-1")
+                .name("맛있는 식당")
+                .latitude(37.5)
+                .longitude(127.0)
+                .build();
+        ReflectionTestUtils.setField(curated, "phoneNumber", "02-000-0000");
+        ReflectionTestUtils.setField(curated, "openingHoursText", "매일 17:00~22:00");
+        when(restaurantRepository.findByGooglePlaceId("place-1")).thenReturn(Optional.of(curated));
+        Restaurant updated = restaurantService.upsertFromGoogle(place);
+        assertThat(updated.getPhoneNumber()).isEqualTo("02-000-0000");
+        assertThat(updated.getOpeningHoursText()).isEqualTo("매일 17:00~22:00");
     }
 }
