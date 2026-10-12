@@ -157,13 +157,6 @@ class ReviewApiContractTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("GLOBAL_001"));
 
-        mockMvc.perform(patch("/api/v1/reviews/{reviewId}", REVIEW_ID)
-                        .header("Authorization", authorizationHeader)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"imageUrls\": " + SIX_IMAGE_URLS + "}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
-
         mockMvc.perform(post("/api/v1/reviews/images/upload-urls")
                         .header("Authorization", authorizationHeader)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -172,7 +165,6 @@ class ReviewApiContractTest {
                 .andExpect(jsonPath("$.code").value("GLOBAL_001"));
 
         verify(reviewService, never()).create(any(), any());
-        verify(reviewService, never()).update(any(), any(), any());
         verify(reviewService, never()).createImageUploads(any(), any());
     }
 
@@ -220,19 +212,6 @@ class ReviewApiContractTest {
                         .header("Authorization", authorizationHeader)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"content\": \"   \"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
-
-        verify(reviewService, never()).update(any(), any(), any());
-    }
-
-    @Test
-    @DisplayName("후기 수정 요청으로 사진을 변경할 수 없다")
-    void rejectsImagesOnUpdate() throws Exception {
-        mockMvc.perform(patch("/api/v1/reviews/{reviewId}", REVIEW_ID)
-                        .header("Authorization", authorizationHeader)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"imageUrls\": []}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("GLOBAL_001"));
 

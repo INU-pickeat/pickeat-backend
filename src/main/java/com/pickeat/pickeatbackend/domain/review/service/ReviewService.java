@@ -79,6 +79,9 @@ public class ReviewService {
 
     @Transactional
     public ReviewResponse update(Long reviewId, UpdateReviewRequest request, Long memberId) {
+        if (request.imageUrls() != null) {
+            throw new BusinessException(ReviewErrorCode.IMAGE_NOT_EDITABLE);
+        }
         Review review = reviewRepository.findByIdAndMemberId(reviewId, memberId)
                 .orElseThrow(() -> new BusinessException(ReviewErrorCode.REVIEW_NOT_FOUND));
         review.update(request.content(), request.foodCategory(), request.companionType(),

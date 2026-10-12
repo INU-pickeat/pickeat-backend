@@ -197,6 +197,16 @@ class ReviewServiceTest {
     }
 
     @Test
+    @DisplayName("후기 수정 요청으로 사진을 변경할 수 없다")
+    void rejectsImagesOnUpdate() {
+        assertThatThrownBy(() -> reviewService.update(
+                100L, new UpdateReviewRequest(null, null, null, null, List.of()), MEMBER_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("이미지는 수정할 수 없습니다.");
+        verify(reviewRepository, never()).findByIdAndMemberId(any(), any());
+    }
+
+    @Test
     @DisplayName("남의 후기는 수정·삭제할 수 없다")
     void rejectsUpdateAndDeleteOfOthersReview() {
         when(reviewRepository.findByIdAndMemberId(100L, 2L)).thenReturn(Optional.empty());
