@@ -89,6 +89,11 @@ public class RestaurantService {
         restaurant.updateSecondaryFoodCategory(
                 nameOverride.map(FoodCategoryNameOverride.Categories::secondary).orElse(null));
         restaurant.updateOpeningHours(OpeningHours.toWeekMinutes(place.regularOpeningHours()));
+        GooglePlaceResponse.OpeningHours hours = place.regularOpeningHours();
+        restaurant.updateContactFromGoogle(
+                place.nationalPhoneNumber(),
+                hours == null || hours.weekdayDescriptions() == null
+                        ? null : String.join("\n", hours.weekdayDescriptions()));
 
         return restaurantRepository.save(restaurant);
     }

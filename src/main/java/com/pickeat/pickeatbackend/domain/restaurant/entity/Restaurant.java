@@ -221,6 +221,19 @@ public class Restaurant {
         this.externalDataRefreshedAt = Instant.now();
     }
 
+    // 운영자가 확인해 넣은 CURATED 식당은 덮어쓰지 않는다. Google이 값을 주지 않으면 기존 값을 유지한다.
+    public void updateContactFromGoogle(String phoneNumber, String openingHoursText) {
+        if (dataProvider == DataProvider.CURATED) {
+            return;
+        }
+        if (phoneNumber != null && !phoneNumber.isBlank()) {
+            this.phoneNumber = phoneNumber;
+        }
+        if (openingHoursText != null && !openingHoursText.isBlank()) {
+            this.openingHoursText = openingHoursText;
+        }
+    }
+
     public void updateOpeningHours(int[] openingWeekMinutes) {
         this.openingWeekMinutes = openingWeekMinutes;
     }

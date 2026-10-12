@@ -151,6 +151,8 @@
   24. [x] **영업시간 필터.** 30분 뒤에 영업 중인 식당만 추천한다(V21). → 아래 "영업시간 필터 구현 결과" 참고.
   25. [x] **공통 예외 응답 통일.** 401·404·405·깨진 JSON·예상하지 못한 500도 `{code, message}` 형식으로 응답한다. → 아래 "공통 예외 응답 구현 결과" 참고.
   26. [ ] **후기 이미지 S3 운영 설정.** 버킷·IAM 역할·CORS·환경변수를 설정하고 업로드부터 피드 표시까지 운영에서 확인한다.
+  28. [x] **Google 식당 연락처·영업시간 텍스트 저장.** 이전에는 탐색 스팟(CURATED) 25곳만 `phoneNumber`·`openingHoursText`가 있었고 Google 식당은 항상 null이었다. 필드 마스크에 `nationalPhoneNumber`를 추가하고 `regularOpeningHours.weekdayDescriptions`(요일별 7줄, `\n` 구분)를 저장한다. CURATED 식당은 덮어쓰지 않고, Google이 값을 주지 않으면 기존 값을 유지한다. 두 필드 모두 이미 쓰던 `regularOpeningHours`와 같은 Enterprise SKU라 호출 단가는 그대로다(2026-10-12).
+  29. [ ] **기존 Google 식당 연락처 백필.** 이미 저장된 식당은 Google 보충으로 다시 조회될 때만 채워진다. 한 번에 채우려면 Place Details를 식당 수만큼 호출해야 하므로 비용을 확인한 뒤 결정한다.
 
 ### 이메일 인증 구현 결과 (2026-10-07)
 

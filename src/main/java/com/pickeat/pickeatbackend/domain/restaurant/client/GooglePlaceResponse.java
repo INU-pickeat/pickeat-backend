@@ -19,8 +19,32 @@ public record GooglePlaceResponse(
     Boolean goodForGroups,
     Boolean menuForChildren,
     Boolean allowsDogs,
-    OpeningHours regularOpeningHours
+    OpeningHours regularOpeningHours,
+    String nationalPhoneNumber
 ) {
+    public GooglePlaceResponse(
+            String id,
+            DisplayName displayName,
+            String formattedAddress,
+            Location location,
+            Double rating,
+            Integer userRatingCount,
+            String googleMapsUri,
+            List<Attribution> attributions,
+            String primaryType,
+            List<String> types,
+            PriceRange priceRange,
+            Boolean goodForChildren,
+            Boolean goodForGroups,
+            Boolean menuForChildren,
+            Boolean allowsDogs,
+            OpeningHours regularOpeningHours
+    ) {
+        this(id, displayName, formattedAddress, location, rating, userRatingCount, googleMapsUri, attributions,
+                primaryType, types, priceRange, goodForChildren, goodForGroups, menuForChildren, allowsDogs,
+                regularOpeningHours, null);
+    }
+
     public GooglePlaceResponse(
             String id,
             DisplayName displayName,
@@ -39,7 +63,7 @@ public record GooglePlaceResponse(
             Boolean allowsDogs
     ) {
         this(id, displayName, formattedAddress, location, rating, userRatingCount, googleMapsUri, attributions,
-                primaryType, types, priceRange, goodForChildren, goodForGroups, menuForChildren, allowsDogs, null);
+                primaryType, types, priceRange, goodForChildren, goodForGroups, menuForChildren, allowsDogs, null, null);
     }
 
     public GooglePlaceResponse(
@@ -54,7 +78,7 @@ public record GooglePlaceResponse(
             String primaryType
     ) {
         this(id, displayName, formattedAddress, location, rating, userRatingCount, googleMapsUri,
-                attributions, primaryType, List.of(), null, null, null, null, null, null);
+                attributions, primaryType, List.of(), null, null, null, null, null, null, null);
     }
 
     public record DisplayName(String text, String languageCode) {
@@ -67,7 +91,11 @@ public record GooglePlaceResponse(
     }
 
     // day는 0=일요일 ~ 6=토요일. close가 없으면 24시간 영업이다.
-    public record OpeningHours(List<Period> periods) {
+    // weekdayDescriptions는 languageCode=ko 기준 "월요일: 오전 11:00~오후 9:00" 형식의 요일별 7줄이다.
+    public record OpeningHours(List<Period> periods, List<String> weekdayDescriptions) {
+        public OpeningHours(List<Period> periods) {
+            this(periods, null);
+        }
     }
 
     public record Period(Point open, Point close) {
