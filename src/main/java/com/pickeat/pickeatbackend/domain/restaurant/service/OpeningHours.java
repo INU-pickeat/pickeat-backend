@@ -15,6 +15,15 @@ public final class OpeningHours {
     private OpeningHours() {
     }
 
+    // 요일별 설명(ko, 7줄)을 줄바꿈으로 잇는다. Google이 주지 않으면 null.
+    public static String toText(GooglePlaceResponse.OpeningHours openingHours) {
+        if (openingHours == null || openingHours.weekdayDescriptions() == null
+                || openingHours.weekdayDescriptions().isEmpty()) {
+            return null;
+        }
+        return String.join("\n", openingHours.weekdayDescriptions());
+    }
+
     public static int[] toWeekMinutes(GooglePlaceResponse.OpeningHours openingHours) {
         if (openingHours == null || openingHours.periods() == null || openingHours.periods().isEmpty()) {
             return null;

@@ -25,6 +25,9 @@ public class GooglePlacesClient {
 
     static final String PHOTO_FIELD_MASK = "photos";
 
+    // Place Details Enterprise SKU. 다른 필드를 더하면 등급이 올라갈 수 있으니 이 두 개만 요청한다.
+    static final String CONTACT_FIELD_MASK = "nationalPhoneNumber,regularOpeningHours";
+
     private final RestClient restClient;
     private final String apiKey;
 
@@ -122,6 +125,26 @@ public class GooglePlacesClient {
         return media == null || media.photoUri() == null || media.photoUri().isBlank()
             ? Optional.empty()
             : Optional.of(media.photoUri());
+    }
+
+    // 전화번호·정기 영업시간만 담긴 응답을 돌려준다. 나머지 필드는 null이다.
+    public GooglePlaceResponse findContact(String placeId) {
+        if (placeId == null || placeId.isBlank()) {
+            throw new IllegalArgumentException("Google Place ID가 필요합니다.");
+        }
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("GOOGLE_PLACES_API_KEY 설정이 필요합니다.");
+        }
+        GooglePlaceResponse response = restClient.get()
+            .uri(uriBuilder -> uriBuilder.path("/v1/places/" + placeId).queryParam("languageCode", "ko").build())
+            .header("X-Goog-Api-Key", apiKey)
+            .header("X-Goog-FieldMask", CONTACT_FIELD_MASK)
+            .retrieve()
+            .body(GooglePlaceResponse.class);
+        if (response == null) {
+            throw new IllegalStateException("Google Places 응답 본문이 없습니다.");
+        }
+        return response;
     }
 
     private static RestClient.Builder createBuilder() {

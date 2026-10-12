@@ -44,6 +44,8 @@ sudoedit /etc/pickeat/pickeat.env   # GOOGLE_PLACES_API_KEY, MAIL_PASSWORD 입�
 
 회원가입 인증 메일은 기본 발신 계정 `cki08543@gmail.com`의 SMTP 앱 비밀번호를 `MAIL_PASSWORD`에 넣는다. Gmail 계정의 2단계 인증을 켠 뒤 발급한 앱 비밀번호를 쓴다.
 
+기존 Google 식당의 전화번호·영업시간 백필은 기본으로 꺼져 있다. 켜려면 `/etc/pickeat/pickeat.env`에 `CONTACT_BACKFILL_ENABLED=true`를 넣고 재시작한다. 매월 1일 18시(KST)에 최대 1,000곳(`CONTACT_BACKFILL_MONTHLY_LIMIT`)을 Place Details로 조회하며, 결과는 `연락처 백필 완료` 로그로 남는다. 로그의 대상 수가 0이 되면 다시 끈다. 같은 달에 Place Details Enterprise 사용량이 따로 있으면 무료 한도(월 1,000건)를 넘을 수 있으니 콘솔에서 먼저 확인한다.
+
 bootstrap은 swap, Java·Docker·Nginx·certbot 설치, PostGIS 컨테이너 실행, Nginx 설정, 백업 cron, systemd 서비스 등록을 한 번에 처리한다. 여러 번 실행해도 기존 환경변수 파일과 DB 볼륨은 유지된다. 단, Nginx 설정 파일은 템플릿으로 덮어쓰므로 **HTTPS 발급 뒤에 다시 실행하면 certbot이 넣은 SSL 설정이 사라진다.** 그때는 `sudo certbot --nginx -d api.pickeat.kr`를 다시 실행한다. 환경변수 파일은 Git에 커밋하지 않는다.
 
 ### 도메인과 HTTPS

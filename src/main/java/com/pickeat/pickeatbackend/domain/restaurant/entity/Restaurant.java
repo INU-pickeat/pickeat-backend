@@ -111,6 +111,9 @@ public class Restaurant {
 
     private Instant externalDataRefreshedAt;
 
+    // Google에서 전화번호·영업시간 텍스트를 받아 온 시각. RestaurantContactBackfillJob 참고.
+    private Instant contactFetchedAt;
+
     private Boolean suitableForDate;
     private Boolean suitableForFamily;
     private Boolean suitableForChildren;
@@ -223,6 +226,7 @@ public class Restaurant {
 
     // 운영자가 확인해 넣은 CURATED 식당은 덮어쓰지 않는다. Google이 값을 주지 않으면 기존 값을 유지한다.
     public void updateContactFromGoogle(String phoneNumber, String openingHoursText) {
+        this.contactFetchedAt = Instant.now();
         if (dataProvider == DataProvider.CURATED) {
             return;
         }

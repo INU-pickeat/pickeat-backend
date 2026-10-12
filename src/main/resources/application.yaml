@@ -28,6 +28,12 @@ email-verification:
   signup-validity-ms: ${EMAIL_VERIFICATION_SIGNUP_VALIDITY_MS:1800000}
   resend-cooldown-ms: ${EMAIL_VERIFICATION_RESEND_COOLDOWN_MS:60000}
 
+# 기존 Google 식당 전화번호·영업시간 백필. 매월 1일 18시(KST)에 monthly-limit개씩 처리한다.
+contact-backfill:
+  enabled: ${CONTACT_BACKFILL_ENABLED:false}
+  monthly-limit: ${CONTACT_BACKFILL_MONTHLY_LIMIT:1000}
+  cron: ${CONTACT_BACKFILL_CRON:0 0 18 1 * *}
+
 jwt:
   secret: ${JWT_SECRET:}
   access-token-validity-ms: ${JWT_ACCESS_TOKEN_VALIDITY_MS:1800000}
