@@ -3,6 +3,7 @@ package com.pickeat.pickeatbackend.domain.review.repository;
 import com.pickeat.pickeatbackend.domain.review.entity.ReviewLike;
 import java.util.Collection;
 import java.util.List;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -37,4 +38,14 @@ public interface ReviewLikeRepository extends JpaRepository<ReviewLike, Long> {
 
     @Query("SELECT l.review.id FROM ReviewLike l WHERE l.member.id = :memberId AND l.review.id IN :reviewIds")
     List<Long> findLikedReviewIds(@Param("memberId") Long memberId, @Param("reviewIds") Collection<Long> reviewIds);
+
+    // 알림: 내 후기에 다른 사람이 누른 좋아요를 최신순으로 읽는다. 좋아요를 취소하면 알림도 사라진다.
+    @Query("""
+            SELECT new com.pickeat.pickeatbackend.domain.review.repository.LikeNotification(
+                r.id, r.restaurant.name, m.nickname, m.profileImageUrl, l.createdAt)
+            FROM ReviewLike l JOIN l.review r JOIN l.member m
+            WHERE r.member.id = :memberId AND m.id <> :memberId
+            ORDER BY l.createdAt DESC, l.id DESC
+            """)
+    List<LikeNotification> findLikeNotifications(@Param("memberId") Long memberId, Limit limit);
 }
