@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -16,6 +17,19 @@ public interface PickRepository extends JpaRepository<Pick, Long> {
 
     @EntityGraph(attributePaths = "restaurant")
     Optional<Pick> findByIdAndMemberId(Long id, Long memberId);
+
+    boolean existsByMemberIdAndRestaurantIdAndStatus(Long memberId, Long restaurantId, PickStatus status);
+
+    // 최근 Pick 삭제: 그 식당의 SELECTED Pick을 한 번에 취소한다. 벌크 UPDATE라 @PreUpdate가 돌지 않아 updatedAt을 직접 넣는다.
+    @Modifying
+    @Query("""
+            UPDATE Pick p SET p.status = com.pickeat.pickeatbackend.domain.pick.entity.PickStatus.CANCELED,
+                              p.updatedAt = :now
+            WHERE p.member.id = :memberId AND p.restaurant.id = :restaurantId
+              AND p.status = com.pickeat.pickeatbackend.domain.pick.entity.PickStatus.SELECTED
+            """)
+    int cancelSelected(@Param("memberId") Long memberId, @Param("restaurantId") Long restaurantId,
+                       @Param("now") Instant now);
 
     @EntityGraph(attributePaths = "restaurant")
     List<Pick> findByMemberIdAndStatusOrderBySelectedAtDescIdDesc(Long memberId, PickStatus status);
