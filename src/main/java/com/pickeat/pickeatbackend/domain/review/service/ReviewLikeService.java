@@ -1,5 +1,6 @@
 package com.pickeat.pickeatbackend.domain.review.service;
 
+import com.pickeat.pickeatbackend.domain.review.dto.NotificationsResponse;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewLikeResponse;
 import com.pickeat.pickeatbackend.domain.review.entity.Review;
 import com.pickeat.pickeatbackend.domain.review.exception.ReviewErrorCode;
@@ -7,12 +8,16 @@ import com.pickeat.pickeatbackend.domain.review.repository.ReviewLikeRepository;
 import com.pickeat.pickeatbackend.domain.review.repository.ReviewRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 public class ReviewLikeService {
+
+    // ponytail: 최신 50건만 준다. 알림이 많아지면 피드처럼 커서 페이지로 바꾼다.
+    private static final int NOTIFICATION_LIMIT = 50;
 
     private final ReviewRepository reviewRepository;
     private final ReviewLikeRepository reviewLikeRepository;
@@ -34,6 +39,13 @@ public class ReviewLikeService {
         findVisible(reviewId, memberId);
         reviewLikeRepository.deleteByReviewAndMember(reviewId, memberId);
         return new ReviewLikeResponse(reviewId, false, reviewLikeRepository.countByReviewId(reviewId));
+    }
+
+    // 알림은 별도 테이블 없이 좋아요 기록에서 만든다. 내가 내 후기에 누른 좋아요는 알리지 않는다.
+    @Transactional(readOnly = true)
+    public NotificationsResponse getNotifications(Long memberId) {
+        return NotificationsResponse.from(
+                reviewLikeRepository.findLikeNotifications(memberId, Limit.of(NOTIFICATION_LIMIT)));
     }
 
     // 남의 비공개 후기는 존재 자체를 알리지 않는다.
