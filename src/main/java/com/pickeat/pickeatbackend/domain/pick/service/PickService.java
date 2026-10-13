@@ -95,6 +95,19 @@ public class PickService {
         return RecentPicksResponse.from(pickRepository.findRecentPickSummaries(memberId, since));
     }
 
+    // 최근 Pick 카드 삭제: 후기가 없는 SELECTED Pick만 CANCELED로 바꾼다. 기간과 관계없이 그 식당의 SELECTED 전부가 대상이다.
+    // REVIEWED Pick은 후기·지도·캘린더와 묶여 있어 건드리지 않는다. 후기를 지우면 SELECTED로 돌아가 삭제할 수 있다.
+    @Transactional
+    public void deleteRecentPicks(Long memberId, Long restaurantId) {
+        if (pickRepository.cancelSelected(memberId, restaurantId, Instant.now()) > 0) {
+            return;
+        }
+        if (pickRepository.existsByMemberIdAndRestaurantIdAndStatus(memberId, restaurantId, PickStatus.REVIEWED)) {
+            throw new BusinessException(PickErrorCode.REVIEWED_PICK_UNDELETABLE);
+        }
+        throw new BusinessException(PickErrorCode.PICK_NOT_FOUND);
+    }
+
     // Pick 지도는 REVIEWED(방문 후기 작성 완료)만 노출한다. SELECTED·CANCELED는 미노출.
     @Transactional(readOnly = true)
     public PickMapResponse getMyPickMap(Long memberId) {

@@ -338,4 +338,25 @@ class PickServiceTest {
         ReflectionTestUtils.setField(pick, "updatedAt", java.time.Instant.now());
         return pick;
     }
+
+    @Test
+    @DisplayName("SELECTED Pick이 없고 후기를 쓴 Pick만 있으면 최근 Pick을 삭제할 수 없다")
+    void rejectsDeletingReviewedOnlyPicks() {
+        when(pickRepository.cancelSelected(any(), any(), any())).thenReturn(0);
+        when(pickRepository.existsByMemberIdAndRestaurantIdAndStatus(1L, 10L, PickStatus.REVIEWED)).thenReturn(true);
+
+        assertThatThrownBy(() -> pickService.deleteRecentPicks(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(PickErrorCode.REVIEWED_PICK_UNDELETABLE.getMessage());
+    }
+
+    @Test
+    @DisplayName("지울 Pick이 하나도 없으면 없는 Pick으로 응답한다")
+    void rejectsDeletingMissingPicks() {
+        when(pickRepository.cancelSelected(any(), any(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> pickService.deleteRecentPicks(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(PickErrorCode.PICK_NOT_FOUND.getMessage());
+    }
 }
