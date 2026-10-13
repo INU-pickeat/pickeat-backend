@@ -9,17 +9,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 
-public record RecommendationResponse(Long sessionId, List<Item> items) {
+// radiusMeters: 이 추천에 실제로 쓴 검색 반경. radiusOptions: 이 위치에서 고를 수 있는 반경(반경 칩은 이 값으로 그린다).
+public record RecommendationResponse(Long sessionId, int radiusMeters, List<Integer> radiusOptions, List<Item> items) {
 
     // rank는 세션에 저장된 고정 순위가 아니라 현재 노출 목록 안에서의 위치다. 제외 후
     // 대체 후보가 빈 자리를 채우면 원래 저장 순위와 무관하게 그 자리의 순위로 보인다.
     // oneLineReviews: restaurantId → 사용자 후기에서 뽑은 한줄평. 없는 식당은 ReviewOneLiner.NO_REVIEW로 채운다.
     public static RecommendationResponse of(
-            Long sessionId, List<RecommendationCandidate> candidates, Map<Long, String> oneLineReviews) {
+            Long sessionId, int radiusMeters, List<Integer> radiusOptions,
+            List<RecommendationCandidate> candidates, Map<Long, String> oneLineReviews) {
         List<Item> items = IntStream.range(0, candidates.size())
                 .mapToObj(i -> Item.from(candidates.get(i), i + 1, oneLineReviews))
                 .toList();
-        return new RecommendationResponse(sessionId, items);
+        return new RecommendationResponse(sessionId, radiusMeters, List.copyOf(radiusOptions), items);
     }
 
     public record Item(

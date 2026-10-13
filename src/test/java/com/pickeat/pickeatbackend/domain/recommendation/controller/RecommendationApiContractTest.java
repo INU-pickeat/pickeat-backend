@@ -49,7 +49,7 @@ class RecommendationApiContractTest {
     @BeforeEach
     void setUp() {
         authorizationHeader = "Bearer " + jwtTokenProvider.createAccessToken(MEMBER_ID);
-        response = new RecommendationResponse(SESSION_ID, List.of(
+        response = new RecommendationResponse(SESSION_ID, 1000, List.of(500, 1000, 2000), List.of(
                 new RecommendationResponse.Item(
                         10L, "테스트 식당", FoodCategory.KOREAN, BigDecimal.valueOf(4.5), 320.5, 1, 0.914,
                         "/images/discovery/sinsa_01_main.jpg", "후기가 없습니다.")
@@ -77,6 +77,8 @@ class RecommendationApiContractTest {
                         .content(validRequest()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.sessionId").value(SESSION_ID))
+                .andExpect(jsonPath("$.radiusMeters").value(1000))
+                .andExpect(jsonPath("$.radiusOptions[2]").value(2000))
                 .andExpect(jsonPath("$.items.length()").value(1))
                 .andExpect(jsonPath("$.items[0].restaurantId").value(10))
                 .andExpect(jsonPath("$.items[0].name").value("테스트 식당"))

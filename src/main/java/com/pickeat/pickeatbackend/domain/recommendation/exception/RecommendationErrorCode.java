@@ -10,7 +10,8 @@ import org.springframework.http.HttpStatus;
 public enum RecommendationErrorCode implements BaseErrorCode {
 
     SESSION_NOT_FOUND("RECOMMENDATION_001", "존재하지 않는 추천 세션입니다.", HttpStatus.NOT_FOUND),
-    CANDIDATE_NOT_FOUND("RECOMMENDATION_002", "세션 후보에 없는 식당입니다.", HttpStatus.NOT_FOUND);
+    CANDIDATE_NOT_FOUND("RECOMMENDATION_002", "세션 후보에 없는 식당입니다.", HttpStatus.NOT_FOUND),
+    INVALID_RADIUS("RECOMMENDATION_003", "이 지역에서 선택할 수 없는 검색 반경입니다.", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;
