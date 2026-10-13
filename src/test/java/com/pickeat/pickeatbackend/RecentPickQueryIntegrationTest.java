@@ -58,6 +58,29 @@ class RecentPickQueryIntegrationTest {
         assertThat(curatedSummary.representativeImageUrl()).isEqualTo("/images/discovery/sinsa_01_main.jpg");
     }
 
+    @Test
+    @DisplayName("최근 Pick 삭제는 내 그 식당의 SELECTED Pick만 취소하고 REVIEWED와 다른 식당·회원은 그대로 둔다")
+    void cancelsOnlyMySelectedPicksForRestaurant() {
+        Long memberId = insertMember();
+        Long otherMemberId = insertMember();
+        Long target = insertRestaurant("지울 식당", "KOREAN", null, null);
+        Long other = insertRestaurant("남길 식당", "KOREAN", null, null);
+        insertPick(memberId, target, "SELECTED", "1 hour");
+        insertPick(memberId, target, "SELECTED", "40 days");
+        insertPick(memberId, target, "REVIEWED", "2 days");
+        insertPick(memberId, other, "SELECTED", "1 hour");
+        insertPick(otherMemberId, target, "SELECTED", "1 hour");
+
+        assertThat(pickRepository.cancelSelected(memberId, target, Instant.now())).isEqualTo(2);
+
+        assertThat(jdbcTemplate.queryForList("""
+                SELECT status FROM picks WHERE member_id = ? AND restaurant_id = ? ORDER BY status
+                """, String.class, memberId, target)).containsExactly("CANCELED", "CANCELED", "REVIEWED");
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT count(*) FROM picks WHERE status = 'SELECTED' AND (restaurant_id = ? OR member_id = ?)
+                """, Long.class, other, otherMemberId)).isEqualTo(2L);
+    }
+
     private Long insertMember() {
         return jdbcTemplate.queryForObject("""
                 INSERT INTO members (email, password, nickname, login_provider, created_at, updated_at)

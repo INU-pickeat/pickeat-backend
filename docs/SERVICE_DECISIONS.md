@@ -154,6 +154,7 @@
   27. [x] **비밀번호 찾기.** 이메일 인증번호로 본인을 확인한 뒤 새 비밀번호를 저장한다(2026-10-12). → 아래 "비밀번호 찾기 구현 결과" 참고.
   28. [x] **Google 식당 연락처·영업시간 텍스트 저장.** 이전에는 탐색 스팟(CURATED) 25곳만 `phoneNumber`·`openingHoursText`가 있었고 Google 식당은 항상 null이었다. 필드 마스크에 `nationalPhoneNumber`를 추가하고 `regularOpeningHours.weekdayDescriptions`(요일별 7줄, `\n` 구분)를 저장한다. CURATED 식당은 덮어쓰지 않고, Google이 값을 주지 않으면 기존 값을 유지한다. 두 필드 모두 이미 쓰던 `regularOpeningHours`와 같은 Enterprise SKU라 호출 단가는 그대로다(2026-10-12).
   29. [ ] **기존 Google 식당 연락처 백필.** 약 2,170곳(2026-10-12 운영 최대 ID 기준). 한 번에 하면 약 $23(Place Details Enterprise, 월 1,000건 무료 후 1,000건당 $20)이라 `RestaurantContactBackfillJob`으로 매월 1일 1,000곳씩 무료 한도 안에서 채운다. `contact_fetched_at`(V29)이 비어 있는 GOOGLE 식당이 대상이고, Google이 값을 주지 않은 식당도 시각을 기록해 다시 조회하지 않는다. 운영에서 `CONTACT_BACKFILL_ENABLED=true`로 켜고, 대상이 0이 되면 끄고 체크한다. → `docs/DEPLOYMENT.md` 참고.
+  31. [x] **최근 Pick 삭제.** `DELETE /api/v1/me/picks/restaurants/{restaurantId}`(204) — 최근 Pick 카드(식당 단위)를 지우면 그 식당의 내 `SELECTED` Pick을 기간과 관계없이 모두 `CANCELED`로 바꾼다. 행을 지우지 않으므로 마이그레이션은 없다. `REVIEWED` Pick은 후기·지도·캘린더와 묶여 있어 건드리지 않으며, 남은 Pick이 `REVIEWED`뿐이면 `PICK_006`(409)으로 거부한다. 이때는 후기를 먼저 지우면(→ `SELECTED`) 삭제할 수 있다. 지울 Pick이 없으면 `PICK_001`(404)이다(2026-10-13).
 
 ### 비밀번호 찾기 구현 결과 (2026-10-12)
 
