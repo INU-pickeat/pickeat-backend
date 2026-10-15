@@ -18,7 +18,7 @@ public record RecommendationRequest(
         @Valid PriceRange priceRange,
         @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") Double latitude,
         @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") Double longitude,
-        // 선택. 생략하면 지역 기본 반경(수도권·부산 1km, 그 외 5km). 지역 선택지 밖의 값은 400 RECOMMENDATION_003.
+        // 선택. 생략하면 지역 기본 반경(수도권·부산 500m, 그 외 5km). 지역 선택지 밖의 값은 400 RECOMMENDATION_003.
         Integer radiusMeters
 ) {
 

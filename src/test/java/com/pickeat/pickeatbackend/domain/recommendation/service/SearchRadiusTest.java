@@ -24,9 +24,9 @@ class SearchRadiusTest {
     }
 
     @Test
-    @DisplayName("반경을 고르지 않으면 수도권·부산 1km, 그 외 5km")
+    @DisplayName("반경을 고르지 않으면 수도권·부산 500m, 그 외 5km")
     void defaultsByRegion() {
-        assertThat(SearchRadius.resolve(SEOUL_LAT, SEOUL_LNG, null)).isEqualTo(1000);
+        assertThat(SearchRadius.resolve(SEOUL_LAT, SEOUL_LNG, null)).isEqualTo(500);
         assertThat(SearchRadius.resolve(DAEJEON_LAT, DAEJEON_LNG, null)).isEqualTo(5000);
     }
 

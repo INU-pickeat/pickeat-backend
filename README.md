@@ -84,7 +84,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - 식당 상세 조회 (`GET /api/v1/restaurants/{id}`) — 인증 불필요, 공유 링크 대응
 - 외부 지도 링크 조회 (`GET /api/v1/restaurants/{id}/navigation-links`) — 네이버·카카오
 - Google Places 연동: `GooglePlacesClient`(Nearby Search, 카테고리별 `includedPrimaryTypes` 선처리), Google Place ID 기준 upsert·갱신 정책, primaryType → 7개 음식 카테고리 매핑
-- PostGIS `geography(Point, 4326)` 기반 반경 후보 조회(수도권·부산 1km · 그 외 5km) (`RestaurantRepository.findWithinRadius`, GiST 인덱스)
+- PostGIS `geography(Point, 4326)` 기반 반경 후보 조회(기본값: 수도권·부산 500m · 그 외 5km) (`RestaurantRepository.findWithinRadius`, GiST 인덱스)
 - 데이트·가족·아이·혼자·단체·반려견 적합도 3상태(`true`/`false`/`NULL`, 큐레이션 전용 — Google 갱신이 건드리지 않음)
 - M2 ADR 확정, 추천 요청 DTO(`RecommendationRequest`), 점수 계산기(`RecommendationScoreCalculator`), 세션·후보 스키마(V7 마이그레이션)
 - 추천 생성·세션 조회 API (`POST`/`GET /api/v1/recommendations`) — DB 우선, 부족할 때만 Google 호출·upsert 하이브리드 조회(합계 10개 미만이거나 요청 카테고리 중 5개 미만인 카테고리가 있을 때, 부족한 카테고리만 보충). 선택적 가격대 필터(`priceRange`)와 검색 반경 선택(`radiusMeters`, 수도권·부산 500m·1km·2km / 그 외 1km·3km·5km, 응답의 `radiusOptions`로 선택지 제공)을 지원하며 상위 10개를 세션 후보로 저장하고 상위 5개만 응답한다. 식당 이름 키워드로 카테고리를 보정하고(`curated/category-name-keywords.txt`), 데이트·혼밥 적합도가 비어 있으면 메뉴 키워드로 추정해 동행 가산점을 준다(`curated/companion-name-keywords.txt`). 동행이 `DATE`면 프랜차이즈 식당을 후보에서 뺀다(브랜드 목록: `src/main/resources/curated/franchise-brands.txt`)

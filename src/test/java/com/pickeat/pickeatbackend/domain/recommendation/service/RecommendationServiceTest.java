@@ -161,7 +161,7 @@ class RecommendationServiceTest {
 
     private void stubEmptyGoogleSearch() {
         when(googlePlacesClient.findNearbyRestaurants(
-                eq(37.5), eq(127.0), eq(1000.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet()))
+                eq(37.5), eq(127.0), eq(500.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet()))
                 .thenReturn(List.of());
     }
 
@@ -172,7 +172,7 @@ class RecommendationServiceTest {
         stubEmptyGoogleSearch();
         RestaurantCandidate matching = new RestaurantCandidate(restaurant(FoodCategory.KOREAN, 4.0, null), 1000);
         RestaurantCandidate notMatching = new RestaurantCandidate(restaurant(FoodCategory.JAPANESE, 5.0, null), 100);
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(matching, notMatching));
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of(matching, notMatching));
 
         RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
 
@@ -187,7 +187,7 @@ class RecommendationServiceTest {
         stubEmptyGoogleSearch();
         RestaurantCandidate closeHighRated = new RestaurantCandidate(restaurant(FoodCategory.KOREAN, 5.0, null), 0);
         RestaurantCandidate farLowRated = new RestaurantCandidate(restaurant(FoodCategory.KOREAN, 1.0, null), 4900);
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0))
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0))
                 .thenReturn(List.of(farLowRated, closeHighRated));
 
         RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
@@ -204,7 +204,7 @@ class RecommendationServiceTest {
     void returnsEmptyItemsWhenNoCandidateMatches() {
         stubPersistence();
         stubEmptyGoogleSearch();
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of());
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of());
 
         RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
 
@@ -219,7 +219,7 @@ class RecommendationServiceTest {
         List<RestaurantCandidate> candidates = IntStream.rangeClosed(1, 4)
                 .mapToObj(i -> new RestaurantCandidate(restaurant(FoodCategory.KOREAN, i, null), i * 100))
                 .toList();
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(candidates);
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(candidates);
 
         RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
 
@@ -238,7 +238,7 @@ class RecommendationServiceTest {
         Restaurant neverOpen = restaurant(FoodCategory.KOREAN, 5.0, null);
         open.updateOpeningHours(new int[] {0, 7 * 1440});
         neverOpen.updateOpeningHours(new int[] {100, 100});
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of(
                 new RestaurantCandidate(open, 200),
                 new RestaurantCandidate(unknownHours, 200),
                 new RestaurantCandidate(neverOpen, 100)));
@@ -258,7 +258,7 @@ class RecommendationServiceTest {
         List<RestaurantCandidate> candidates = IntStream.rangeClosed(0, 5)
                 .mapToObj(i -> new RestaurantCandidate(restaurant(FoodCategory.KOREAN, i, null), 200))
                 .toList();
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(candidates);
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(candidates);
 
         RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
 
@@ -267,8 +267,8 @@ class RecommendationServiceTest {
                 .containsExactly(1, 2, 3, 4, 5);
         assertThat(response.items()).extracting(RecommendationResponse.Item::score)
                 .isSortedAccordingTo(java.util.Comparator.reverseOrder());
-        // 5위(평점 1.0)는 평점 0점, 거리 200m/1km → 0.2 × 0.8 = 0.16
-        assertThat(response.items().get(4).score()).isGreaterThanOrEqualTo(0.16);
+        // 5위(평점 1.0)는 평점 0점, 거리 200m/500m → 거리 점수 0.6 × 가중치 0.2 = 0.12
+        assertThat(response.items().get(4).score()).isGreaterThanOrEqualTo(0.12);
     }
 
     @Test
@@ -278,7 +278,7 @@ class RecommendationServiceTest {
         stubEmptyGoogleSearch();
         RestaurantCandidate suitable = new RestaurantCandidate(restaurant(FoodCategory.KOREAN, 3.0, true), 1000);
         RestaurantCandidate notSuitable = new RestaurantCandidate(restaurant(FoodCategory.KOREAN, 3.0, false), 1000);
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0))
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0))
                 .thenReturn(List.of(notSuitable, suitable));
 
         RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
@@ -295,9 +295,9 @@ class RecommendationServiceTest {
                 "place-1", new GooglePlaceResponse.DisplayName("맛집", "ko"), "주소",
                 new GooglePlaceResponse.Location(37.5, 127.0), 4.5, 10, "uri", List.of(), "korean_restaurant");
         when(googlePlacesClient.findNearbyRestaurants(
-                eq(37.5), eq(127.0), eq(1000.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet()))
+                eq(37.5), eq(127.0), eq(500.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet()))
                 .thenReturn(List.of(place));
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of());
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of());
 
         recommendationService.recommend(request(CompanionType.DATE), 1L);
 
@@ -312,16 +312,16 @@ class RecommendationServiceTest {
                 "same-place", new GooglePlaceResponse.DisplayName("맛집", "ko"), "주소",
                 new GooglePlaceResponse.Location(37.5, 127.0), 4.5, 10, "uri", List.of(), "thai_restaurant");
         when(googlePlacesClient.findNearbyRestaurants(
-                eq(37.5), eq(127.0), eq(1000.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet()))
+                eq(37.5), eq(127.0), eq(500.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet()))
                 .thenReturn(List.of(duplicate));
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of());
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of());
 
         RecommendationRequest otherRequest = new RecommendationRequest(
                 Set.of(FoodCategory.OTHER), CompanionType.DATE, null, 37.5, 127.0, null);
         recommendationService.recommend(otherRequest, 1L);
 
         verify(googlePlacesClient, org.mockito.Mockito.times(2)).findNearbyRestaurants(
-                eq(37.5), eq(127.0), eq(1000.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet());
+                eq(37.5), eq(127.0), eq(500.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet());
         verify(restaurantService).upsertFromGoogle(duplicate);
     }
 
@@ -434,7 +434,7 @@ class RecommendationServiceTest {
     void excludesFranchisesForDate() {
         stubPersistence();
         stubEmptyGoogleSearch();
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of(
                 new RestaurantCandidate(restaurantWithId(1L, "새마을식당 홍대점"), 100),
                 new RestaurantCandidate(restaurantWithId(2L, "본죽&비빔밥 연남점"), 200),
                 new RestaurantCandidate(restaurantWithId(3L, "청기와타운 합정점"), 300),
@@ -451,7 +451,7 @@ class RecommendationServiceTest {
     void keepsFranchisesForOtherCompanionTypes() {
         stubPersistence();
         stubEmptyGoogleSearch();
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of(
                 new RestaurantCandidate(restaurantWithId(1L, "새마을식당 홍대점"), 100),
                 new RestaurantCandidate(restaurantWithId(4L, "연남동 한식당"), 400)));
 
@@ -469,12 +469,12 @@ class RecommendationServiceTest {
                 .mapToObj(i -> new RestaurantCandidate(
                         restaurantWithId((long) i, i <= 3 ? "한신포차 " + i + "호점" : "개인 식당 " + i), i * 50))
                 .toList();
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(candidates);
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(candidates);
 
         RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
 
         verify(googlePlacesClient).findNearbyRestaurants(
-                eq(37.5), eq(127.0), eq(1000.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet());
+                eq(37.5), eq(127.0), eq(500.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet());
         assertThat(response.items()).hasSize(5)
                 .extracting(RecommendationResponse.Item::name).allMatch(name -> name.startsWith("개인 식당"));
     }
@@ -487,7 +487,7 @@ class RecommendationServiceTest {
         Restaurant chicken = restaurantNamed("교촌치킨 연남점", FoodCategory.KOREAN);
         chicken.updateSecondaryFoodCategory(FoodCategory.PUB_BAR);
         Restaurant korean = restaurantNamed("연남동 한식당", FoodCategory.KOREAN);
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of(
                 new RestaurantCandidate(chicken, 100), new RestaurantCandidate(korean, 200)));
         RecommendationRequest pubRequest = new RecommendationRequest(
                 Set.of(FoodCategory.PUB_BAR), CompanionType.GROUP, null, 37.5, 127.0, null);
@@ -502,7 +502,7 @@ class RecommendationServiceTest {
     void givesCompanionBonusFromNameHintWhenSuitabilityUnknown() {
         stubPersistence();
         stubEmptyGoogleSearch();
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of(
                 new RestaurantCandidate(restaurantNamed("연남동 한식당", FoodCategory.KOREAN), 100),
                 new RestaurantCandidate(restaurantNamed("연남 파스타", FoodCategory.KOREAN), 100)));
 
@@ -522,7 +522,7 @@ class RecommendationServiceTest {
         stubEmptyGoogleSearch();
         Restaurant pasta = restaurantNamed("연남 파스타", FoodCategory.KOREAN);
         ReflectionTestUtils.setField(pasta, "suitableForDate", false);
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of(
                 new RestaurantCandidate(restaurantNamed("연남동 한식당", FoodCategory.KOREAN), 100),
                 new RestaurantCandidate(pasta, 100)));
 
@@ -538,7 +538,7 @@ class RecommendationServiceTest {
         List<RestaurantCandidate> candidates = IntStream.rangeClosed(1, 10)
                 .mapToObj(i -> new RestaurantCandidate(restaurant(FoodCategory.KOREAN, i % 5 + 1.0, null), i * 100))
                 .toList();
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(candidates);
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(candidates);
 
         RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
 
@@ -569,7 +569,7 @@ class RecommendationServiceTest {
     void fillsOnlyCategoriesWithFewerThanFiveCandidates() {
         stubPersistence();
         stubEmptyGoogleSearch();
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0))
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0))
                 .thenReturn(candidatesOf(FoodCategory.JAPANESE, 12));
         RecommendationRequest mixedRequest = new RecommendationRequest(
                 Set.of(FoodCategory.JAPANESE, FoodCategory.KOREAN), CompanionType.SOLO, null, 37.5, 127.0, null);
@@ -578,7 +578,7 @@ class RecommendationServiceTest {
 
         ArgumentCaptor<Set<String>> types = ArgumentCaptor.forClass(Set.class);
         verify(googlePlacesClient).findNearbyRestaurants(
-                eq(37.5), eq(127.0), eq(1000.0), eq(GooglePlacesClient.RankPreference.POPULARITY), types.capture());
+                eq(37.5), eq(127.0), eq(500.0), eq(GooglePlacesClient.RankPreference.POPULARITY), types.capture());
         assertThat(types.getValue())
                 .containsExactlyInAnyOrderElementsOf(FoodCategory.toGooglePrimaryTypes(Set.of(FoodCategory.KOREAN)));
     }
@@ -589,7 +589,7 @@ class RecommendationServiceTest {
         stubPersistence();
         List<RestaurantCandidate> candidates = new java.util.ArrayList<>(candidatesOf(FoodCategory.JAPANESE, 5));
         candidates.addAll(candidatesOf(FoodCategory.KOREAN, 5));
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(candidates);
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(candidates);
         RecommendationRequest mixedRequest = new RecommendationRequest(
                 Set.of(FoodCategory.JAPANESE, FoodCategory.KOREAN), CompanionType.SOLO, null, 37.5, 127.0, null);
 
@@ -604,14 +604,14 @@ class RecommendationServiceTest {
     void doesNotCallGoogleAgainForRecentlyFilledAreaAndCategory() {
         stubPersistence();
         stubEmptyGoogleSearch();
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0))
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0))
                 .thenReturn(candidatesOf(FoodCategory.KOREAN, 2));
 
         recommendationService.recommend(request(CompanionType.SOLO), 1L);
         recommendationService.recommend(request(CompanionType.SOLO), 1L);
 
         verify(googlePlacesClient, times(1)).findNearbyRestaurants(
-                eq(37.5), eq(127.0), eq(1000.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet());
+                eq(37.5), eq(127.0), eq(500.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet());
     }
 
     @Test
@@ -622,17 +622,17 @@ class RecommendationServiceTest {
                 "place-1", new GooglePlaceResponse.DisplayName("맛집", "ko"), "주소",
                 new GooglePlaceResponse.Location(37.5, 127.0), 4.5, 10, "uri", List.of(), "korean_restaurant");
         when(googlePlacesClient.findNearbyRestaurants(
-                eq(37.5), eq(127.0), eq(1000.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet()))
+                eq(37.5), eq(127.0), eq(500.0), eq(GooglePlacesClient.RankPreference.POPULARITY), anySet()))
                 .thenReturn(List.of(place));
         List<RestaurantCandidate> initial = IntStream.rangeClosed(1, 3)
                 .mapToObj(i -> new RestaurantCandidate(restaurant(FoodCategory.KOREAN, i, null), i * 100))
                 .toList();
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(initial);
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(initial);
 
         recommendationService.recommend(request(CompanionType.DATE), 1L);
 
         verify(restaurantService).upsertFromGoogle(place);
-        verify(restaurantRepository, times(2)).findWithinRadius(37.5, 127.0, 1000.0);
+        verify(restaurantRepository, times(2)).findWithinRadius(37.5, 127.0, 500.0);
     }
 
     @Test
@@ -642,7 +642,7 @@ class RecommendationServiceTest {
         List<RestaurantCandidate> candidates = IntStream.rangeClosed(1, 12)
                 .mapToObj(i -> new RestaurantCandidate(restaurant(FoodCategory.KOREAN, i % 5 + 0.5, null), i * 100))
                 .toList();
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(candidates);
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(candidates);
         ArgumentCaptor<List<RecommendationCandidate>> captor = ArgumentCaptor.forClass(List.class);
 
         RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
@@ -658,7 +658,7 @@ class RecommendationServiceTest {
         stubPersistence();
         stubEmptyGoogleSearch();
         RestaurantCandidate noPriceInfo = new RestaurantCandidate(restaurantWithPrice(null, null), 100);
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(noPriceInfo));
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of(noPriceInfo));
 
         RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
 
@@ -671,7 +671,7 @@ class RecommendationServiceTest {
         stubPersistence();
         stubEmptyGoogleSearch();
         RestaurantCandidate noPriceInfo = new RestaurantCandidate(restaurantWithPrice(null, null), 100);
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(noPriceInfo));
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of(noPriceInfo));
 
         RecommendationResponse response = recommendationService.recommend(
                 requestWithPriceRange(BigDecimal.valueOf(10000), BigDecimal.valueOf(30000)), 1L);
@@ -686,7 +686,7 @@ class RecommendationServiceTest {
         stubEmptyGoogleSearch();
         RestaurantCandidate overlapping = new RestaurantCandidate(
                 restaurantWithPrice(BigDecimal.valueOf(20000), BigDecimal.valueOf(50000)), 100);
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(overlapping));
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of(overlapping));
 
         RecommendationResponse response = recommendationService.recommend(
                 requestWithPriceRange(BigDecimal.valueOf(10000), BigDecimal.valueOf(30000)), 1L);
@@ -701,7 +701,7 @@ class RecommendationServiceTest {
         stubEmptyGoogleSearch();
         RestaurantCandidate tooExpensive = new RestaurantCandidate(
                 restaurantWithPrice(BigDecimal.valueOf(50000), BigDecimal.valueOf(80000)), 100);
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(tooExpensive));
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of(tooExpensive));
 
         RecommendationResponse response = recommendationService.recommend(
                 requestWithPriceRange(BigDecimal.valueOf(10000), BigDecimal.valueOf(30000)), 1L);
@@ -714,7 +714,7 @@ class RecommendationServiceTest {
     void savesPriceRangeOnSession() {
         stubPersistence();
         stubEmptyGoogleSearch();
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of());
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of());
         ArgumentCaptor<RecommendationSession> captor = ArgumentCaptor.forClass(RecommendationSession.class);
 
         recommendationService.recommend(
@@ -726,12 +726,12 @@ class RecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("수도권·부산은 1km, 그 외 지역은 5km 반경을 쓴다")
-    void usesOneKmInMetropolitanAreaAndBusanAndFiveKmElsewhere() {
-        assertThat(RecommendationService.searchRadiusMeters(37.5665, 126.9780)).isEqualTo(1000.0); // 서울
-        assertThat(RecommendationService.searchRadiusMeters(37.4563, 126.7052)).isEqualTo(1000.0); // 인천
-        assertThat(RecommendationService.searchRadiusMeters(37.2636, 127.0286)).isEqualTo(1000.0); // 수원
-        assertThat(RecommendationService.searchRadiusMeters(35.1796, 129.0756)).isEqualTo(1000.0); // 부산
+    @DisplayName("수도권·부산은 기본 500m, 그 외 지역은 기본 5km 반경을 쓴다")
+    void usesFiveHundredMetersInDenseAreasAndFiveKmElsewhere() {
+        assertThat(RecommendationService.searchRadiusMeters(37.5665, 126.9780)).isEqualTo(500.0); // 서울
+        assertThat(RecommendationService.searchRadiusMeters(37.4563, 126.7052)).isEqualTo(500.0); // 인천
+        assertThat(RecommendationService.searchRadiusMeters(37.2636, 127.0286)).isEqualTo(500.0); // 수원
+        assertThat(RecommendationService.searchRadiusMeters(35.1796, 129.0756)).isEqualTo(500.0); // 부산
         assertThat(RecommendationService.searchRadiusMeters(36.3504, 127.3845)).isEqualTo(5000.0); // 대전
         assertThat(RecommendationService.searchRadiusMeters(35.8714, 128.6014)).isEqualTo(5000.0); // 대구
         assertThat(RecommendationService.searchRadiusMeters(37.8813, 127.7298)).isEqualTo(5000.0); // 춘천
@@ -742,11 +742,11 @@ class RecommendationServiceTest {
     void returnsDefaultRadiusAndOptionsWhenRadiusOmitted() {
         stubPersistence();
         stubEmptyGoogleSearch();
-        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of());
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 500.0)).thenReturn(List.of());
 
         RecommendationResponse response = recommendationService.recommend(request(CompanionType.DATE), 1L);
 
-        assertThat(response.radiusMeters()).isEqualTo(1000);
+        assertThat(response.radiusMeters()).isEqualTo(500);
         assertThat(response.radiusOptions()).containsExactly(500, 1000, 2000);
     }
 
@@ -792,7 +792,7 @@ class RecommendationServiceTest {
 
         RecommendationResponse response = recommendationService.getSession(10L, 1L);
 
-        assertThat(response.radiusMeters()).isEqualTo(1000);
+        assertThat(response.radiusMeters()).isEqualTo(500);
         assertThat(response.radiusOptions()).containsExactly(500, 1000, 2000);
     }
 }
