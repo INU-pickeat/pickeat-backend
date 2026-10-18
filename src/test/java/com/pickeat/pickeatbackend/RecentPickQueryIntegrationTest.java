@@ -2,6 +2,8 @@ package com.pickeat.pickeatbackend;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.pickeat.pickeatbackend.domain.pick.entity.Pick;
+import com.pickeat.pickeatbackend.domain.pick.entity.PickStatus;
 import com.pickeat.pickeatbackend.domain.pick.repository.PickRepository;
 import com.pickeat.pickeatbackend.domain.pick.repository.RestaurantPickSummary;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
@@ -81,6 +83,36 @@ class RecentPickQueryIntegrationTest {
                 """, Long.class, other, otherMemberId)).isEqualTo(2L);
     }
 
+    @Test
+    @DisplayName("후기 작성 유도 배너는 7일 안의 SELECTED·미닫힘 Pick 중 가장 최근 1건이고, 최신이 기록됐으면 그 이전 Pick이다")
+    void findsLatestPromptablePick() {
+        Long memberId = insertMember();
+        Long otherMemberId = insertMember();
+        Long restaurant = insertRestaurant("배너 식당", "KOREAN", null, null);
+        insertPick(memberId, restaurant, "REVIEWED", "10 minutes");
+        Long dismissed = insertPick(memberId, restaurant, "SELECTED", "20 minutes");
+        insertPick(memberId, restaurant, "CANCELED", "30 minutes");
+        Long expected = insertPick(memberId, restaurant, "SELECTED", "2 days");
+        insertPick(memberId, restaurant, "SELECTED", "3 days");
+        insertPick(memberId, restaurant, "SELECTED", "8 days");
+        insertPick(otherMemberId, restaurant, "SELECTED", "1 minute");
+        jdbcTemplate.update("UPDATE picks SET review_prompt_dismissed_at = CURRENT_TIMESTAMP WHERE id = ?", dismissed);
+
+        Instant since = Instant.now().minus(Duration.ofDays(7));
+        assertThat(pickRepository
+                .findFirstByMemberIdAndStatusAndReviewPromptDismissedAtIsNullAndSelectedAtGreaterThanEqualOrderBySelectedAtDescIdDesc(
+                        memberId, PickStatus.SELECTED, since))
+                .map(Pick::getId)
+                .contains(expected);
+
+        Long onlyOld = insertMember();
+        insertPick(onlyOld, restaurant, "SELECTED", "8 days");
+        assertThat(pickRepository
+                .findFirstByMemberIdAndStatusAndReviewPromptDismissedAtIsNullAndSelectedAtGreaterThanEqualOrderBySelectedAtDescIdDesc(
+                        onlyOld, PickStatus.SELECTED, since))
+                .isEmpty();
+    }
+
     private Long insertMember() {
         return jdbcTemplate.queryForObject("""
                 INSERT INTO members (email, password, nickname, login_provider, created_at, updated_at)
@@ -99,16 +131,17 @@ class RecentPickQueryIntegrationTest {
     }
 
     // 추천 세션 하나에는 Pick을 하나만 만들 수 있어서 Pick마다 세션을 새로 만든다.
-    private void insertPick(Long memberId, Long restaurantId, String status, String age) {
+    private Long insertPick(Long memberId, Long restaurantId, String status, String age) {
         Long sessionId = jdbcTemplate.queryForObject("""
                 INSERT INTO recommendation_sessions (member_id, companion_type, latitude, longitude)
                 VALUES (?, 'DATE', 37.58, 127.0)
                 RETURNING id
                 """, Long.class, memberId);
-        jdbcTemplate.update("""
+        return jdbcTemplate.queryForObject("""
                 INSERT INTO picks (member_id, restaurant_id, recommendation_session_id, companion_type, status,
                                    selected_at)
                 VALUES (?, ?, ?, 'DATE', ?, CURRENT_TIMESTAMP - CAST(? AS INTERVAL))
-                """, memberId, restaurantId, sessionId, status, age);
+                RETURNING id
+                """, Long.class, memberId, restaurantId, sessionId, status, age);
     }
 }

@@ -7,6 +7,7 @@ import com.pickeat.pickeatbackend.domain.pick.dto.PickPeriod;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickStatusUpdateRequest;
 import com.pickeat.pickeatbackend.domain.pick.dto.RecentPicksResponse;
+import com.pickeat.pickeatbackend.domain.pick.dto.ReviewPromptResponse;
 import com.pickeat.pickeatbackend.domain.pick.service.PickService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +54,20 @@ public class PickController {
             @RequestParam String period
     ) {
         return ResponseEntity.ok(pickService.getMyPicks(memberId, PickPeriod.from(period)));
+    }
+
+    @GetMapping("/me/picks/review-prompt")
+    public ResponseEntity<ReviewPromptResponse> getReviewPrompt(@AuthenticationPrincipal Long memberId) {
+        return ResponseEntity.ok(pickService.getReviewPrompt(memberId));
+    }
+
+    @PostMapping("/me/picks/{pickId}/review-prompt/dismiss")
+    public ResponseEntity<Void> dismissReviewPrompt(
+            @PathVariable Long pickId,
+            @AuthenticationPrincipal Long memberId
+    ) {
+        pickService.dismissReviewPrompt(pickId, memberId);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/me/picks/restaurants/{restaurantId}")

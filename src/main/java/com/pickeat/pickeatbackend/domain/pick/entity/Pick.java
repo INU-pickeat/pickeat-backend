@@ -62,6 +62,9 @@ public class Pick {
 
     private Instant visitedAt;
 
+    // 홈 후기 작성 유도 배너를 닫은 시각. null이면 아직 닫지 않았다.
+    private Instant reviewPromptDismissedAt;
+
     @Column(nullable = false)
     private Instant updatedAt;
 
@@ -94,6 +97,13 @@ public class Pick {
         if (status == PickStatus.REVIEWED) {
             status = PickStatus.SELECTED;
             visitedAt = null;
+        }
+    }
+
+    // 배너를 여러 번 닫아도 처음 닫은 시각을 유지한다.
+    public void dismissReviewPrompt() {
+        if (reviewPromptDismissedAt == null) {
+            reviewPromptDismissedAt = Instant.now();
         }
     }
 

@@ -409,3 +409,10 @@ Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 1
 - 후기 이미지와 같은 버킷·같은 서명 방식(10분 유효, JPEG·PNG·WebP)을 쓰고 경로만 `profiles/{memberId}/`로 나눈다. 별도 저장소를 두지 않은 이유는 버킷·CloudFront·CORS 설정을 한 번으로 끝내기 위해서다. 오류 코드도 후기 이미지와 같다(400 `REVIEW_005`, 503 `REVIEW_006`).
 - 프로필 경로의 이미지는 후기에 붙일 수 없다(후기 첨부는 `reviews/{memberId}/`만 허용).
 - `PATCH /api/v1/me`의 `profileImageUrl`은 기존처럼 http(s) URL이면 받는다. 업로드 URL로 올린 이미지만 받도록 좁히는 것은 프론트 연동이 끝난 뒤 결정한다.
+
+## 홈 후기 작성 유도 배너 (2026-10-21)
+
+- **조회.** `GET /api/v1/me/picks/review-prompt`. 항상 최대 1건. 조건: 상태 `SELECTED`(후기 미작성), `selectedAt >= 현재 - 7일`, 배너 미닫힘. 정렬 `selectedAt DESC, id DESC`의 첫 건을 `{ "pick": { pickId, restaurantId, restaurantName, foodCategory, representativeImageUrl, selectedAt } }`로 준다. 없으면 `{ "pick": null }`. `representativeImageUrl`은 최근 Pick 목록과 같은 규칙(자체 이미지 → 식당 사진 API 주소 → null)이다.
+- **다음 Pick.** 최신 Pick을 기록하거나(`REVIEWED`) 카드를 지우거나(`CANCELED`) 닫으면 대상에서 빠지고, 조건을 만족하는 그다음 최근 Pick이 뜬다.
+- **닫기.** `POST /api/v1/me/picks/{pickId}/review-prompt/dismiss` → 204. `picks.review_prompt_dismissed_at`(V31)에 남겨 기기가 바뀌어도 다시 뜨지 않는다. 여러 번 호출해도 204이고 처음 닫은 시각을 유지한다. 본인 Pick이 아니면 `PICK_001`(404). 닫아도 후기 작성과 최근 Pick 목록에는 영향이 없다.
+- **연필 버튼.** 새 API 없이 `pickId`로 기존 후기 작성 화면(`POST /api/v1/reviews`)으로 보낸다.

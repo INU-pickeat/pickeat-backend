@@ -7,6 +7,7 @@ import com.pickeat.pickeatbackend.domain.pick.dto.PickPeriod;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickStatusUpdateRequest;
 import com.pickeat.pickeatbackend.domain.pick.dto.RecentPicksResponse;
+import com.pickeat.pickeatbackend.domain.pick.dto.ReviewPromptResponse;
 import com.pickeat.pickeatbackend.domain.pick.entity.Pick;
 import com.pickeat.pickeatbackend.domain.pick.entity.PickStatus;
 import com.pickeat.pickeatbackend.domain.pick.exception.PickErrorCode;
@@ -22,6 +23,7 @@ import com.pickeat.pickeatbackend.domain.review.repository.ReviewImageRepository
 import com.pickeat.pickeatbackend.domain.review.repository.ReviewRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import com.pickeat.pickeatbackend.global.exception.GlobalErrorCode;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.time.ZoneId;
@@ -41,6 +43,8 @@ public class PickService {
     static final ZoneId CALENDAR_ZONE = ZoneId.of("Asia/Seoul");
     private static final int MIN_CALENDAR_YEAR = 2000;
     private static final int MAX_CALENDAR_YEAR = 2100;
+    // 후기 작성 유도 배너는 최근 7일 안에 고른 Pick만 띄운다. 오래된 Pick은 기록을 권하기엔 늦다.
+    static final Duration REVIEW_PROMPT_WINDOW = Duration.ofDays(7);
 
     private final PickRepository pickRepository;
     private final RecommendationSessionRepository sessionRepository;
@@ -93,6 +97,26 @@ public class PickService {
     public RecentPicksResponse getMyPicks(Long memberId, PickPeriod period) {
         Instant since = Instant.now().minus(period.window());
         return RecentPicksResponse.from(pickRepository.findRecentPickSummaries(memberId, since));
+    }
+
+    // 홈 상단 "기록하러 가볼까요?" 배너: 후기를 아직 안 쓴(SELECTED) Pick 중 7일 안에 골랐고 배너를 닫지 않은
+    // 가장 최근 1건. 후기를 쓰거나(REVIEWED) 카드를 지우거나(CANCELED) 닫으면 빠지고 그다음 Pick이 뜬다.
+    @Transactional(readOnly = true)
+    public ReviewPromptResponse getReviewPrompt(Long memberId) {
+        Instant since = Instant.now().minus(REVIEW_PROMPT_WINDOW);
+        return pickRepository
+                .findFirstByMemberIdAndStatusAndReviewPromptDismissedAtIsNullAndSelectedAtGreaterThanEqualOrderBySelectedAtDescIdDesc(
+                        memberId, PickStatus.SELECTED, since)
+                .map(ReviewPromptResponse::from)
+                .orElseGet(ReviewPromptResponse::empty);
+    }
+
+    // 배너의 X: 그 Pick은 다시 배너에 띄우지 않는다. 후기 작성과 최근 Pick 목록에는 영향이 없다.
+    @Transactional
+    public void dismissReviewPrompt(Long pickId, Long memberId) {
+        Pick pick = pickRepository.findByIdAndMemberId(pickId, memberId)
+                .orElseThrow(() -> new BusinessException(PickErrorCode.PICK_NOT_FOUND));
+        pick.dismissReviewPrompt();
     }
 
     // 최근 Pick 카드 삭제: 후기가 없는 SELECTED Pick만 CANCELED로 바꾼다. 기간과 관계없이 그 식당의 SELECTED 전부가 대상이다.
