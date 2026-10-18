@@ -72,6 +72,22 @@ class ReviewFeedServiceTest {
     }
 
     @Test
+    @DisplayName("썸네일은 후기 첫 사진이고, 사진 없는 예전 후기는 null이다")
+    void fillsThumbnailUrl() {
+        Review withImages = ReviewFixtures.review(
+                103L, pick, ReviewVisibility.PUBLIC, "사진 있음", List.of("https://img/a.jpg", "https://img/b.jpg"));
+        Review noImage = ReviewFixtures.review(102L, pick, ReviewVisibility.PUBLIC, "사진 없음", List.of());
+        when(reviewRepository.findPublicFeed(any(Pageable.class))).thenReturn(List.of(withImages, noImage));
+        when(reviewLikeRepository.countByReviewIds(List.of(103L, 102L))).thenReturn(List.of());
+        when(reviewLikeRepository.findLikedReviewIds(VIEWER_ID, List.of(103L, 102L))).thenReturn(List.of());
+
+        FeedResponse response = reviewFeedService.getFeed(VIEWER_ID, null, 20);
+
+        assertThat(response.items()).extracting(FeedResponse.Item::thumbnailUrl)
+                .containsExactly("https://img/a.jpg", null);
+    }
+
+    @Test
     @DisplayName("커서가 있으면 그보다 오래된 후기를 읽고, 더 없으면 다음 커서는 null이다")
     void returnsLastPageWithoutNextCursor() {
         Review last = ReviewFixtures.review(101L, pick, ReviewVisibility.PUBLIC, "첫째", List.of());

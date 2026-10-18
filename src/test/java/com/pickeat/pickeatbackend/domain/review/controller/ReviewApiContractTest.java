@@ -300,7 +300,7 @@ class ReviewApiContractTest {
     void getsPublicFeed() throws Exception {
         FeedResponse response = new FeedResponse(List.of(new FeedResponse.Item(
                 REVIEW_ID, 10L, "테스트 식당", "작성자", null, "양고기가 부드러워요", FoodCategory.JAPANESE,
-                CompanionType.FAMILY, List.of(IMAGE_URL), 12, true, CREATED_AT)), 100L);
+                CompanionType.FAMILY, List.of(IMAGE_URL), IMAGE_URL, 12, true, CREATED_AT)), 100L);
         when(reviewFeedService.getFeed(MEMBER_ID, 150L, 10)).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/feed")
@@ -314,6 +314,7 @@ class ReviewApiContractTest {
                 .andExpect(jsonPath("$.items[0].authorNickname").value("작성자"))
                 .andExpect(jsonPath("$.items[0].content").value("양고기가 부드러워요"))
                 .andExpect(jsonPath("$.items[0].imageUrls[0]").value(IMAGE_URL))
+                .andExpect(jsonPath("$.items[0].thumbnailUrl").value(IMAGE_URL))
                 .andExpect(jsonPath("$.items[0].likeCount").value(12))
                 .andExpect(jsonPath("$.items[0].likedByMe").value(true))
                 .andExpect(jsonPath("$.nextCursor").value(100));
