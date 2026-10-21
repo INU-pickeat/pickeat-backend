@@ -102,6 +102,28 @@ class RestaurantServiceTest {
     }
 
     @Test
+    @DisplayName("사용자 후기가 없는 탐색 스팟 식당은 운영자 한줄평을 담는다")
+    void fallsBackToCuratedIntroInRestaurantDetail() {
+        Restaurant restaurant = Restaurant.builder().name("정돈").latitude(37.58).longitude(127.0).build();
+        when(restaurantRepository.findById(1L)).thenReturn(Optional.of(restaurant));
+        when(reviewSummaryService.getOneLineReviews(List.of(1L))).thenReturn(Map.of());
+        when(restaurantRepository.findCuratedOneLineIntro(1L)).thenReturn(Optional.of("바삭촉촉 정통 일식 돈까스"));
+
+        assertThat(restaurantService.getRestaurant(1L).oneLineReview()).isEqualTo("바삭촉촉 정통 일식 돈까스");
+    }
+
+    @Test
+    @DisplayName("사용자 후기가 있으면 운영자 한줄평보다 후기를 먼저 담고 운영자 한줄평은 조회하지 않는다")
+    void prefersUserReviewOverCuratedIntro() {
+        Restaurant restaurant = Restaurant.builder().name("영동설렁탕").latitude(37.58).longitude(127.0).build();
+        when(restaurantRepository.findById(1L)).thenReturn(Optional.of(restaurant));
+        when(reviewSummaryService.getOneLineReviews(List.of(1L))).thenReturn(Map.of(1L, "국물이 진해요"));
+
+        assertThat(restaurantService.getRestaurant(1L).oneLineReview()).isEqualTo("국물이 진해요");
+        org.mockito.Mockito.verify(restaurantRepository, org.mockito.Mockito.never()).findCuratedOneLineIntro(1L);
+    }
+
+    @Test
     @DisplayName("식당 상세는 자체 이미지를 먼저 두고 Google 사진으로 3장까지 채운다")
     void returnsUpToThreeImageUrlsInRestaurantDetail() {
         Restaurant curated = Restaurant.builder()

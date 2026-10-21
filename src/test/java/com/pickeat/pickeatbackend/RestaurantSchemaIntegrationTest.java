@@ -155,6 +155,21 @@ class RestaurantSchemaIntegrationTest {
     }
 
     @Test
+    @DisplayName("탐색 스팟 식당은 운영자 한줄평을 찾고, 탐색 스팟이 아닌 식당은 빈 값이다")
+    void findsCuratedOneLineIntroOnlyForDiscoveryRestaurants() {
+        Long jeongdon = jdbcTemplate.queryForObject(
+                "SELECT id FROM restaurants WHERE google_place_id = 'ChIJ1fcl6CujfDURIfH0uohi-dM'", Long.class);
+        Long plain = jdbcTemplate.queryForObject("""
+                INSERT INTO restaurants (name, food_category, latitude, longitude)
+                VALUES ('탐색 스팟 아닌 식당', 'KOREAN', 37.58, 127.0)
+                RETURNING id
+                """, Long.class);
+
+        assertThat(restaurantRepository.findCuratedOneLineIntro(jeongdon)).contains("바삭촉촉 정통 일식 돈까스");
+        assertThat(restaurantRepository.findCuratedOneLineIntro(plain)).isEmpty();
+    }
+
+    @Test
     @DisplayName("대장장이화덕피자 정보를 최신 확정 내용으로 저장한다")
     void storesCorrectedForgePizzaDetails() {
         assertThat(jdbcTemplate.queryForMap("""
