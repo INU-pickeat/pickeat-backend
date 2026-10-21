@@ -1,5 +1,6 @@
 package com.pickeat.pickeatbackend.domain.review.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -166,6 +167,48 @@ class ReviewApiContractTest {
 
         verify(reviewService, never()).create(any(), any());
         verify(reviewService, never()).createImageUploads(any(), any());
+    }
+
+    @Test
+    @DisplayName("사진이 누락·null·빈 배열이면 공통 검증을 통과해 서비스에서 REVIEW_008로 거부된다")
+    void rejectsReviewWithoutImages() throws Exception {
+        when(reviewService.create(any(CreateReviewRequest.class), eq(MEMBER_ID)))
+                .thenThrow(new BusinessException(ReviewErrorCode.IMAGE_REQUIRED));
+        String base = """
+                "pickId": 30, "content": "맛있어요", "foodCategory": "JAPANESE",
+                "companionType": "FAMILY", "visibility": "PUBLIC"
+                """;
+
+        for (String body : List.of("{" + base + "}", "{" + base + ", \"imageUrls\": null}", "{" + base + ", \"imageUrls\": []}")) {
+            mockMvc.perform(post("/api/v1/reviews")
+                            .header("Authorization", authorizationHeader)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("REVIEW_008"));
+        }
+
+        org.mockito.ArgumentCaptor<CreateReviewRequest> captor = org.mockito.ArgumentCaptor.forClass(CreateReviewRequest.class);
+        verify(reviewService, org.mockito.Mockito.times(3)).create(captor.capture(), eq(MEMBER_ID));
+        assertThat(captor.getAllValues()).allSatisfy(request -> assertThat(request.imageUrls()).isEmpty());
+    }
+
+    @Test
+    @DisplayName("빈 문자열·공백 이미지 URL은 공통 입력 오류다")
+    void rejectsBlankImageUrl() throws Exception {
+        mockMvc.perform(post("/api/v1/reviews")
+                        .header("Authorization", authorizationHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "pickId": 30, "content": "맛있어요", "foodCategory": "JAPANESE",
+                                  "companionType": "FAMILY", "visibility": "PUBLIC", "imageUrls": ["", "   "]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+
+        verify(reviewService, never()).create(any(), any());
     }
 
     @Test

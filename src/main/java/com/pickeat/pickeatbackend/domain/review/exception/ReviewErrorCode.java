@@ -14,7 +14,8 @@ public enum ReviewErrorCode implements BaseErrorCode {
     INVALID_IMAGE_URL("REVIEW_004", "업로드 URL로 직접 올린 이미지만 첨부할 수 있습니다.", HttpStatus.BAD_REQUEST),
     UNSUPPORTED_IMAGE_TYPE("REVIEW_005", "JPEG, PNG, WebP 이미지만 올릴 수 있습니다.", HttpStatus.BAD_REQUEST),
     IMAGE_STORAGE_NOT_CONFIGURED("REVIEW_006", "이미지 저장소가 아직 준비되지 않았습니다.", HttpStatus.SERVICE_UNAVAILABLE),
-    IMAGE_NOT_EDITABLE("REVIEW_007", "이미지는 수정할 수 없습니다.", HttpStatus.BAD_REQUEST);
+    IMAGE_NOT_EDITABLE("REVIEW_007", "이미지는 수정할 수 없습니다.", HttpStatus.BAD_REQUEST),
+    IMAGE_REQUIRED("REVIEW_008", "사진을 1장 이상 첨부해 주세요.", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;

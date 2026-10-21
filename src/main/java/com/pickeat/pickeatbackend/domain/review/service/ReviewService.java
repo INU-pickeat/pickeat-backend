@@ -36,6 +36,11 @@ public class ReviewService {
     // 후기 작성이 Pick을 REVIEWED로 바꾸는 유일한 경로다. 이때 방문 시각이 기록되어 지도·캘린더에 노출된다.
     @Transactional
     public ReviewResponse create(CreateReviewRequest request, Long memberId) {
+        // 사진은 1~5장 필수(2026-10-21). 누락·null·빈 배열 모두 요청 DTO에서 빈 목록이 되어 여기서 REVIEW_008로 거부한다.
+        // 공통 검증(@NotEmpty)으로 두면 INVALID_INPUT이 되어 프론트가 사진 누락을 구분할 수 없다.
+        if (request.imageUrls().isEmpty()) {
+            throw new BusinessException(ReviewErrorCode.IMAGE_REQUIRED);
+        }
         Pick pick = pickRepository.findByIdAndMemberId(request.pickId(), memberId)
                 .orElseThrow(() -> new BusinessException(PickErrorCode.PICK_NOT_FOUND));
         if (reviewRepository.existsByPickId(pick.getId())) {
