@@ -132,6 +132,29 @@ class RestaurantSchemaIntegrationTest {
     }
 
     @Test
+    @DisplayName("탐색 스팟 운영자 한줄평이 확정 목록(discovery-spots.csv)과 같다")
+    void discoverySpotIntrosMatchCuratedCsv() throws Exception {
+        List<String> expected;
+        try (var in = new ClassPathResource("curated/discovery-spots.csv").getInputStream()) {
+            expected = new String(in.readAllBytes(), StandardCharsets.UTF_8).lines()
+                    .skip(1)
+                    .filter(line -> !line.isBlank())
+                    .map(line -> line.split(",", -1))
+                    .map(cols -> cols[0] + "|" + cols[1] + "|" + cols[4].replace("\"", ""))
+                    .toList();
+        }
+
+        List<String> actual = jdbcTemplate.queryForList("""
+                SELECT ds.region_code || '|' || dsr.display_order || '|' || dsr.one_line_intro
+                FROM discovery_spot_restaurants dsr
+                JOIN discovery_spots ds ON ds.id = dsr.discovery_spot_id
+                ORDER BY ds.display_order, dsr.display_order
+                """, String.class);
+
+        assertThat(actual).containsExactlyElementsOf(expected);
+    }
+
+    @Test
     @DisplayName("대장장이화덕피자 정보를 최신 확정 내용으로 저장한다")
     void storesCorrectedForgePizzaDetails() {
         assertThat(jdbcTemplate.queryForMap("""
@@ -141,7 +164,7 @@ class RestaurantSchemaIntegrationTest {
                 WHERE r.google_place_id = 'ChIJ4Q1Ca8WifDURRr2G9wHjgHc'
                 """))
                 .containsEntry("phone_number", "0507-1315-4298")
-                .containsEntry("one_line_intro", "북촌 골목의 감성적인 분위기 속 식사")
+                .containsEntry("one_line_intro", "북촌의 화덕으로 구운 맛있는 피자")
                 .containsEntry("opening_hours_text",
                         "수~금 11:30~21:30 (15:00~17:00 브레이크타임, 20:40 라스트오더), "
                                 + "토~일 11:30~21:30 (15:00~16:30 브레이크타임, 20:40 라스트오더), 월~화 휴무");

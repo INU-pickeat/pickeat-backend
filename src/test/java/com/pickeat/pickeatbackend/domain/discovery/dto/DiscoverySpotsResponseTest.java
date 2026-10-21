@@ -16,26 +16,37 @@ import org.springframework.test.util.ReflectionTestUtils;
 class DiscoverySpotsResponseTest {
 
     @Test
-    @DisplayName("사용자 후기가 없는 식당의 한줄평은 '후기가 없습니다.'로 내려간다")
-    void fallsBackToNoReviewMessage() {
-        DiscoverySpot spot = spotWith(item(1L, "운영자 소개 문구"));
+    @DisplayName("공개 사용자 후기 한줄평이 있으면 운영자 한줄평보다 먼저 내려준다")
+    void prefersUserReviewOneLiner() {
+        DiscoverySpot spot = spotWith(item(1L, "운영자 한줄평"));
 
-        DiscoverySpotsResponse response = DiscoverySpotsResponse.from(List.of(spot), Map.of());
+        DiscoverySpotsResponse response = DiscoverySpotsResponse.from(List.of(spot), Map.of(1L, "양고기가 부드러워요"));
 
-        assertThat(response.spots().get(0).restaurants().get(0).oneLineIntro()).isEqualTo("후기가 없습니다.");
+        assertThat(response.spots().get(0).restaurants().get(0).oneLineIntro()).isEqualTo("양고기가 부드러워요");
     }
 
     @Test
-    @DisplayName("사용자 후기 한줄평이 있으면 운영자 소개 문구 대신 그 값을 내려준다")
-    void usesUserReviewOneLiner() {
-        DiscoverySpot spot = spotWith(item(1L, "운영자 소개 문구"), item(2L, "운영자 소개 문구"));
+    @DisplayName("사용자 후기가 없거나 비어 있으면 운영자 한줄평을 내려준다")
+    void fallsBackToCuratedIntro() {
+        DiscoverySpot spot = spotWith(item(1L, "운영자 한줄평 1"), item(2L, "운영자 한줄평 2"));
 
-        DiscoverySpotsResponse response =
-                DiscoverySpotsResponse.from(List.of(spot), Map.of(1L, "양고기가 부드러워요", 2L, " "));
+        DiscoverySpotsResponse response = DiscoverySpotsResponse.from(List.of(spot), Map.of(2L, " "));
 
         List<DiscoverySpotsResponse.RestaurantItem> restaurants = response.spots().get(0).restaurants();
-        assertThat(restaurants.get(0).oneLineIntro()).isEqualTo("양고기가 부드러워요");
-        assertThat(restaurants.get(1).oneLineIntro()).isEqualTo(DiscoverySpotsResponse.NO_REVIEW_ONE_LINER);
+        assertThat(restaurants.get(0).oneLineIntro()).isEqualTo("운영자 한줄평 1");
+        assertThat(restaurants.get(1).oneLineIntro()).isEqualTo("운영자 한줄평 2");
+    }
+
+    @Test
+    @DisplayName("사용자 후기와 운영자 한줄평이 모두 없으면 '후기가 없습니다.'를 내려준다")
+    void fallsBackToNoReviewMessage() {
+        DiscoverySpot spot = spotWith(item(1L, null), item(2L, " "));
+
+        DiscoverySpotsResponse response = DiscoverySpotsResponse.from(List.of(spot), Map.of());
+
+        assertThat(response.spots().get(0).restaurants())
+                .extracting(DiscoverySpotsResponse.RestaurantItem::oneLineIntro)
+                .containsOnly(DiscoverySpotsResponse.NO_REVIEW_ONE_LINER);
     }
 
     private DiscoverySpot spotWith(DiscoverySpotRestaurant... items) {

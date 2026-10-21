@@ -298,7 +298,7 @@
 - **후기 사진 수정 제한.** 사진은 후기 작성 시에만 최대 5장 등록할 수 있다. 후기 수정은 내용·음식 카테고리·동행 유형·공개 범위만 허용하며, `imageUrls`가 포함된 수정 요청은 400 `REVIEW_007`("이미지는 수정할 수 없습니다.")로 거부한다.
 - **좋아요.** `POST`/`DELETE /api/v1/reviews/{reviewId}/likes`. 공개 후기에만 누를 수 있다. 본인의 비공개 후기는 `REVIEW_003`(409), 남의 비공개 후기는 존재를 알리지 않도록 `REVIEW_001`(404)이다. 여러 번 눌러도 한 번으로 세며, 동시 요청은 DB 유니크 제약과 `ON CONFLICT DO NOTHING`으로 처리한다.
 - **식당별 후기 요약.** `GET /api/v1/restaurants/{restaurantId}/review-summary`. 공개 후기 수와 대표 한줄평을 돌려준다. 인증이 필요 없다. 후기가 없으면 0건·`"후기가 없습니다."`다.
-- **한줄평.** 탐색 스팟의 `oneLineIntro`와 후기 요약의 `oneLineReview`는 같은 규칙을 쓴다. 식당별 가장 최근 공개 후기의 첫 줄이며 50자를 넘으면 잘라 말줄임표를 붙인다. 운영자 소개 문구(`discovery_spot_restaurants.one_line_intro`)는 더 이상 API로 내려가지 않는다. 선정 규칙은 임시이며 구현 현황 21번에서 확정한다.
+- **한줄평.** 탐색 스팟의 `oneLineIntro`와 후기 요약의 `oneLineReview`는 같은 규칙을 쓴다. 식당별 가장 최근 공개 후기의 첫 줄이며 50자를 넘으면 잘라 말줄임표를 붙인다. 선정 규칙은 임시이며 구현 현황 21번에서 확정한다. 탐색 스팟 `oneLineIntro`는 2026-10-21부터 공개 후기가 없으면 운영자 한줄평(`discovery_spot_restaurants.one_line_intro`, V32에서 23곳 갱신)을, 그것도 없으면 `"후기가 없습니다."`를 내려준다.
 - **스키마.** V19에 `reviews`, `review_images`, `review_likes`를 추가했다. 이미지와 좋아요는 후기 삭제 시 함께 지워진다. V27에서 사용하지 않는 `reviews.rating` 컬럼과 제약을 제거했다.
 
 ### 운영 배포 결과 (2026-10-01 ~ 2026-10-04)
