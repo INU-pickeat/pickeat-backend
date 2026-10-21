@@ -15,8 +15,8 @@ public record CreateReviewRequest(
         @NotNull FoodCategory foodCategory,
         @NotNull CompanionType companionType,
         @NotNull ReviewVisibility visibility,
-        // 생략하면 이미지 없는 후기다. 업로드 URL API로 올린 뒤 받은 imageUrl만 넣을 수 있다.
-        // 최대 5장. 배열 순서가 표시 순서이고 0번이 대표 이미지다.
+        // 1~5장 필수. 누락·null·빈 배열은 빈 목록으로 바꿔 ReviewService에서 REVIEW_008로 거부한다.
+        // 업로드 URL API로 올린 뒤 받은 imageUrl만 넣을 수 있다. 배열 순서가 표시 순서이고 0번이 대표 이미지다.
         @Size(max = MAX_IMAGES) List<@NotBlank @Size(max = 500) String> imageUrls
 ) {
     public static final int MAX_IMAGES = 5;

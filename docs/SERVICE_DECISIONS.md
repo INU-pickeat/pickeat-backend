@@ -291,14 +291,14 @@
 ### Review·피드 구현 결과 (2026-10-04)
 
 - **후기.** `POST /api/v1/reviews`, `GET`/`PATCH`/`DELETE /api/v1/reviews/{reviewId}`. 후기는 Pick 하나당 하나이며(`REVIEW_002`), 작성하면 그 Pick이 `REVIEWED`가 된다. 취소한 Pick에는 쓸 수 없다(`PICK_004`). 삭제하면 Pick이 `SELECTED`로 돌아가 지도·캘린더에서 빠지고 다시 후기를 쓸 수 있다.
-- **입력값.** 내용 1~1000자, 음식 카테고리, 동행 유형, 공개 범위(`PUBLIC`/`PRIVATE`), 이미지 URL 최대 5개(`imageUrls` 배열, 순서가 표시 순서. 2026-10-10 1장에서 5장으로 늘렸다). 평점은 받거나 저장하지 않는다. 음식 카테고리와 동행 유형은 추천 세션 값이 아니라 후기 작성 화면에서 사용자가 직접 고른 값이다. 그래서 선택지 조회 API는 따로 만들지 않았다.
+- **입력값.** 내용 1~1000자, 음식 카테고리, 동행 유형, 공개 범위(`PUBLIC`/`PRIVATE`), 이미지 URL 1~5개 필수(`imageUrls` 배열, 순서가 표시 순서. 2026-10-10 1장에서 5장으로 늘렸고, 2026-10-21 최소 1장을 필수로 했다). 누락·`null`·빈 배열은 400 `REVIEW_008`("사진을 1장 이상 첨부해 주세요."), 6장 이상이나 빈 문자열 URL은 공통 입력 오류(`GLOBAL_001`)다. 필수화 이전 후기에는 사진이 없을 수 있다. 평점은 받거나 저장하지 않는다. 음식 카테고리와 동행 유형은 추천 세션 값이 아니라 후기 작성 화면에서 사용자가 직접 고른 값이다. 그래서 선택지 조회 API는 따로 만들지 않았다.
 - **나의 기록.** `GET /api/v1/me/reviews?period=week|month`. Pick 시각(`selected_at`) 기준 최근 7일·30일 후기를 최신 Pick 순으로 반환하며 공개·비공개 후기를 모두 포함한다.
 - **이미지.** `POST /api/v1/reviews/images/upload-urls`에 Content-Type 목록을 보내면 10분짜리 S3 presigned PUT URL과 저장될 `imageUrl`을 돌려준다. JPEG·PNG·WebP만 허용한다(`REVIEW_005`). 후기에는 본인 경로(`reviews/{memberId}/`) 아래의 URL만 붙일 수 있다(`REVIEW_004`). 버킷이 설정되지 않았으면 발급을 `REVIEW_006`(503)으로 거부한다. presigned PUT은 파일 크기를 제한하지 못하고, 후기에서 뺀 이미지의 S3 객체는 지우지 않는다.
-- **공개 피드.** `GET /api/v1/feed?cursor&size`. `PUBLIC` 후기만 최신순으로 내려준다. 커서는 이전 응답의 `nextCursor`(마지막 `reviewId`)이고 `null`이면 마지막 페이지다. 크기는 1~50, 기본 20이다. 인증이 필요하며 항목마다 `likeCount`와 `likedByMe`를 준다.
-- **후기 사진 수정 제한.** 사진은 후기 작성 시에만 최대 5장 등록할 수 있다. 후기 수정은 내용·음식 카테고리·동행 유형·공개 범위만 허용하며, `imageUrls`가 포함된 수정 요청은 400 `REVIEW_007`("이미지는 수정할 수 없습니다.")로 거부한다.
+- **공개 피드.** `GET /api/v1/feed?cursor&size`. `PUBLIC` 후기만 최신순으로 내려준다. 커서는 이전 응답의 `nextCursor`(마지막 `reviewId`)이고 `null`이면 마지막 페이지다. 크기는 1~50, 기본 20이다. 인증이 필요하며 항목마다 `likeCount`와 `likedByMe`를 준다. 항목마다 카드 썸네일 `thumbnailUrl`(후기 첫 사진)도 준다(2026-10-21). 사진 필수화 이전 후기는 사진이 없을 수 있어 `thumbnailUrl`은 nullable이고, 식당 이미지로 대체하지 않는다.
+- **후기 사진 수정 제한.** 사진은 후기 작성 시에만 1~5장 등록할 수 있다. 후기 수정은 내용·음식 카테고리·동행 유형·공개 범위만 허용하며, `imageUrls`가 포함된 수정 요청은 400 `REVIEW_007`("이미지는 수정할 수 없습니다.")로 거부한다.
 - **좋아요.** `POST`/`DELETE /api/v1/reviews/{reviewId}/likes`. 공개 후기에만 누를 수 있다. 본인의 비공개 후기는 `REVIEW_003`(409), 남의 비공개 후기는 존재를 알리지 않도록 `REVIEW_001`(404)이다. 여러 번 눌러도 한 번으로 세며, 동시 요청은 DB 유니크 제약과 `ON CONFLICT DO NOTHING`으로 처리한다.
 - **식당별 후기 요약.** `GET /api/v1/restaurants/{restaurantId}/review-summary`. 공개 후기 수와 대표 한줄평을 돌려준다. 인증이 필요 없다. 후기가 없으면 0건·`"후기가 없습니다."`다.
-- **한줄평.** 탐색 스팟의 `oneLineIntro`와 후기 요약의 `oneLineReview`는 같은 규칙을 쓴다. 식당별 가장 최근 공개 후기의 첫 줄이며 50자를 넘으면 잘라 말줄임표를 붙인다. 운영자 소개 문구(`discovery_spot_restaurants.one_line_intro`)는 더 이상 API로 내려가지 않는다. 선정 규칙은 임시이며 구현 현황 21번에서 확정한다.
+- **한줄평.** 탐색 스팟의 `oneLineIntro`와 후기 요약의 `oneLineReview`는 같은 규칙을 쓴다. 식당별 가장 최근 공개 후기의 첫 줄이며 50자를 넘으면 잘라 말줄임표를 붙인다. 선정 규칙은 임시이며 구현 현황 21번에서 확정한다. 탐색 스팟 `oneLineIntro`는 2026-10-21부터 공개 후기가 없으면 운영자 한줄평(`discovery_spot_restaurants.one_line_intro`, V32에서 23곳 갱신)을, 그것도 없으면 `"후기가 없습니다."`를 내려준다.
 - **스키마.** V19에 `reviews`, `review_images`, `review_likes`를 추가했다. 이미지와 좋아요는 후기 삭제 시 함께 지워진다. V27에서 사용하지 않는 `reviews.rating` 컬럼과 제약을 제거했다.
 
 ### 운영 배포 결과 (2026-10-01 ~ 2026-10-04)
@@ -350,6 +350,7 @@ Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 1
 - Google Places에는 프랜차이즈 여부 필드가 없어서 팀이 정리한 브랜드 목록(`src/main/resources/curated/franchise-brands.txt`)과 식당 이름을 비교한다(`FranchiseBrands.isFranchise()`).
 - 판별 규칙: 공백·기호를 지우고 소문자로 맞춘 뒤, 4글자 이상 브랜드는 식당 이름이 그 브랜드로 시작하면, 3글자 이하 브랜드(본가, 두끼, KFC 등)는 이름의 첫 단어가 브랜드와 같을 때만 프랜차이즈로 본다. 3글자 브랜드는 "투다리라이온점"처럼 띄어쓰기 없이 "…점"으로 끝나는 이름도 프랜차이즈로 본다(2026-10-04 운영 테스트에서 누락 확인, 2026-10-08 반영).
 - 프랜차이즈지만 맛집으로 인식될 수 있는 폴바셋, 고든램지 스트리트 버거, 깐부치킨, 청기와타운, 미카도스시, 상무초밥, 은행골은 제외하지 않는다(목록에 넣지 않았다).
+- 2026-10-21 팀 재전달 목록을 대조했다. 판정 목록은 요청된 프랜차이즈 브랜드를 모두 포함하며, 실제 식당명 매칭을 위한 별칭(Starbucks, McDonald's, 메가커피, 홍콩반점 등)을 추가로 관리한다. 예외 7개는 그대로 유지한다. 요청 목록(214개, 예외 제외)은 `src/test/resources/curated/requested-franchise-brands.txt`에 두고 `FranchiseBrandsTest`가 전부 프랜차이즈로 판정되는지 확인한다.
 - 필터는 Google 보충 판단 전에 적용한다. 프랜차이즈를 뺀 유효 후보가 10개 미만이면 Google Places로 보충한다.
 - 한계: 이름 비교라서 "본가 ○○"처럼 짧은 브랜드와 첫 단어가 같은 개인 식당은 함께 빠지고, 목록에 없는 표기(영문명, 변형 표기)는 걸러지지 않는다. 브랜드를 추가·삭제하려면 목록 파일만 고치면 된다.
 
@@ -409,3 +410,10 @@ Notion 기획서가 큰 폭으로 갱신됐다. 아래는 현재 코드(M1~M3, 1
 - 후기 이미지와 같은 버킷·같은 서명 방식(10분 유효, JPEG·PNG·WebP)을 쓰고 경로만 `profiles/{memberId}/`로 나눈다. 별도 저장소를 두지 않은 이유는 버킷·CloudFront·CORS 설정을 한 번으로 끝내기 위해서다. 오류 코드도 후기 이미지와 같다(400 `REVIEW_005`, 503 `REVIEW_006`).
 - 프로필 경로의 이미지는 후기에 붙일 수 없다(후기 첨부는 `reviews/{memberId}/`만 허용).
 - `PATCH /api/v1/me`의 `profileImageUrl`은 기존처럼 http(s) URL이면 받는다. 업로드 URL로 올린 이미지만 받도록 좁히는 것은 프론트 연동이 끝난 뒤 결정한다.
+
+## 홈 후기 작성 유도 배너 (2026-10-21)
+
+- **조회.** `GET /api/v1/me/picks/review-prompt`. 항상 최대 1건. 조건: 상태 `SELECTED`(후기 미작성), `selectedAt >= 현재 - 7일`, 배너 미닫힘. 정렬 `selectedAt DESC, id DESC`의 첫 건을 `{ "pick": { pickId, restaurantId, restaurantName, foodCategory, representativeImageUrl, selectedAt } }`로 준다. 없으면 `{ "pick": null }`. `representativeImageUrl`은 최근 Pick 목록과 같은 규칙(자체 이미지 → 식당 사진 API 주소 → null)이다.
+- **다음 Pick.** 최신 Pick을 기록하거나(`REVIEWED`) 카드를 지우거나(`CANCELED`) 닫으면 대상에서 빠지고, 조건을 만족하는 그다음 최근 Pick이 뜬다.
+- **닫기.** `POST /api/v1/me/picks/{pickId}/review-prompt/dismiss` → 204. `picks.review_prompt_dismissed_at`(V31)에 남겨 기기가 바뀌어도 다시 뜨지 않는다. 여러 번 호출해도 204이고 처음 닫은 시각을 유지한다. 본인 Pick이 아니면 `PICK_001`(404). 닫아도 후기 작성과 최근 Pick 목록에는 영향이 없다.
+- **연필 버튼.** 새 API 없이 `pickId`로 기존 후기 작성 화면(`POST /api/v1/reviews`)으로 보낸다.

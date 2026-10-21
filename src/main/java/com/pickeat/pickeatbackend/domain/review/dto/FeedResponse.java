@@ -19,6 +19,7 @@ public record FeedResponse(List<Item> items, Long nextCursor) {
             FoodCategory foodCategory,
             CompanionType companionType,
             List<String> imageUrls,
+            String thumbnailUrl,
             long likeCount,
             boolean likedByMe,
             Instant createdAt
@@ -34,10 +35,17 @@ public record FeedResponse(List<Item> items, Long nextCursor) {
                     review.getFoodCategory(),
                     review.getCompanionType(),
                     review.getImageUrls(),
+                    thumbnailUrl(review),
                     likeCount,
                     likedByMe,
                     review.getCreatedAt()
             );
+        }
+
+        // 피드 카드 썸네일: 후기 첫 번째 사진. 사진 필수화(2026-10-21) 이전 후기는 사진이 없을 수 있어 null이다.
+        private static String thumbnailUrl(Review review) {
+            List<String> imageUrls = review.getImageUrls();
+            return imageUrls.isEmpty() ? null : imageUrls.get(0);
         }
     }
 }

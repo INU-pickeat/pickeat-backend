@@ -1,5 +1,6 @@
 package com.pickeat.pickeatbackend.domain.review.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -169,6 +170,48 @@ class ReviewApiContractTest {
     }
 
     @Test
+    @DisplayName("사진이 누락·null·빈 배열이면 공통 검증을 통과해 서비스에서 REVIEW_008로 거부된다")
+    void rejectsReviewWithoutImages() throws Exception {
+        when(reviewService.create(any(CreateReviewRequest.class), eq(MEMBER_ID)))
+                .thenThrow(new BusinessException(ReviewErrorCode.IMAGE_REQUIRED));
+        String base = """
+                "pickId": 30, "content": "맛있어요", "foodCategory": "JAPANESE",
+                "companionType": "FAMILY", "visibility": "PUBLIC"
+                """;
+
+        for (String body : List.of("{" + base + "}", "{" + base + ", \"imageUrls\": null}", "{" + base + ", \"imageUrls\": []}")) {
+            mockMvc.perform(post("/api/v1/reviews")
+                            .header("Authorization", authorizationHeader)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("REVIEW_008"));
+        }
+
+        org.mockito.ArgumentCaptor<CreateReviewRequest> captor = org.mockito.ArgumentCaptor.forClass(CreateReviewRequest.class);
+        verify(reviewService, org.mockito.Mockito.times(3)).create(captor.capture(), eq(MEMBER_ID));
+        assertThat(captor.getAllValues()).allSatisfy(request -> assertThat(request.imageUrls()).isEmpty());
+    }
+
+    @Test
+    @DisplayName("빈 문자열·공백 이미지 URL은 공통 입력 오류다")
+    void rejectsBlankImageUrl() throws Exception {
+        mockMvc.perform(post("/api/v1/reviews")
+                        .header("Authorization", authorizationHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "pickId": 30, "content": "맛있어요", "foodCategory": "JAPANESE",
+                                  "companionType": "FAMILY", "visibility": "PUBLIC", "imageUrls": ["", "   "]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+
+        verify(reviewService, never()).create(any(), any());
+    }
+
+    @Test
     @DisplayName("이미 후기가 있는 Pick이면 REVIEW_002 충돌을 반환한다")
     void returnsConflictForDuplicateReview() throws Exception {
         when(reviewService.create(any(CreateReviewRequest.class), eq(MEMBER_ID)))
@@ -257,7 +300,7 @@ class ReviewApiContractTest {
     void getsPublicFeed() throws Exception {
         FeedResponse response = new FeedResponse(List.of(new FeedResponse.Item(
                 REVIEW_ID, 10L, "테스트 식당", "작성자", null, "양고기가 부드러워요", FoodCategory.JAPANESE,
-                CompanionType.FAMILY, List.of(IMAGE_URL), 12, true, CREATED_AT)), 100L);
+                CompanionType.FAMILY, List.of(IMAGE_URL), IMAGE_URL, 12, true, CREATED_AT)), 100L);
         when(reviewFeedService.getFeed(MEMBER_ID, 150L, 10)).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/feed")
@@ -271,6 +314,7 @@ class ReviewApiContractTest {
                 .andExpect(jsonPath("$.items[0].authorNickname").value("작성자"))
                 .andExpect(jsonPath("$.items[0].content").value("양고기가 부드러워요"))
                 .andExpect(jsonPath("$.items[0].imageUrls[0]").value(IMAGE_URL))
+                .andExpect(jsonPath("$.items[0].thumbnailUrl").value(IMAGE_URL))
                 .andExpect(jsonPath("$.items[0].likeCount").value(12))
                 .andExpect(jsonPath("$.items[0].likedByMe").value(true))
                 .andExpect(jsonPath("$.nextCursor").value(100));

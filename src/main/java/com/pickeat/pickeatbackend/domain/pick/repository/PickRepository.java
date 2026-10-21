@@ -34,6 +34,11 @@ public interface PickRepository extends JpaRepository<Pick, Long> {
     @EntityGraph(attributePaths = "restaurant")
     List<Pick> findByMemberIdAndStatusOrderBySelectedAtDescIdDesc(Long memberId, PickStatus status);
 
+    // 홈 후기 작성 유도 배너: since 이후 고른 해당 상태의 Pick 중 배너를 닫지 않은 가장 최근 1건.
+    @EntityGraph(attributePaths = "restaurant")
+    Optional<Pick> findFirstByMemberIdAndStatusAndReviewPromptDismissedAtIsNullAndSelectedAtGreaterThanEqualOrderBySelectedAtDescIdDesc(
+            Long memberId, PickStatus status, Instant since);
+
     // Pick 캘린더: 선택 시각이 [from, to) 구간에 드는 취소되지 않은 Pick을 선택 순서대로 조회한다.
     @EntityGraph(attributePaths = "restaurant")
     List<Pick> findByMemberIdAndStatusNotAndSelectedAtGreaterThanEqualAndSelectedAtLessThanOrderBySelectedAtAscIdAsc(

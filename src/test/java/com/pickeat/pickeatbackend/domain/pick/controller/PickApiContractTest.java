@@ -18,6 +18,7 @@ import com.pickeat.pickeatbackend.domain.pick.dto.PickPeriod;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickStatusUpdateRequest;
 import com.pickeat.pickeatbackend.domain.pick.dto.RecentPicksResponse;
+import com.pickeat.pickeatbackend.domain.pick.dto.ReviewPromptResponse;
 import com.pickeat.pickeatbackend.domain.pick.entity.PickStatus;
 import com.pickeat.pickeatbackend.domain.pick.repository.RestaurantPickSummary;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
@@ -100,6 +101,57 @@ class PickApiContractTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELED"))
                 .andExpect(jsonPath("$.visitedAt").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("후기 작성 유도 배너 API는 띄울 Pick 정보를, 없으면 null을 반환한다")
+    void getsReviewPrompt() throws Exception {
+        when(pickService.getReviewPrompt(MEMBER_ID)).thenReturn(new ReviewPromptResponse(
+                new ReviewPromptResponse.Item(
+                        30L, 10L, "테스트 식당", FoodCategory.JAPANESE, "/api/v1/restaurants/10/photo", SELECTED_AT)));
+
+        mockMvc.perform(get("/api/v1/me/picks/review-prompt").header("Authorization", authorizationHeader))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pick.pickId").value(30))
+                .andExpect(jsonPath("$.pick.restaurantId").value(10))
+                .andExpect(jsonPath("$.pick.restaurantName").value("테스트 식당"))
+                .andExpect(jsonPath("$.pick.foodCategory").value("JAPANESE"))
+                .andExpect(jsonPath("$.pick.representativeImageUrl").value("/api/v1/restaurants/10/photo"))
+                .andExpect(jsonPath("$.pick.selectedAt").value("2026-09-21T10:00:00Z"));
+
+        when(pickService.getReviewPrompt(MEMBER_ID)).thenReturn(ReviewPromptResponse.empty());
+
+        mockMvc.perform(get("/api/v1/me/picks/review-prompt").header("Authorization", authorizationHeader))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pick").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    @DisplayName("후기 작성 유도 배너 닫기 API는 204를 반환한다")
+    void dismissesReviewPrompt() throws Exception {
+        mockMvc.perform(post("/api/v1/me/picks/30/review-prompt/dismiss").header("Authorization", authorizationHeader))
+                .andExpect(status().isNoContent());
+
+        verify(pickService).dismissReviewPrompt(30L, MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("본인 Pick이 아니면 배너 닫기는 PICK_001(404)이다")
+    void rejectsDismissingOthersPick() throws Exception {
+        org.mockito.Mockito.doThrow(new com.pickeat.pickeatbackend.global.exception.BusinessException(
+                        com.pickeat.pickeatbackend.domain.pick.exception.PickErrorCode.PICK_NOT_FOUND))
+                .when(pickService).dismissReviewPrompt(30L, MEMBER_ID);
+
+        mockMvc.perform(post("/api/v1/me/picks/30/review-prompt/dismiss").header("Authorization", authorizationHeader))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PICK_001"));
+    }
+
+    @Test
+    @DisplayName("배너 API는 인증이 필요하다")
+    void reviewPromptRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/me/picks/review-prompt"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

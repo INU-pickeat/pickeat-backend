@@ -10,10 +10,11 @@ import java.util.Map;
 
 public record DiscoverySpotsResponse(List<Spot> spots) {
 
-    // 한줄평은 앱 내 사용자 후기로만 채운다. 후기가 없는 식당은 이 문구를 그대로 내려준다.
+    // 한줄평 우선순위(2026-10-21): 최신 공개 사용자 후기 → 운영자 한줄평(discovery_spot_restaurants.one_line_intro)
+    // → 이 문구. 운영자 한줄평은 NOT NULL이라 실제로는 마지막 단계까지 거의 가지 않는다.
     public static final String NO_REVIEW_ONE_LINER = ReviewOneLiner.NO_REVIEW;
 
-    // oneLineReviews: restaurantId → 사용자 후기에서 뽑은 한줄평. 없는 식당은 NO_REVIEW_ONE_LINER로 채운다.
+    // oneLineReviews: restaurantId → 사용자 후기에서 뽑은 한줄평.
     public static DiscoverySpotsResponse from(List<DiscoverySpot> discoverySpots, Map<Long, String> oneLineReviews) {
         return new DiscoverySpotsResponse(
                 discoverySpots.stream().map(spot -> Spot.from(spot, oneLineReviews)).toList());
@@ -50,18 +51,27 @@ public record DiscoverySpotsResponse(List<Spot> spots) {
     ) {
         private static RestaurantItem from(DiscoverySpotRestaurant item, Map<Long, String> oneLineReviews) {
             Restaurant restaurant = item.getRestaurant();
-            String oneLineReview = oneLineReviews.get(restaurant.getId());
             return new RestaurantItem(
                     restaurant.getId(),
                     restaurant.getName(),
                     restaurant.getFoodCategory(),
-                    oneLineReview == null || oneLineReview.isBlank() ? NO_REVIEW_ONE_LINER : oneLineReview,
+                    oneLineIntro(oneLineReviews.get(restaurant.getId()), item.getOneLineIntro()),
                     restaurant.getAddress(),
                     restaurant.getOpeningHoursText(),
                     restaurant.getPhoneNumber(),
                     restaurant.getRepresentativeImageUrl(),
                     item.getDisplayOrder()
             );
+        }
+
+        private static String oneLineIntro(String userReview, String curatedIntro) {
+            if (userReview != null && !userReview.isBlank()) {
+                return userReview;
+            }
+            if (curatedIntro != null && !curatedIntro.isBlank()) {
+                return curatedIntro;
+            }
+            return NO_REVIEW_ONE_LINER;
         }
     }
 }

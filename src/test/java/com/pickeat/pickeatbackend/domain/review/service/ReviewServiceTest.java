@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.pickeat.pickeatbackend.domain.member.entity.Member;
@@ -97,7 +98,7 @@ class ReviewServiceTest {
     void rejectsReviewForUnknownPick() {
         when(pickRepository.findByIdAndMemberId(30L, MEMBER_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> reviewService.create(createRequest(List.of()), MEMBER_ID))
+        assertThatThrownBy(() -> reviewService.create(createRequest(List.of(OWN_IMAGE)), MEMBER_ID))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(PickErrorCode.PICK_NOT_FOUND.getMessage());
         verify(reviewRepository, never()).saveAndFlush(any());
@@ -109,7 +110,7 @@ class ReviewServiceTest {
         when(pickRepository.findByIdAndMemberId(30L, MEMBER_ID)).thenReturn(Optional.of(pick));
         when(reviewRepository.existsByPickId(30L)).thenReturn(true);
 
-        assertThatThrownBy(() -> reviewService.create(createRequest(List.of()), MEMBER_ID))
+        assertThatThrownBy(() -> reviewService.create(createRequest(List.of(OWN_IMAGE)), MEMBER_ID))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(ReviewErrorCode.REVIEW_ALREADY_EXISTS.getMessage());
         assertThat(pick.getStatus()).isEqualTo(PickStatus.SELECTED);
@@ -121,8 +122,9 @@ class ReviewServiceTest {
         pick.changeStatus(PickStatus.CANCELED);
         when(pickRepository.findByIdAndMemberId(30L, MEMBER_ID)).thenReturn(Optional.of(pick));
         when(reviewRepository.existsByPickId(30L)).thenReturn(false);
+        when(reviewImageStorage.isUploadedBy(MEMBER_ID, OWN_IMAGE)).thenReturn(true);
 
-        assertThatThrownBy(() -> reviewService.create(createRequest(List.of()), MEMBER_ID))
+        assertThatThrownBy(() -> reviewService.create(createRequest(List.of(OWN_IMAGE)), MEMBER_ID))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(PickErrorCode.INVALID_STATUS_TRANSITION.getMessage());
         verify(reviewRepository, never()).saveAndFlush(any());
@@ -249,6 +251,19 @@ class ReviewServiceTest {
         assertThat(response.uploads().get(0).imageUrl()).isEqualTo(OWN_IMAGE);
         assertThat(response.uploads().get(0).contentType()).isEqualTo("image/jpeg");
         assertThat(response.uploads().get(0).expiresAt()).isEqualTo(expiresAt);
+    }
+
+    @Test
+    @DisplayName("사진 없이 후기를 쓰면 REVIEW_008로 거부하고 Pick은 그대로 둔다")
+    void rejectsReviewWithoutImages() {
+        assertThatThrownBy(() -> reviewService.create(createRequest(List.of()), MEMBER_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ReviewErrorCode.IMAGE_REQUIRED.getMessage());
+        assertThatThrownBy(() -> reviewService.create(createRequest(null), MEMBER_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ReviewErrorCode.IMAGE_REQUIRED.getMessage());
+        assertThat(pick.getStatus()).isEqualTo(PickStatus.SELECTED);
+        verifyNoInteractions(pickRepository, reviewRepository);
     }
 
     private CreateReviewRequest createRequest(List<String> imageUrls) {

@@ -14,6 +14,7 @@ import com.pickeat.pickeatbackend.domain.pick.dto.PickPeriod;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickResponse;
 import com.pickeat.pickeatbackend.domain.pick.dto.PickStatusUpdateRequest;
 import com.pickeat.pickeatbackend.domain.pick.dto.RecentPicksResponse;
+import com.pickeat.pickeatbackend.domain.pick.dto.ReviewPromptResponse;
 import com.pickeat.pickeatbackend.domain.pick.entity.Pick;
 import com.pickeat.pickeatbackend.domain.pick.entity.PickStatus;
 import com.pickeat.pickeatbackend.domain.pick.exception.PickErrorCode;
@@ -356,6 +357,75 @@ class PickServiceTest {
         when(pickRepository.cancelSelected(any(), any(), any())).thenReturn(0);
 
         assertThatThrownBy(() -> pickService.deleteRecentPicks(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(PickErrorCode.PICK_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    @DisplayName("후기 작성 유도 배너는 7일 안에 고른 SELECTED·미닫힘 Pick 중 가장 최근 1건을 준다")
+    void returnsLatestReviewPrompt() {
+        Pick pick = selectedPick(Instant.now().minusSeconds(3600));
+        ReflectionTestUtils.setField(restaurant, "googlePlaceId", "place-10");
+        ArgumentCaptor<Instant> since = ArgumentCaptor.forClass(Instant.class);
+        when(pickRepository
+                .findFirstByMemberIdAndStatusAndReviewPromptDismissedAtIsNullAndSelectedAtGreaterThanEqualOrderBySelectedAtDescIdDesc(
+                        org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(PickStatus.SELECTED),
+                        since.capture()))
+                .thenReturn(Optional.of(pick));
+
+        Instant before = Instant.now();
+        ReviewPromptResponse response = pickService.getReviewPrompt(1L);
+
+        assertThat(response.pick().pickId()).isEqualTo(30L);
+        assertThat(response.pick().restaurantId()).isEqualTo(10L);
+        assertThat(response.pick().restaurantName()).isEqualTo("테스트 식당");
+        assertThat(response.pick().representativeImageUrl()).isEqualTo("/api/v1/restaurants/10/photo");
+        assertThat(response.pick().selectedAt()).isEqualTo(pick.getSelectedAt());
+        assertThat(since.getValue()).isBetween(
+                before.minus(PickService.REVIEW_PROMPT_WINDOW).minusSeconds(1),
+                Instant.now().minus(PickService.REVIEW_PROMPT_WINDOW));
+    }
+
+    @Test
+    @DisplayName("띄울 Pick이 없으면 배너 pick은 null이다")
+    void returnsEmptyReviewPrompt() {
+        when(pickRepository
+                .findFirstByMemberIdAndStatusAndReviewPromptDismissedAtIsNullAndSelectedAtGreaterThanEqualOrderBySelectedAtDescIdDesc(
+                        any(), any(), any()))
+                .thenReturn(Optional.empty());
+
+        assertThat(pickService.getReviewPrompt(1L).pick()).isNull();
+    }
+
+    private Pick selectedPick(Instant selectedAt) {
+        Pick pick = Pick.builder().member(member).restaurant(restaurant).recommendationSession(session)
+                .companionType(CompanionType.DATE).build();
+        ReflectionTestUtils.setField(pick, "id", 30L);
+        ReflectionTestUtils.setField(pick, "selectedAt", selectedAt);
+        return pick;
+    }
+
+    @Test
+    @DisplayName("배너를 닫으면 그 Pick에 닫은 시각이 남고, 다시 닫아도 처음 시각을 유지한다")
+    void dismissesReviewPrompt() {
+        Pick pick = Pick.builder().member(member).restaurant(restaurant).recommendationSession(session)
+                .companionType(CompanionType.DATE).build();
+        when(pickRepository.findByIdAndMemberId(30L, 1L)).thenReturn(Optional.of(pick));
+
+        pickService.dismissReviewPrompt(30L, 1L);
+        Instant first = pick.getReviewPromptDismissedAt();
+        pickService.dismissReviewPrompt(30L, 1L);
+
+        assertThat(first).isNotNull();
+        assertThat(pick.getReviewPromptDismissedAt()).isEqualTo(first);
+    }
+
+    @Test
+    @DisplayName("본인 Pick이 아니면 배너를 닫을 수 없다")
+    void rejectsDismissingOthersPick() {
+        when(pickRepository.findByIdAndMemberId(30L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> pickService.dismissReviewPrompt(30L, 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(PickErrorCode.PICK_NOT_FOUND.getMessage());
     }
