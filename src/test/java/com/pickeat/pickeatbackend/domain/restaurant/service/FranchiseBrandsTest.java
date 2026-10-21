@@ -2,8 +2,16 @@ package com.pickeat.pickeatbackend.domain.restaurant.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -60,6 +68,25 @@ class FranchiseBrandsTest {
     @DisplayName("맛집으로 인식되는 예외 브랜드는 프랜차이즈로 보지 않는다")
     void keepsExceptionBrands(String name) {
         assertThat(FranchiseBrands.isFranchise(name)).isFalse();
+    }
+
+    // 2026-10-21 팀 전달 목록. 판정 목록에는 별칭(Starbucks, 메가커피 등)이 더 있으므로 개수가 아니라 판정 결과로 확인한다.
+    @ParameterizedTest
+    @MethodSource("requestedBrands")
+    @DisplayName("팀이 전달한 프랜차이즈 브랜드는 지점명을 붙여도 모두 프랜차이즈로 본다")
+    void detectsEveryRequestedBrand(String brand) {
+        assertThat(FranchiseBrands.isFranchise(brand + " 테스트점")).isTrue();
+    }
+
+    static Stream<String> requestedBrands() throws IOException {
+        try (InputStream input = FranchiseBrandsTest.class.getResourceAsStream("/curated/requested-franchise-brands.txt")) {
+            assertThat(input).isNotNull();
+            List<String> brands = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8)).lines()
+                    .map(String::strip)
+                    .filter(line -> !line.isEmpty() && !line.startsWith("#"))
+                    .toList();
+            return brands.stream();
+        }
     }
 
     @ParameterizedTest
