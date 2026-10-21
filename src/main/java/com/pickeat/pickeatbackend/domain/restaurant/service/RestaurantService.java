@@ -29,9 +29,19 @@ public class RestaurantService {
     public RestaurantResponse getRestaurant(Long restaurantId) {
         Restaurant restaurant = restaurantRepository.findById(restaurantId)
                 .orElseThrow(() -> new BusinessException(RestaurantErrorCode.RESTAURANT_NOT_FOUND));
-        String oneLineReview = reviewSummaryService.getOneLineReviews(List.of(restaurantId))
-                .getOrDefault(restaurantId, ReviewOneLiner.NO_REVIEW);
-        return RestaurantResponse.from(restaurant, oneLineReview);
+        return RestaurantResponse.from(restaurant, oneLineReview(restaurantId));
+    }
+
+    // 상세의 "picker들의 한줄평": 최신 공개 사용자 후기 → 탐색 스팟 운영자 한줄평 → "후기가 없습니다."
+    // 탐색 스팟 API의 oneLineIntro와 같은 우선순위다(2026-10-21).
+    private String oneLineReview(Long restaurantId) {
+        String userReview = reviewSummaryService.getOneLineReviews(List.of(restaurantId)).get(restaurantId);
+        if (userReview != null && !userReview.isBlank()) {
+            return userReview;
+        }
+        return restaurantRepository.findCuratedOneLineIntro(restaurantId)
+                .filter(intro -> !intro.isBlank())
+                .orElse(ReviewOneLiner.NO_REVIEW);
     }
 
     @Transactional(readOnly = true)

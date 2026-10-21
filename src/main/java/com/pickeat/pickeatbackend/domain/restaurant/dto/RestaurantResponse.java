@@ -33,7 +33,7 @@ public record RestaurantResponse(
         List<String> imageUrls
 ) {
 
-    // oneLineReview: 앱 내 사용자 후기에서 뽑은 한줄평. 후기가 없으면 호출한 쪽에서 ReviewOneLiner.NO_REVIEW를 넘긴다.
+    // oneLineReview: 공개 사용자 후기 한줄평 → 탐색 스팟 운영자 한줄평 → ReviewOneLiner.NO_REVIEW 순으로 호출한 쪽이 정해 넘긴다.
     public static RestaurantResponse from(Restaurant restaurant, String oneLineReview) {
         return new RestaurantResponse(
                 restaurant.getId(),
