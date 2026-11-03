@@ -101,6 +101,8 @@ public class RestaurantService {
         restaurant.updateOpeningHours(OpeningHours.toWeekMinutes(place.regularOpeningHours()));
         restaurant.updateContactFromGoogle(
                 place.nationalPhoneNumber(), OpeningHours.toText(place.regularOpeningHours()));
+        restaurant.updateParkingFromGoogle(
+                place.parkingOptions() == null ? null : place.parkingOptions().available());
 
         return restaurantRepository.save(restaurant);
     }

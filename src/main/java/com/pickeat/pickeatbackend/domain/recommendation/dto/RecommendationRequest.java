@@ -19,8 +19,25 @@ public record RecommendationRequest(
         @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") Double latitude,
         @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") Double longitude,
         // 선택. 생략하면 지역 기본 반경(수도권·부산 1km, 그 외 5km). 지역 선택지 밖의 값은 400 RECOMMENDATION_003.
-        Integer radiusMeters
+        Integer radiusMeters,
+        // 선택. true면 주차 불가로 확인된 식당을 빼고 주차 가능 식당을 앞에 둔다. 생략/null은 false.
+        Boolean parkingRequired
 ) {
+
+    public RecommendationRequest(
+            Set<FoodCategory> foodCategories,
+            CompanionType companionType,
+            PriceRange priceRange,
+            Double latitude,
+            Double longitude,
+            Integer radiusMeters
+    ) {
+        this(foodCategories, companionType, priceRange, latitude, longitude, radiusMeters, null);
+    }
+
+    public boolean requiresParking() {
+        return Boolean.TRUE.equals(parkingRequired);
+    }
 
     // 생략/null은 가격 무관으로 처리한다. RecommendationService.matchesPriceRange() 참고.
     public record PriceRange(

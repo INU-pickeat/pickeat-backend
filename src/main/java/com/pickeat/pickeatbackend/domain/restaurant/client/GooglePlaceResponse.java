@@ -1,6 +1,7 @@
 package com.pickeat.pickeatbackend.domain.restaurant.client;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 
 public record GooglePlaceResponse(
@@ -20,8 +21,33 @@ public record GooglePlaceResponse(
     Boolean menuForChildren,
     Boolean allowsDogs,
     OpeningHours regularOpeningHours,
-    String nationalPhoneNumber
+    String nationalPhoneNumber,
+    ParkingOptions parkingOptions
 ) {
+    public GooglePlaceResponse(
+            String id,
+            DisplayName displayName,
+            String formattedAddress,
+            Location location,
+            Double rating,
+            Integer userRatingCount,
+            String googleMapsUri,
+            List<Attribution> attributions,
+            String primaryType,
+            List<String> types,
+            PriceRange priceRange,
+            Boolean goodForChildren,
+            Boolean goodForGroups,
+            Boolean menuForChildren,
+            Boolean allowsDogs,
+            OpeningHours regularOpeningHours,
+            String nationalPhoneNumber
+    ) {
+        this(id, displayName, formattedAddress, location, rating, userRatingCount, googleMapsUri, attributions,
+                primaryType, types, priceRange, goodForChildren, goodForGroups, menuForChildren, allowsDogs,
+                regularOpeningHours, nationalPhoneNumber, null);
+    }
+
     public GooglePlaceResponse(
             String id,
             DisplayName displayName,
@@ -42,7 +68,7 @@ public record GooglePlaceResponse(
     ) {
         this(id, displayName, formattedAddress, location, rating, userRatingCount, googleMapsUri, attributions,
                 primaryType, types, priceRange, goodForChildren, goodForGroups, menuForChildren, allowsDogs,
-                regularOpeningHours, null);
+                regularOpeningHours, null, null);
     }
 
     public GooglePlaceResponse(
@@ -63,7 +89,8 @@ public record GooglePlaceResponse(
             Boolean allowsDogs
     ) {
         this(id, displayName, formattedAddress, location, rating, userRatingCount, googleMapsUri, attributions,
-                primaryType, types, priceRange, goodForChildren, goodForGroups, menuForChildren, allowsDogs, null, null);
+                primaryType, types, priceRange, goodForChildren, goodForGroups, menuForChildren, allowsDogs,
+                null, null, null);
     }
 
     public GooglePlaceResponse(
@@ -78,7 +105,7 @@ public record GooglePlaceResponse(
             String primaryType
     ) {
         this(id, displayName, formattedAddress, location, rating, userRatingCount, googleMapsUri,
-                attributions, primaryType, List.of(), null, null, null, null, null, null, null);
+                attributions, primaryType, List.of(), null, null, null, null, null, null, null, null);
     }
 
     public record DisplayName(String text, String languageCode) {
@@ -102,6 +129,27 @@ public record GooglePlaceResponse(
     }
 
     public record Point(Integer day, Integer hour, Integer minute) {
+    }
+
+    // 값마다 null일 수 있다(Google이 모르는 항목은 내려주지 않는다).
+    public record ParkingOptions(
+            Boolean freeParkingLot,
+            Boolean paidParkingLot,
+            Boolean freeStreetParking,
+            Boolean paidStreetParking,
+            Boolean valetParking,
+            Boolean freeGarageParking,
+            Boolean paidGarageParking
+    ) {
+        // 하나라도 true면 주차 가능, 받은 값이 모두 false면 불가, 받은 값이 없으면 모름(null).
+        public Boolean available() {
+            List<Boolean> values = Arrays.asList(freeParkingLot, paidParkingLot, freeStreetParking,
+                    paidStreetParking, valetParking, freeGarageParking, paidGarageParking);
+            if (values.contains(Boolean.TRUE)) {
+                return true;
+            }
+            return values.contains(Boolean.FALSE) ? false : null;
+        }
     }
 
     public record PriceRange(Money startPrice, Money endPrice) {

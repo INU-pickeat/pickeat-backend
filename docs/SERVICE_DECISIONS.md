@@ -165,6 +165,7 @@
   34. [ ] **사용자 테스트 실행.** 운영 `ADMIN_PASSWORD` 설정 후 테스터 8~15명 과제형(15분)·자유 사용(3~7일)을 진행하고 대시보드 지표와 인터뷰를 정리한다.
   35. [x] **개발 규칙 문서화.** toggle-me의 문서 구조(`AGENTS.md`, `docs/` 주제별 규칙, PR 템플릿)를 가져오고 내용은 pick-eat 코드 기준으로 쓴다. `develop` 없이 `main` 기반, `@Builder` 허용, ErrorCode 번호 형식 유지, 시간은 `Instant`/`TIMESTAMPTZ`(#71). 머지된 원격 브랜치 45개를 정리하고 머지 후 자동 삭제를 켰다(2026-11-03, #72, 코드 관례 보정 #75).
   36. [x] **후기 키워드·1인당 지출(네이버 영수증 리뷰 참고).** 후기에 "이런 점이 좋았어요" 키워드(17개 중 1~5개, 필수)와 1인당 지출 구간(선택)을 추가하고 본문은 선택으로 바꾼다. 식당 후기 요약에 키워드 상위 5개를 집계한다. 키워드로 동행 적합도·가격대를 채우는 일은 2단계로 미룬다(#76).
+  37. [x] **추천 조건 "주차 가능".** Google `parkingOptions`로 식당 `parking_available`(true/false/NULL)을 채우고, 추천 요청 `parkingRequired`가 true면 주차 불가(false)만 빼고 주차 가능(true)을 모르는 곳(NULL)보다 위에 둔다. 2026-11-03 운영 기준 Google 속성 채움률은 반려견 76%·단체 73%·아이 40%(4,549곳)라 정보 없는 곳은 제외하지 않는다(#77).
 
 ### 후기 키워드·1인당 지출 구현 결과 (2026-11-03)
 
@@ -176,6 +177,15 @@
 - 식당 후기 요약에 `topKeywords`(공개 후기 기준 상위 5개, 건수 내림차순·같으면 enum 순서)를 추가했다.
 - 한줄평 1단계(앱 사용자 후기)는 본문이 있는 가장 최근 공개 후기를 쓴다. 본문 없는 후기만 있으면 사용자 후기 한줄평이 없는 것으로 보고 기존 대체 규칙을 그대로 따른다.
 - 미룬 일: 키워드로 `restaurants.suitable_for_*` 채우기, 1인당 지출로 가격대 채우기, 방문 횟수.
+
+### 추천 주차 조건 구현 결과 (2026-11-03)
+
+- Google Nearby Search 필드 마스크(`GooglePlacesClient.FIELD_MASK`)에 `places.parkingOptions`를 더했다. 연락처 백필(`CONTACT_FIELD_MASK`)은 SKU가 바뀌므로 그대로 둔다.
+- `restaurants.parking_available`(V35, NULL 허용): 주차 옵션 7개 중 하나라도 true면 true, 받은 값이 모두 false면 false, `parkingOptions`가 없거나 값이 하나도 없으면 NULL(모름). Google이 값을 주지 않으면 기존 값을 지우지 않고, CURATED 식당은 Google 값으로 덮어쓰지 않는다(연락처와 같은 방식).
+- 추천 요청 `parkingRequired`(선택, null은 false)는 `recommendation_sessions.parking_required`(NOT NULL DEFAULT false)에 저장한다. true면 유효 후보에서 주차 불가(false)만 빼고 NULL은 남긴다. Google 보충 여부도 이 필터 뒤의 후보 수로 판단한다.
+- 순서: true면 주차 가능(true) 그룹을 점수와 관계없이 NULL 그룹 앞에 두고, 그룹 안에서는 점수 내림차순이다. 이 순서로 저장한 1~10위를 그대로 쓰므로 제외 후 대체도 같은 순서를 따른다. 점수 공식은 바꾸지 않았다. false·생략이면 기존 동작과 같다.
+- 응답: 추천 결과 항목(생성·세션 조회·제외 공통)에 `parkingAvailable`, 세션 응답에 `parkingRequired`, 식당 상세에 `parkingAvailable`을 더했다.
+- 기존 식당은 NULL로 시작해 다음 Google 보충(upsert) 때 채워진다. 백필 작업은 범위 밖이다.
 
 ### 관리자 대시보드 구현 결과 (2026-11-03)
 

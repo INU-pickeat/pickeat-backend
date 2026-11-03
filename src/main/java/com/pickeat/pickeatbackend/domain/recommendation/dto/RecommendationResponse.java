@@ -10,18 +10,20 @@ import java.util.Map;
 import java.util.stream.IntStream;
 
 // radiusMeters: 이 추천에 실제로 쓴 검색 반경. radiusOptions: 이 위치에서 고를 수 있는 반경(반경 칩은 이 값으로 그린다).
-public record RecommendationResponse(Long sessionId, int radiusMeters, List<Integer> radiusOptions, List<Item> items) {
+// parkingRequired: 이 세션을 만들 때 주차 가능 조건을 켰는지.
+public record RecommendationResponse(
+        Long sessionId, int radiusMeters, List<Integer> radiusOptions, boolean parkingRequired, List<Item> items) {
 
     // rank는 세션에 저장된 고정 순위가 아니라 현재 노출 목록 안에서의 위치다. 제외 후
     // 대체 후보가 빈 자리를 채우면 원래 저장 순위와 무관하게 그 자리의 순위로 보인다.
     // oneLineReviews: restaurantId → 사용자 후기에서 뽑은 한줄평. 없는 식당은 ReviewOneLiner.NO_REVIEW로 채운다.
     public static RecommendationResponse of(
-            Long sessionId, int radiusMeters, List<Integer> radiusOptions,
+            Long sessionId, int radiusMeters, List<Integer> radiusOptions, boolean parkingRequired,
             List<RecommendationCandidate> candidates, Map<Long, String> oneLineReviews) {
         List<Item> items = IntStream.range(0, candidates.size())
                 .mapToObj(i -> Item.from(candidates.get(i), i + 1, oneLineReviews))
                 .toList();
-        return new RecommendationResponse(sessionId, radiusMeters, List.copyOf(radiusOptions), items);
+        return new RecommendationResponse(sessionId, radiusMeters, List.copyOf(radiusOptions), parkingRequired, items);
     }
 
     public record Item(
@@ -33,7 +35,8 @@ public record RecommendationResponse(Long sessionId, int radiusMeters, List<Inte
             int rank,
             double score,
             String representativeImageUrl,
-            String oneLineReview
+            String oneLineReview,
+            Boolean parkingAvailable
     ) {
         public static Item from(RecommendationCandidate candidate, int rank, Map<Long, String> oneLineReviews) {
             String oneLineReview = oneLineReviews.get(candidate.getRestaurant().getId());
@@ -46,7 +49,8 @@ public record RecommendationResponse(Long sessionId, int radiusMeters, List<Inte
                     rank,
                     candidate.getTotalScore(),
                     RestaurantImageUrl.of(candidate.getRestaurant()),
-                    oneLineReview == null || oneLineReview.isBlank() ? ReviewOneLiner.NO_REVIEW : oneLineReview
+                    oneLineReview == null || oneLineReview.isBlank() ? ReviewOneLiner.NO_REVIEW : oneLineReview,
+                    candidate.getRestaurant().getParkingAvailable()
             );
         }
     }

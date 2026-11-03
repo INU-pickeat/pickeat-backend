@@ -201,6 +201,26 @@ class RecommendationSchemaIntegrationTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    @Test
+    @DisplayName("V35로 식당 주차 가능 여부는 NULL 허용, 세션 주차 조건은 기본값 false로 추가된다")
+    void addsParkingColumnsWithV35() {
+        Long restaurantId = insertRestaurant();
+        Long sessionId = insertSession(insertMember());
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT parking_available FROM restaurants WHERE id = ?", Boolean.class, restaurantId)).isNull();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT parking_required FROM recommendation_sessions WHERE id = ?", Boolean.class, sessionId))
+                .isFalse();
+
+        jdbcTemplate.update("UPDATE restaurants SET parking_available = true WHERE id = ?", restaurantId);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT parking_available FROM restaurants WHERE id = ?", Boolean.class, restaurantId)).isTrue();
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "UPDATE recommendation_sessions SET parking_required = NULL WHERE id = ?", sessionId))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
     private Long insertMember() {
         return jdbcTemplate.queryForObject("""
                 INSERT INTO members (email, password, nickname, login_provider, created_at, updated_at)

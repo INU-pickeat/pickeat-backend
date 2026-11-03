@@ -795,4 +795,88 @@ class RecommendationServiceTest {
         assertThat(response.radiusMeters()).isEqualTo(1000);
         assertThat(response.radiusOptions()).containsExactly(500, 1000, 2000);
     }
+
+    private RecommendationRequest requestWithParking(Boolean parkingRequired) {
+        return new RecommendationRequest(
+                Set.of(FoodCategory.KOREAN), CompanionType.DATE, null, 37.5, 127.0, null, parkingRequired);
+    }
+
+    private RestaurantCandidate parkingCandidate(long id, double rating, Boolean parkingAvailable) {
+        Restaurant restaurant = Restaurant.builder()
+                .name("식당" + id)
+                .foodCategory(FoodCategory.KOREAN)
+                .latitude(37.5)
+                .longitude(127.0)
+                .externalRating(BigDecimal.valueOf(rating))
+                .externalRatingCount(100)
+                .parkingAvailable(parkingAvailable)
+                .build();
+        ReflectionTestUtils.setField(restaurant, "id", id);
+        return new RestaurantCandidate(restaurant, 200);
+    }
+
+    @Test
+    @DisplayName("주차 조건을 켜면 주차 불가 식당은 빼고 주차 가능 식당을 점수와 관계없이 모름 식당보다 앞에 둔다")
+    void excludesNoParkingAndPrioritizesParkingWhenParkingRequired() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(
+                parkingCandidate(1L, 5.0, null),
+                parkingCandidate(2L, 4.8, false),
+                parkingCandidate(3L, 2.0, true),
+                parkingCandidate(4L, 4.0, null),
+                parkingCandidate(5L, 3.0, true)));
+        ArgumentCaptor<RecommendationSession> sessionCaptor = ArgumentCaptor.forClass(RecommendationSession.class);
+
+        RecommendationResponse response = recommendationService.recommend(requestWithParking(true), 1L);
+
+        assertThat(response.items()).extracting(RecommendationResponse.Item::restaurantId)
+                .containsExactly(5L, 3L, 1L, 4L);
+        assertThat(response.items()).extracting(RecommendationResponse.Item::parkingAvailable)
+                .containsExactly(true, true, null, null);
+        assertThat(response.parkingRequired()).isTrue();
+        verify(sessionRepository).save(sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().isParkingRequired()).isTrue();
+    }
+
+    @Test
+    @DisplayName("주차 조건이 false이거나 생략되면 주차 여부와 관계없이 점수 순서 그대로다")
+    void keepsScoreOrderWhenParkingNotRequired() {
+        stubPersistence();
+        stubEmptyGoogleSearch();
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(List.of(
+                parkingCandidate(1L, 5.0, null),
+                parkingCandidate(2L, 4.8, false),
+                parkingCandidate(3L, 2.0, true)));
+
+        RecommendationResponse omitted = recommendationService.recommend(request(CompanionType.DATE), 1L);
+        RecommendationResponse explicitFalse = recommendationService.recommend(requestWithParking(false), 1L);
+
+        assertThat(omitted.items()).extracting(RecommendationResponse.Item::restaurantId)
+                .containsExactly(1L, 2L, 3L);
+        assertThat(explicitFalse.items()).isEqualTo(omitted.items());
+        assertThat(omitted.parkingRequired()).isFalse();
+        assertThat(explicitFalse.parkingRequired()).isFalse();
+    }
+
+    @Test
+    @DisplayName("주차 조건을 켜면 저장하는 상위 10개 후보도 주차 가능 식당이 앞 순위를 받는다")
+    void storesParkingCandidatesFirstForReplacement() {
+        stubPersistence();
+        List<RestaurantCandidate> candidates = new java.util.ArrayList<>(IntStream.rangeClosed(1, 10)
+                .mapToObj(i -> parkingCandidate(i, 5.0, null))
+                .toList());
+        candidates.add(parkingCandidate(11L, 2.0, true));
+        candidates.add(parkingCandidate(12L, 3.0, true));
+        when(restaurantRepository.findWithinRadius(37.5, 127.0, 1000.0)).thenReturn(candidates);
+        ArgumentCaptor<List<RecommendationCandidate>> captor = ArgumentCaptor.forClass(List.class);
+
+        recommendationService.recommend(requestWithParking(true), 1L);
+
+        verify(candidateRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(10);
+        assertThat(captor.getValue().subList(0, 2))
+                .extracting(candidate -> candidate.getRestaurant().getId(), RecommendationCandidate::getResultRank)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(12L, 1), org.assertj.core.groups.Tuple.tuple(11L, 2));
+    }
 }
