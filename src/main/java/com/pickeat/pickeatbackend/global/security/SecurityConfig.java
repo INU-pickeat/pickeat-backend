@@ -60,7 +60,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .userDetailsService(new InMemoryUserDetailsManager(admin))
                 .httpBasic(Customizer.withDefaults())
-                .authorizeHttpRequests(auth -> auth.anyRequest().hasRole("ADMIN"))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET, "/admin.html", "/api/admin/**").hasRole("ADMIN")
+                        .anyRequest().denyAll())
                 .build();
     }
 
