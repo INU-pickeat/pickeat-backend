@@ -39,10 +39,11 @@ jwt:
   access-token-validity-ms: ${JWT_ACCESS_TOKEN_VALIDITY_MS:1800000}
   refresh-token-validity-ms: ${JWT_REFRESH_TOKEN_VALIDITY_MS:1209600000}
 
-# 관리자 대시보드(/admin.html) HTTP Basic 계정. 운영에서는 ADMIN_PASSWORD를 꼭 바꾼다.
+# 관리자 대시보드(/admin.html) HTTP Basic 계정. 비밀번호 기본값은 두지 않는다.
+# ADMIN_PASSWORD가 없으면 기동에 실패해, 알려진 비밀번호로 운영 대시보드가 열리는 일을 막는다.
 admin:
   username: ${ADMIN_USERNAME:admin}
-  password: ${ADMIN_PASSWORD:admin123}
+  password: ${ADMIN_PASSWORD}
 
 cors:
   # 쉼표로 구분한 허용 origin 목록. 패턴(https://*.vercel.app)도 쓸 수 있다.

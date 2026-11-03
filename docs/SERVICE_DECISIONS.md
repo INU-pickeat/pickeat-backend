@@ -175,7 +175,7 @@
 - 프랜차이즈: DB에 여부가 없어 추천과 같은 `FranchiseBrands`로 판정한다. 데이트 세션의 프랜차이즈 노출은 0이어야 정상이고, 목록에 없는 브랜드는 TOP 20을 보고 사람이 찾는다.
 - 기록 사용: 후기 작성률(후기 / 취소 제외 Pick), 좋아요 수, 재방문 회원(기간 안에 2일 이상 추천을 요청한 회원).
 - 테스터만 따로 구분하지 않는다. 테스트 기간으로 조회 기간을 맞춘다. 피드·식당 상세 조회 같은 GET 행동은 기록되지 않는다. 필요해지면 이벤트 수집 API를 추가한다.
-- 인증은 회원 JWT와 별개인 HTTP Basic(`SecurityConfig.adminFilterChain`)이다. 계정은 `ADMIN_USERNAME`/`ADMIN_PASSWORD`(기본 `admin`/`admin123`)이며 운영 설정은 `docs/DEPLOYMENT.md` 참고.
+- 인증은 회원 JWT와 별개인 HTTP Basic(`SecurityConfig.adminFilterChain`)이다. 계정은 `ADMIN_USERNAME`(기본 `admin`)/`ADMIN_PASSWORD`이다. 비밀번호는 기본값이 없어 없거나 비어 있으면 기동에 실패하고, `local` 프로필과 테스트만 `admin123`이다. 운영 설정은 `docs/DEPLOYMENT.md` 참고.
 
 ### 비밀번호 찾기 구현 결과 (2026-10-12)
 
