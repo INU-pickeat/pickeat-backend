@@ -14,16 +14,17 @@ API URL, 인증, 응답, 오류 규칙이다. 개별 API 명세는 Notion BE > A
 - 인증이 필요한 API는 `Authorization: Bearer <access token>` 헤더를 받는다
 - 회원 식별은 access token(JWT)의 subject로만 한다. 요청 본문이나 경로로 회원 ID를 받지 않는다
 - 인증 없이 열 API는 `SecurityConfig`의 `permitAll` 목록에 추가한다
+- 관리자 경로(`/admin.html`, `/api/admin/**`)는 회원 JWT와 별개인 HTTP Basic 체인으로 보호한다
 
 ## 요청·응답
 
 - 요청·응답 본문은 JSON이고 필드는 camelCase다
-- 날짜·시간은 `Instant`로 응답한다(ISO 8601 UTC). "오늘", "이번 달"처럼 날짜 경계가 필요한 계산은 한국 시간(`Asia/Seoul`) 기준이다
+- 회원 API의 특정 시각(timestamp)은 `Instant`로 응답한다(ISO 8601 UTC). 캘린더처럼 날짜만 나타내는 값은 `LocalDate`의 ISO 8601 날짜를 쓰고, 관리자 집계처럼 기준 시간대가 필요한 응답은 오프셋을 포함한 ISO 8601 문자열을 쓸 수 있다. "오늘", "이번 달" 같은 날짜 경계 계산은 한국 시간(`Asia/Seoul`) 기준이다
 - 생성은 201, 본문 없는 성공은 204를 쓴다
 
 ## 오류
 
-모든 오류는 같은 형식으로 응답한다.
+회원 API(`/api/v1`) 오류는 같은 형식으로 응답한다.
 
 ```json
 { "code": "PICK_001", "message": "존재하지 않는 Pick입니다." }
@@ -34,3 +35,4 @@ API URL, 인증, 응답, 오류 규칙이다. 개별 API 명세는 Notion BE > A
 - 새 오류는 그 도메인의 마지막 번호 다음을 쓴다. 이미 쓴 번호의 의미는 바꾸지 않는다(프론트가 `code`로 분기한다)
 - 공통 오류는 `GlobalErrorCode`를 쓴다: 입력 오류·쿼리 파라미터 누락 `GLOBAL_001`, 인증 없음 `GLOBAL_002`, 경로 없음 `GLOBAL_003`, 메서드 불가 `GLOBAL_004`, 예상하지 못한 오류 `GLOBAL_500`
 - `message`는 사용자에게 그대로 보여줄 수 있는 한국어 문장이다
+- 관리자 HTTP Basic 인증 오류는 별도 보안 체인에서 처리하므로 이 오류 본문 형식의 적용 대상이 아니다

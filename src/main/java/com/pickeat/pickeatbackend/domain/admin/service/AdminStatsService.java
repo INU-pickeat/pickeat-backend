@@ -27,9 +27,9 @@ public class AdminStatsService {
     private static final int MAX_DAYS = 90;
     private static final int TOP_RESTAURANTS = 20;
 
-    // 다시 추천을 누르면 세션이 새로 생긴다. Pick 직전 30분 안의 같은 회원 세션은 한 번의 결정으로 보고
-    // 그중 첫 세션부터 Pick까지를 결정 시간으로 잰다.
-    // ponytail: 30분 고정 창이라 30분 넘게 고민하면 마지막 30분만 잡힌다. 오차가 문제 되면 세션 간 간격으로 묶는다.
+    // 다시 추천을 누르면 세션이 새로 생긴다. Pick 직전 30분 안이면서 Pick으로 이어진 세션보다
+    // 늦지 않은 같은 회원의 세션을 한 번의 결정으로 보고, 그중 첫 세션부터 Pick까지를 잰다.
+    // ponytail: 30분 이전 세션은 제외한다. 장기 고민까지 필요하면 세션 간 간격으로 묶는다.
     private static final String MEDIAN_DECISION_SQL = """
             SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM d.selected_at - d.started_at))
             FROM (
@@ -37,7 +37,7 @@ public class AdminStatsService {
                        (SELECT min(s2.created_at)
                         FROM recommendation_sessions s2
                         WHERE s2.member_id = p.member_id
-                          AND s2.created_at BETWEEN s.created_at - interval '30 minutes' AND s.created_at) AS started_at
+                          AND s2.created_at BETWEEN p.selected_at - interval '30 minutes' AND s.created_at) AS started_at
                 FROM picks p
                 JOIN recommendation_sessions s ON s.id = p.recommendation_session_id
                 WHERE p.selected_at >= ?
@@ -133,21 +133,41 @@ public class AdminStatsService {
     }
 
     private List<AdminStats.Daily> daily(LocalDate firstDay, LocalDate today) {
+        OffsetDateTime from = firstDay.atStartOfDay(SEOUL).toOffsetDateTime();
+        OffsetDateTime to = today.plusDays(1).atStartOfDay(SEOUL).toOffsetDateTime();
+        // ponytail: 시간 단독 인덱스는 없다. 데이터가 커지면 EXPLAIN 후 created_at/selected_at 인덱스를 추가한다.
         return jdbcTemplate.query("""
-                SELECT to_char(g.day, 'YYYY-MM-DD'),
-                    (SELECT count(*) FROM recommendation_sessions
-                     WHERE (created_at AT TIME ZONE 'Asia/Seoul')::date = g.day::date),
-                    (SELECT count(DISTINCT member_id) FROM recommendation_sessions
-                     WHERE (created_at AT TIME ZONE 'Asia/Seoul')::date = g.day::date),
-                    (SELECT count(*) FROM picks
-                     WHERE (selected_at AT TIME ZONE 'Asia/Seoul')::date = g.day::date),
-                    (SELECT count(*) FROM reviews
-                     WHERE (created_at AT TIME ZONE 'Asia/Seoul')::date = g.day::date)
-                FROM generate_series(CAST(? AS date), CAST(? AS date), interval '1 day') AS g(day)
-                ORDER BY g.day
+                WITH days AS (
+                    SELECT g.day::date AS day
+                    FROM generate_series(CAST(? AS date), CAST(? AS date), interval '1 day') AS g(day)
+                ), session_daily AS (
+                    SELECT (created_at AT TIME ZONE 'Asia/Seoul')::date AS day,
+                           count(*) AS sessions, count(DISTINCT member_id) AS active_members
+                    FROM recommendation_sessions
+                    WHERE created_at >= ? AND created_at < ?
+                    GROUP BY day
+                ), pick_daily AS (
+                    SELECT (selected_at AT TIME ZONE 'Asia/Seoul')::date AS day, count(*) AS picks
+                    FROM picks
+                    WHERE selected_at >= ? AND selected_at < ?
+                    GROUP BY day
+                ), review_daily AS (
+                    SELECT (created_at AT TIME ZONE 'Asia/Seoul')::date AS day, count(*) AS reviews
+                    FROM reviews
+                    WHERE created_at >= ? AND created_at < ?
+                    GROUP BY day
+                )
+                SELECT to_char(d.day, 'YYYY-MM-DD'),
+                       coalesce(s.sessions, 0), coalesce(s.active_members, 0),
+                       coalesce(p.picks, 0), coalesce(r.reviews, 0)
+                FROM days d
+                LEFT JOIN session_daily s ON s.day = d.day
+                LEFT JOIN pick_daily p ON p.day = d.day
+                LEFT JOIN review_daily r ON r.day = d.day
+                ORDER BY d.day
                 """, (rs, rowNum) -> new AdminStats.Daily(
                 rs.getString(1), rs.getLong(2), rs.getLong(3), rs.getLong(4), rs.getLong(5)
-        ), firstDay, today);
+        ), firstDay, today, from, to, from, to, from, to);
     }
 
     private List<AdminStats.LabelCount> labelCounts(String sql, Object... args) {

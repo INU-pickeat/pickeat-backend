@@ -55,7 +55,4 @@ Controller → Service → Repository
 
 ## 인증
 
-- 회원 API는 `Authorization: Bearer <access token>`(JWT)로 인증한다. access token은 30분, refresh token은 14일이며 DB에는 refresh token 해시만 저장한다
-- 인증된 회원 ID는 컨트롤러에서 `@AuthenticationPrincipal Long memberId`로 받는다
-- 관리자 경로(`/admin.html`, `/api/admin/**`)는 회원 JWT와 별개인 HTTP Basic 체인으로 보호한다
-- 공개 경로는 `SecurityConfig`의 `permitAll` 목록에서만 관리한다
+회원 JWT, 관리자 HTTP Basic, 공개 경로 규칙의 정본은 [api-conventions.md](api-conventions.md#인증)다.
