@@ -11,5 +11,6 @@ PR을 올리기 전에 확인하는 기준이다. 각 항목의 상세 규칙은
 - [ ] 비밀번호, 토큰, 인증번호 원문을 로그·응답에 남기지 않았다
 - [ ] `.env`, API 키, 비밀번호가 커밋에 없다. 새 비밀값은 환경변수로 받고 `docs/DEPLOYMENT.md`에 적었다
 - [ ] API 계약이 바뀌었으면 README "현재 구현 범위"와 Notion API SPECIFICATION을 갱신했다
+- [ ] 기존 요청에 **필수 필드를 추가하지 않았다.** 필요하면 선택 필드로 먼저 배포하고, 프론트가 배포된 뒤 필수로 바꾼다(2026-11-03 후기 작성 장애, `SERVICE_DECISIONS.md` "운영 장애 기록")
 - [ ] `docs/SERVICE_DECISIONS.md` 구현 현황을 갱신했다
 - [ ] DB 마이그레이션·인증·동시성 변경은 작성자가 아닌 에이전트나 사람에게 리뷰를 받았다 ([workflows/orchestration.md](workflows/orchestration.md))
