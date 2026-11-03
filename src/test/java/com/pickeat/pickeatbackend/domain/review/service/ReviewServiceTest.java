@@ -24,8 +24,11 @@ import com.pickeat.pickeatbackend.domain.review.dto.ReviewImageUploadResponse;
 import com.pickeat.pickeatbackend.domain.review.dto.MyReviewsResponse;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewResponse;
 import com.pickeat.pickeatbackend.domain.review.dto.UpdateReviewRequest;
+import com.pickeat.pickeatbackend.domain.review.dto.CodeLabelResponse;
 import com.pickeat.pickeatbackend.domain.review.entity.Review;
+import com.pickeat.pickeatbackend.domain.review.entity.ReviewKeyword;
 import com.pickeat.pickeatbackend.domain.review.entity.ReviewVisibility;
+import com.pickeat.pickeatbackend.domain.review.entity.SpendPerPerson;
 import com.pickeat.pickeatbackend.domain.review.exception.ReviewErrorCode;
 import com.pickeat.pickeatbackend.domain.review.repository.ReviewLikeRepository;
 import com.pickeat.pickeatbackend.domain.review.repository.ReviewRepository;
@@ -35,6 +38,7 @@ import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -191,7 +195,8 @@ class ReviewServiceTest {
         when(reviewRepository.findByIdAndMemberId(100L, MEMBER_ID)).thenReturn(Optional.of(review));
 
         ReviewResponse response = reviewService.update(
-                100L, new UpdateReviewRequest("정말 맛있어요", null, null, ReviewVisibility.PRIVATE, null), MEMBER_ID);
+                100L, new UpdateReviewRequest("정말 맛있어요", null, null, ReviewVisibility.PRIVATE, null, null, null),
+                MEMBER_ID);
 
         assertThat(response.content()).isEqualTo("정말 맛있어요");
         assertThat(response.visibility()).isEqualTo(ReviewVisibility.PRIVATE);
@@ -202,7 +207,7 @@ class ReviewServiceTest {
     @DisplayName("후기 수정 요청으로 사진을 변경할 수 없다")
     void rejectsImagesOnUpdate() {
         assertThatThrownBy(() -> reviewService.update(
-                100L, new UpdateReviewRequest(null, null, null, null, List.of()), MEMBER_ID))
+                100L, new UpdateReviewRequest(null, null, null, null, List.of(), null, null), MEMBER_ID))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("이미지는 수정할 수 없습니다.");
         verify(reviewRepository, never()).findByIdAndMemberId(any(), any());
@@ -214,7 +219,7 @@ class ReviewServiceTest {
         when(reviewRepository.findByIdAndMemberId(100L, 2L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> reviewService.update(
-                100L, new UpdateReviewRequest(null, null, null, null, null), 2L))
+                100L, new UpdateReviewRequest(null, null, null, null, null, null, null), 2L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(ReviewErrorCode.REVIEW_NOT_FOUND.getMessage());
         assertThatThrownBy(() -> reviewService.delete(100L, 2L))
@@ -266,9 +271,66 @@ class ReviewServiceTest {
         verifyNoInteractions(pickRepository, reviewRepository);
     }
 
+    @Test
+    @DisplayName("키워드 없이 후기를 쓰면 REVIEW_009로 거부하고 Pick은 그대로 둔다")
+    void rejectsReviewWithoutKeywords() {
+        assertThatThrownBy(() -> reviewService.create(
+                createRequest("맛있어요", List.of(OWN_IMAGE), Set.of()), MEMBER_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ReviewErrorCode.KEYWORD_REQUIRED.getMessage());
+        assertThatThrownBy(() -> reviewService.create(
+                createRequest("맛있어요", List.of(OWN_IMAGE), null), MEMBER_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ReviewErrorCode.KEYWORD_REQUIRED.getMessage());
+        assertThat(pick.getStatus()).isEqualTo(PickStatus.SELECTED);
+        verifyNoInteractions(pickRepository, reviewRepository);
+    }
+
+    @Test
+    @DisplayName("본문 없이 키워드와 1인당 지출만으로 후기를 쓸 수 있다")
+    void createsReviewWithoutContent() {
+        when(pickRepository.findByIdAndMemberId(30L, MEMBER_ID)).thenReturn(Optional.of(pick));
+        when(reviewRepository.existsByPickId(30L)).thenReturn(false);
+        when(reviewImageStorage.isUploadedBy(MEMBER_ID, OWN_IMAGE)).thenReturn(true);
+        when(reviewRepository.saveAndFlush(any(Review.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        CreateReviewRequest request = new CreateReviewRequest(
+                30L, null, FoodCategory.JAPANESE, CompanionType.FAMILY, ReviewVisibility.PUBLIC, List.of(OWN_IMAGE),
+                Set.of(ReviewKeyword.GOOD_VALUE, ReviewKeyword.TASTY), SpendPerPerson.FROM_10000_TO_20000);
+
+        ReviewResponse response = reviewService.create(request, MEMBER_ID);
+
+        assertThat(response.content()).isNull();
+        assertThat(response.keywords()).containsExactly(
+                new CodeLabelResponse("TASTY", "음식이 맛있어요"), new CodeLabelResponse("GOOD_VALUE", "가성비가 좋아요"));
+        assertThat(response.spendPerPerson()).isEqualTo(new CodeLabelResponse("FROM_10000_TO_20000", "1~2만원"));
+    }
+
+    @Test
+    @DisplayName("수정 시 보낸 키워드로 교체하고, 빈 배열이면 REVIEW_009로 거부한다")
+    void replacesKeywordsOnUpdate() {
+        Review review = ReviewFixtures.review(100L, pick, ReviewVisibility.PUBLIC, "맛있어요", List.of(OWN_IMAGE));
+        when(reviewRepository.findByIdAndMemberId(100L, MEMBER_ID)).thenReturn(Optional.of(review));
+
+        ReviewResponse response = reviewService.update(100L, new UpdateReviewRequest(
+                "", null, null, null, null, Set.of(ReviewKeyword.CLEAN), SpendPerPerson.UNDER_10000), MEMBER_ID);
+
+        assertThat(response.content()).isNull();
+        assertThat(response.keywords()).extracting(CodeLabelResponse::code).containsExactly("CLEAN");
+        assertThat(response.spendPerPerson().code()).isEqualTo("UNDER_10000");
+        assertThatThrownBy(() -> reviewService.update(
+                100L, new UpdateReviewRequest(null, null, null, null, null, Set.of(), null), MEMBER_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(ReviewErrorCode.KEYWORD_REQUIRED.getMessage());
+        assertThat(review.getSortedKeywords()).containsExactly(ReviewKeyword.CLEAN);
+    }
+
     private CreateReviewRequest createRequest(List<String> imageUrls) {
+        return createRequest("양고기가 부드러워요", imageUrls, Set.of(ReviewKeyword.TASTY));
+    }
+
+    private CreateReviewRequest createRequest(String content, List<String> imageUrls, Set<ReviewKeyword> keywords) {
         return new CreateReviewRequest(
-                30L, "양고기가 부드러워요", FoodCategory.JAPANESE, CompanionType.FAMILY,
-                ReviewVisibility.PUBLIC, imageUrls);
+                30L, content, FoodCategory.JAPANESE, CompanionType.FAMILY,
+                ReviewVisibility.PUBLIC, imageUrls, keywords, null);
     }
 }

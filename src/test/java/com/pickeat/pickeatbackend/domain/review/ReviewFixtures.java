@@ -6,6 +6,7 @@ import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
 import com.pickeat.pickeatbackend.domain.review.entity.Review;
+import com.pickeat.pickeatbackend.domain.review.entity.ReviewKeyword;
 import com.pickeat.pickeatbackend.domain.review.entity.ReviewVisibility;
 import java.time.Instant;
 import java.util.List;
@@ -36,6 +37,11 @@ public final class ReviewFixtures {
     }
 
     public static Review review(Long id, Pick pick, ReviewVisibility visibility, String content, List<String> imageUrls) {
+        return review(id, pick, visibility, content, imageUrls, List.of(ReviewKeyword.TASTY));
+    }
+
+    public static Review review(Long id, Pick pick, ReviewVisibility visibility, String content, List<String> imageUrls,
+                                List<ReviewKeyword> keywords) {
         Review review = Review.builder()
                 .pick(pick)
                 .content(content)
@@ -43,6 +49,7 @@ public final class ReviewFixtures {
                 .companionType(CompanionType.SOLO)
                 .visibility(visibility)
                 .imageUrls(imageUrls)
+                .keywords(keywords)
                 .build();
         ReflectionTestUtils.setField(review, "id", id);
         ReflectionTestUtils.setField(review, "createdAt", Instant.parse("2026-10-04T03:00:00Z"));

@@ -41,6 +41,10 @@ public class ReviewService {
         if (request.imageUrls().isEmpty()) {
             throw new BusinessException(ReviewErrorCode.IMAGE_REQUIRED);
         }
+        // 키워드도 같은 이유로 공통 검증 대신 REVIEW_009로 거부한다(2026-11-03).
+        if (request.keywords().isEmpty()) {
+            throw new BusinessException(ReviewErrorCode.KEYWORD_REQUIRED);
+        }
         Pick pick = pickRepository.findByIdAndMemberId(request.pickId(), memberId)
                 .orElseThrow(() -> new BusinessException(PickErrorCode.PICK_NOT_FOUND));
         if (reviewRepository.existsByPickId(pick.getId())) {
@@ -57,6 +61,8 @@ public class ReviewService {
                 .companionType(request.companionType())
                 .visibility(request.visibility())
                 .imageUrls(request.imageUrls())
+                .keywords(request.keywords())
+                .spendPerPerson(request.spendPerPerson())
                 .build();
         try {
             return ReviewResponse.of(reviewRepository.saveAndFlush(review), 0, false);
@@ -87,10 +93,13 @@ public class ReviewService {
         if (request.imageUrls() != null) {
             throw new BusinessException(ReviewErrorCode.IMAGE_NOT_EDITABLE);
         }
+        if (request.keywords() != null && request.keywords().isEmpty()) {
+            throw new BusinessException(ReviewErrorCode.KEYWORD_REQUIRED);
+        }
         Review review = reviewRepository.findByIdAndMemberId(reviewId, memberId)
                 .orElseThrow(() -> new BusinessException(ReviewErrorCode.REVIEW_NOT_FOUND));
         review.update(request.content(), request.foodCategory(), request.companionType(),
-                request.visibility());
+                request.visibility(), request.keywords(), request.spendPerPerson());
         return toResponse(review, memberId);
     }
 

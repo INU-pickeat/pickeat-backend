@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
+import com.pickeat.pickeatbackend.domain.review.dto.CodeLabelResponse;
 import com.pickeat.pickeatbackend.domain.review.dto.CreateReviewRequest;
 import com.pickeat.pickeatbackend.domain.review.dto.FeedResponse;
 import com.pickeat.pickeatbackend.domain.review.dto.MyReviewsResponse;
@@ -24,6 +25,7 @@ import com.pickeat.pickeatbackend.domain.review.dto.ReviewLikeResponse;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewResponse;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewSummaryResponse;
 import com.pickeat.pickeatbackend.domain.review.dto.UpdateReviewRequest;
+import com.pickeat.pickeatbackend.domain.review.entity.ReviewKeyword;
 import com.pickeat.pickeatbackend.domain.review.entity.ReviewVisibility;
 import com.pickeat.pickeatbackend.domain.review.exception.ReviewErrorCode;
 import com.pickeat.pickeatbackend.domain.review.service.ReviewFeedService;
@@ -65,6 +67,10 @@ class ReviewApiContractTest {
     @MockitoBean ReviewFeedService reviewFeedService;
     @MockitoBean ReviewSummaryService reviewSummaryService;
 
+    private static final List<CodeLabelResponse> KEYWORDS = List.of(
+            new CodeLabelResponse("TASTY", "음식이 맛있어요"), new CodeLabelResponse("CLEAN", "매장이 청결해요"));
+    private static final CodeLabelResponse SPEND = new CodeLabelResponse("FROM_10000_TO_20000", "1~2만원");
+
     private String authorizationHeader;
     private ReviewResponse reviewResponse;
 
@@ -73,7 +79,8 @@ class ReviewApiContractTest {
         authorizationHeader = "Bearer " + jwtTokenProvider.createAccessToken(MEMBER_ID);
         reviewResponse = new ReviewResponse(
                 REVIEW_ID, 30L, 10L, "테스트 식당", "양고기가 부드러워요", FoodCategory.JAPANESE,
-                CompanionType.FAMILY, ReviewVisibility.PUBLIC, List.of(IMAGE_URL), 0, false, CREATED_AT, CREATED_AT);
+                CompanionType.FAMILY, ReviewVisibility.PUBLIC, List.of(IMAGE_URL), KEYWORDS, SPEND, 0, false,
+                CREATED_AT, CREATED_AT);
     }
 
     @Test
@@ -106,13 +113,18 @@ class ReviewApiContractTest {
                 .andExpect(jsonPath("$.companionType").value("FAMILY"))
                 .andExpect(jsonPath("$.visibility").value("PUBLIC"))
                 .andExpect(jsonPath("$.imageUrls[0]").value(IMAGE_URL))
+                .andExpect(jsonPath("$.keywords.length()").value(2))
+                .andExpect(jsonPath("$.keywords[0].code").value("TASTY"))
+                .andExpect(jsonPath("$.keywords[0].label").value("음식이 맛있어요"))
+                .andExpect(jsonPath("$.spendPerPerson.code").value("FROM_10000_TO_20000"))
+                .andExpect(jsonPath("$.spendPerPerson.label").value("1~2만원"))
                 .andExpect(jsonPath("$.likeCount").value(0))
                 .andExpect(jsonPath("$.likedByMe").value(false))
                 .andExpect(jsonPath("$.createdAt").value("2026-10-04T03:00:00Z"));
     }
 
     @Test
-    @DisplayName("필수 값이 없는 후기 작성 요청은 공통 입력 오류를 반환한다")
+    @DisplayName("본문이 1000자를 넘거나 필수 값이 없는 후기 작성 요청은 공통 입력 오류를 반환한다")
     void rejectsInvalidCreateRequest() throws Exception {
         mockMvc.perform(post("/api/v1/reviews")
                         .header("Authorization", authorizationHeader)
@@ -120,12 +132,14 @@ class ReviewApiContractTest {
                         .content("""
                                 {
                                   "pickId": 30,
-                                  "content": "   ",
+                                  "content": "%s",
                                   "foodCategory": "JAPANESE",
                                   "companionType": "FAMILY",
-                                  "visibility": "PUBLIC"
+                                  "visibility": "PUBLIC",
+                                  "imageUrls": ["https://img.pickeat.kr/reviews/1/a.jpg"],
+                                  "keywords": ["TASTY"]
                                 }
-                                """))
+                                """.formatted("가".repeat(1001))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("GLOBAL_001"));
 
@@ -188,7 +202,8 @@ class ReviewApiContractTest {
                     .andExpect(jsonPath("$.code").value("REVIEW_008"));
         }
 
-        org.mockito.ArgumentCaptor<CreateReviewRequest> captor = org.mockito.ArgumentCaptor.forClass(CreateReviewRequest.class);
+        org.mockito.ArgumentCaptor<CreateReviewRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(CreateReviewRequest.class);
         verify(reviewService, org.mockito.Mockito.times(3)).create(captor.capture(), eq(MEMBER_ID));
         assertThat(captor.getAllValues()).allSatisfy(request -> assertThat(request.imageUrls()).isEmpty());
     }
@@ -249,16 +264,99 @@ class ReviewApiContractTest {
     }
 
     @Test
-    @DisplayName("공백뿐인 내용으로는 후기를 수정할 수 없다")
-    void rejectsBlankContentOnUpdate() throws Exception {
+    @DisplayName("수정 요청은 빈 문자열 본문(본문 지우기)과 키워드·1인당 지출을 받는다")
+    void acceptsEmptyContentKeywordsAndSpendOnUpdate() throws Exception {
+        when(reviewService.update(eq(REVIEW_ID), any(UpdateReviewRequest.class), eq(MEMBER_ID)))
+                .thenReturn(reviewResponse);
+
         mockMvc.perform(patch("/api/v1/reviews/{reviewId}", REVIEW_ID)
                         .header("Authorization", authorizationHeader)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"content\": \"   \"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+                        .content("""
+                                {"content": "", "keywords": ["CLEAN", "TASTY", "CLEAN"], "spendPerPerson": "OVER_30000"}
+                                """))
+                .andExpect(status().isOk());
 
+        org.mockito.ArgumentCaptor<UpdateReviewRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(UpdateReviewRequest.class);
+        verify(reviewService).update(eq(REVIEW_ID), captor.capture(), eq(MEMBER_ID));
+        assertThat(captor.getValue().content()).isEmpty();
+        assertThat(captor.getValue().keywords()).containsExactlyInAnyOrder(ReviewKeyword.CLEAN, ReviewKeyword.TASTY);
+        assertThat(captor.getValue().spendPerPerson())
+                .isEqualTo(com.pickeat.pickeatbackend.domain.review.entity.SpendPerPerson.OVER_30000);
+    }
+
+    @Test
+    @DisplayName("키워드가 5개를 넘거나 정의되지 않은 값이면 공통 입력 오류다")
+    void rejectsTooManyOrUnknownKeywords() throws Exception {
+        String six = "[\"TASTY\", \"CLEAN\", \"GOOD_VALUE\", \"KIND_SERVICE\", \"QUICK_SERVING\", \"DOG_FRIENDLY\"]";
+        for (String keywords : List.of(six, "[\"SPICY\"]")) {
+            mockMvc.perform(post("/api/v1/reviews")
+                            .header("Authorization", authorizationHeader)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(createRequestWithKeywords(keywords)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+            mockMvc.perform(patch("/api/v1/reviews/{reviewId}", REVIEW_ID)
+                            .header("Authorization", authorizationHeader)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"keywords\": " + keywords + "}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("GLOBAL_001"));
+        }
+
+        verify(reviewService, never()).create(any(), any());
         verify(reviewService, never()).update(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("키워드가 누락·null·빈 배열이면 공통 검증을 통과해 서비스에서 REVIEW_009로 거부된다")
+    void rejectsReviewWithoutKeywords() throws Exception {
+        when(reviewService.create(any(CreateReviewRequest.class), eq(MEMBER_ID)))
+                .thenThrow(new BusinessException(ReviewErrorCode.KEYWORD_REQUIRED));
+
+        for (String keywords : java.util.Arrays.asList(null, "null", "[]")) {
+            mockMvc.perform(post("/api/v1/reviews")
+                            .header("Authorization", authorizationHeader)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(createRequestWithKeywords(keywords)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("REVIEW_009"))
+                    .andExpect(jsonPath("$.message").value("좋았던 점을 1개 이상 골라 주세요."));
+        }
+
+        org.mockito.ArgumentCaptor<CreateReviewRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(CreateReviewRequest.class);
+        verify(reviewService, org.mockito.Mockito.times(3)).create(captor.capture(), eq(MEMBER_ID));
+        assertThat(captor.getAllValues()).allSatisfy(request -> assertThat(request.keywords()).isEmpty());
+    }
+
+    @Test
+    @DisplayName("본문 없이 쓸 수 있고, 중복 키워드는 하나로 합쳐 서비스에 넘긴다")
+    void acceptsReviewWithoutContentAndDeduplicatesKeywords() throws Exception {
+        when(reviewService.create(any(CreateReviewRequest.class), eq(MEMBER_ID))).thenReturn(reviewResponse);
+
+        mockMvc.perform(post("/api/v1/reviews")
+                        .header("Authorization", authorizationHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "pickId": 30, "foodCategory": "JAPANESE", "companionType": "FAMILY",
+                                  "visibility": "PUBLIC", "imageUrls": ["https://img.pickeat.kr/reviews/1/a.jpg"],
+                                  "keywords": ["TASTY", "TASTY", "CLEAN", "CLEAN", "GOOD_VALUE", "KIND_SERVICE"],
+                                  "spendPerPerson": "UNDER_10000"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        org.mockito.ArgumentCaptor<CreateReviewRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(CreateReviewRequest.class);
+        verify(reviewService).create(captor.capture(), eq(MEMBER_ID));
+        assertThat(captor.getValue().content()).isNull();
+        assertThat(captor.getValue().keywords()).containsExactlyInAnyOrder(
+                ReviewKeyword.TASTY, ReviewKeyword.CLEAN, ReviewKeyword.GOOD_VALUE, ReviewKeyword.KIND_SERVICE);
+        assertThat(captor.getValue().spendPerPerson())
+                .isEqualTo(com.pickeat.pickeatbackend.domain.review.entity.SpendPerPerson.UNDER_10000);
     }
 
     @Test
@@ -300,7 +398,7 @@ class ReviewApiContractTest {
     void getsPublicFeed() throws Exception {
         FeedResponse response = new FeedResponse(List.of(new FeedResponse.Item(
                 REVIEW_ID, 10L, "테스트 식당", "작성자", null, "양고기가 부드러워요", FoodCategory.JAPANESE,
-                CompanionType.FAMILY, List.of(IMAGE_URL), IMAGE_URL, 12, true, CREATED_AT)), 100L);
+                CompanionType.FAMILY, List.of(IMAGE_URL), KEYWORDS, null, IMAGE_URL, 12, true, CREATED_AT)), 100L);
         when(reviewFeedService.getFeed(MEMBER_ID, 150L, 10)).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/feed")
@@ -314,6 +412,9 @@ class ReviewApiContractTest {
                 .andExpect(jsonPath("$.items[0].authorNickname").value("작성자"))
                 .andExpect(jsonPath("$.items[0].content").value("양고기가 부드러워요"))
                 .andExpect(jsonPath("$.items[0].imageUrls[0]").value(IMAGE_URL))
+                .andExpect(jsonPath("$.items[0].keywords[1].code").value("CLEAN"))
+                .andExpect(jsonPath("$.items[0].keywords[1].label").value("매장이 청결해요"))
+                .andExpect(jsonPath("$.items[0].spendPerPerson").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.items[0].thumbnailUrl").value(IMAGE_URL))
                 .andExpect(jsonPath("$.items[0].likeCount").value(12))
                 .andExpect(jsonPath("$.items[0].likedByMe").value(true))
@@ -325,8 +426,8 @@ class ReviewApiContractTest {
     void getsMyReviews() throws Exception {
         MyReviewsResponse response = new MyReviewsResponse(List.of(new MyReviewsResponse.Item(
                 REVIEW_ID, 30L, 10L, "테스트 식당", "양고기가 부드러워요", FoodCategory.JAPANESE,
-                CompanionType.FAMILY, ReviewVisibility.PRIVATE, List.of(IMAGE_URL), CREATED_AT, CREATED_AT,
-                CREATED_AT)));
+                CompanionType.FAMILY, ReviewVisibility.PRIVATE, List.of(IMAGE_URL), KEYWORDS, SPEND, CREATED_AT,
+                CREATED_AT, CREATED_AT)));
         when(reviewService.getMine(MEMBER_ID, com.pickeat.pickeatbackend.domain.pick.dto.PickPeriod.WEEK))
                 .thenReturn(response);
 
@@ -337,7 +438,9 @@ class ReviewApiContractTest {
                 .andExpect(jsonPath("$.reviews[0].reviewId").value(REVIEW_ID))
                 .andExpect(jsonPath("$.reviews[0].pickId").value(30))
                 .andExpect(jsonPath("$.reviews[0].visibility").value("PRIVATE"))
-                .andExpect(jsonPath("$.reviews[0].selectedAt").value("2026-10-04T03:00:00Z"));
+                .andExpect(jsonPath("$.reviews[0].selectedAt").value("2026-10-04T03:00:00Z"))
+                .andExpect(jsonPath("$.reviews[0].keywords[0].code").value("TASTY"))
+                .andExpect(jsonPath("$.reviews[0].spendPerPerson.label").value("1~2만원"));
     }
 
     @Test
@@ -385,13 +488,17 @@ class ReviewApiContractTest {
     @DisplayName("식당별 후기 요약 API는 인증 없이 후기 수와 한줄평을 반환한다")
     void getsReviewSummaryWithoutAuthentication() throws Exception {
         when(reviewSummaryService.getSummary(10L))
-                .thenReturn(new ReviewSummaryResponse(10L, 3, "양고기가 부드러워요"));
+                .thenReturn(new ReviewSummaryResponse(10L, 3, "양고기가 부드러워요", List.of(
+                        new ReviewSummaryResponse.KeywordCount("TASTY", "음식이 맛있어요", 3))));
 
         mockMvc.perform(get("/api/v1/restaurants/{restaurantId}/review-summary", 10L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.restaurantId").value(10))
                 .andExpect(jsonPath("$.reviewCount").value(3))
-                .andExpect(jsonPath("$.oneLineReview").value("양고기가 부드러워요"));
+                .andExpect(jsonPath("$.oneLineReview").value("양고기가 부드러워요"))
+                .andExpect(jsonPath("$.topKeywords[0].code").value("TASTY"))
+                .andExpect(jsonPath("$.topKeywords[0].label").value("음식이 맛있어요"))
+                .andExpect(jsonPath("$.topKeywords[0].count").value(3));
     }
 
     private String validCreateRequest() {
@@ -402,8 +509,20 @@ class ReviewApiContractTest {
                   "foodCategory": "JAPANESE",
                   "companionType": "FAMILY",
                   "visibility": "PUBLIC",
-                  "imageUrls": ["https://img.pickeat.kr/reviews/1/a.jpg"]
+                  "imageUrls": ["https://img.pickeat.kr/reviews/1/a.jpg"],
+                  "keywords": ["TASTY", "CLEAN"],
+                  "spendPerPerson": "FROM_10000_TO_20000"
                 }
                 """;
+    }
+
+    // keywords가 null이면 필드를 아예 빼고 보낸다.
+    private String createRequestWithKeywords(String keywords) {
+        return """
+                {
+                  "pickId": 30, "content": "맛있어요", "foodCategory": "JAPANESE", "companionType": "FAMILY",
+                  "visibility": "PUBLIC", "imageUrls": ["https://img.pickeat.kr/reviews/1/a.jpg"]%s
+                }
+                """.formatted(keywords == null ? "" : ", \"keywords\": " + keywords);
     }
 }
