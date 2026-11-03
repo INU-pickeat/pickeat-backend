@@ -51,7 +51,7 @@ public class SecurityConfig {
             @Value("${admin.password}") String password
     ) throws Exception {
         UserDetails admin = User.withUsername(username)
-                .password(passwordEncoder().encode(password))
+                .password(passwordEncoder().encode(requireAdminPassword(password)))
                 .roles("ADMIN")
                 .build();
         return http
@@ -62,6 +62,14 @@ public class SecurityConfig {
                 .httpBasic(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth.anyRequest().hasRole("ADMIN"))
                 .build();
+    }
+
+    // ADMIN_PASSWORD가 아예 없으면 설정 해석 단계에서 실패하지만, "ADMIN_PASSWORD="처럼 빈 값은 통과하므로 여기서 막는다.
+    static String requireAdminPassword(String password) {
+        if (password == null || password.isBlank()) {
+            throw new IllegalStateException("ADMIN_PASSWORD가 비어 있습니다. 관리자 비밀번호를 설정해야 기동합니다.");
+        }
+        return password;
     }
 
     @Bean
