@@ -8,10 +8,10 @@
 | --- | --- |
 | [architecture.md](architecture.md) | 시스템 구성, 패키지 구조, 의존 방향 |
 | [layer-boundaries.md](layer-boundaries.md) | Controller, Service, Repository, Entity, DTO의 책임과 네이밍 |
-| [api-conventions.md](api-conventions.md) | API URL, 인증, 오류 응답, ErrorCode 규칙 |
+| [api-conventions.md](api-conventions.md) | API URL, 인증, 오류 응답, ErrorCode 규칙의 정본 |
 | [persistence.md](persistence.md) | 엔티티, 시간 타입, 트랜잭션, 마이그레이션 규칙 |
 | [testing.md](testing.md) | 테스트 종류와 네이밍, 로컬 DB |
-| [development-cycle.md](development-cycle.md) | 브랜치, 커밋, PR, 병합 절차 |
+| [development-cycle.md](development-cycle.md) | 브랜치, 커밋, PR, 병합 절차의 정본 |
 | [quality-gates.md](quality-gates.md) | PR 전 확인 기준 |
 | [SERVICE_DECISIONS.md](SERVICE_DECISIONS.md) | 제품·기술 결정, 구현 현황 체크리스트, 기능별 구현 결과 |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | EC2 배포, 환경변수, 롤백 |

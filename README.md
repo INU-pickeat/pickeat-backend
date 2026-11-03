@@ -136,7 +136,7 @@ EC2 최초 설정, GitHub Secrets, systemd, 헬스체크와 롤백 절차는 [`d
 
 ## 브랜치 / PR 전략
 
-작업마다 `main`에서 `feat/*`, `fix/*`, `refactor/*`, `docs/*`, `chore/*` 브랜치를 만들고 PR로 병합합니다(`main` 직접 커밋 금지, squash merge, 병합 후 브랜치 자동 삭제). 자세한 규칙은 [docs/development-cycle.md](docs/development-cycle.md)에 있습니다.
+브랜치, 커밋, PR, 병합 규칙의 정본은 [docs/development-cycle.md](docs/development-cycle.md)입니다.
 
 ## 문서
 
