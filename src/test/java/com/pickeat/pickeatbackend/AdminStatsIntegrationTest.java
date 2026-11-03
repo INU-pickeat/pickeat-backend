@@ -3,10 +3,14 @@ package com.pickeat.pickeatbackend;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.pickeat.pickeatbackend.domain.admin.dto.AdminStats;
 import com.pickeat.pickeatbackend.domain.admin.service.AdminStatsService;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 @AutoConfigureMockMvc
 @Transactional
 class AdminStatsIntegrationTest {
+
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     @Autowired
     private MockMvc mockMvc;
@@ -43,6 +49,13 @@ class AdminStatsIntegrationTest {
                 .andExpect(status().isOk());
         mockMvc.perform(get("/admin.html").with(httpBasic("admin", "admin123")))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("관리자 Basic 인증을 해도 GET 이외 요청은 거부한다")
+    void rejectsAuthenticatedAdminPost() throws Exception {
+        mockMvc.perform(post("/api/admin/stats").with(httpBasic("admin", "admin123")))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -85,8 +98,8 @@ class AdminStatsIntegrationTest {
     }
 
     @Test
-    @DisplayName("재요청을 묶어 첫 추천 세션부터 Pick까지를 결정 시간으로 잰다")
-    void measuresDecisionFromFirstRetriedSession() {
+    @DisplayName("Pick 직전 30분 밖의 재요청은 결정 시간에서 제외한다")
+    void excludesRetriedSessionBeforeDecisionWindow() {
         // 중앙값은 차이로 볼 수 없어서 기간 안의 기존 Pick을 지운다(테스트 트랜잭션이라 롤백된다).
         jdbcTemplate.update("""
                 DELETE FROM reviews WHERE pick_id IN (
@@ -95,16 +108,43 @@ class AdminStatsIntegrationTest {
         jdbcTemplate.update("DELETE FROM picks WHERE selected_at >= now() - interval '8 days'");
         Long memberId = insertMember();
         Long restaurant = insertRestaurant("결정 시간 식당");
-        insertSession(memberId, "SOLO", "10 minutes");
-        Long picked = insertSession(memberId, "SOLO", "4 minutes");
+        insertSession(memberId, "SOLO", "45 minutes");
+        Long picked = insertSession(memberId, "SOLO", "20 minutes");
         insertCandidate(picked, restaurant, 1);
         jdbcTemplate.update("""
                 INSERT INTO picks (member_id, restaurant_id, recommendation_session_id, companion_type)
                 VALUES (?, ?, ?, 'SOLO')
                 """, memberId, restaurant, picked);
 
-        // 트랜잭션 안의 now()는 고정이라 Pick 시각 - 첫 세션 시각은 정확히 10분이다.
-        assertThat(adminStatsService.stats(7).summary().medianDecisionSeconds()).isEqualTo(600.0);
+        // 11:55 재요청은 12:40 Pick의 30분 창 밖이고, 12:20 세션부터만 정확히 20분이다.
+        assertThat(adminStatsService.stats(7).summary().medianDecisionSeconds()).isEqualTo(1200.0);
+    }
+
+    @Test
+    @DisplayName("기간 첫날 KST 자정 직전은 제외하고 정각은 일별 집계에 포함한다")
+    void aggregatesFromFirstDayKstMidnight() {
+        LocalDate firstDay = LocalDate.now(SEOUL).minusDays(1);
+        OffsetDateTime boundary = firstDay.atStartOfDay(SEOUL).toOffsetDateTime();
+        AdminStats before = adminStatsService.stats(2);
+
+        Long memberId = insertMember();
+        Long restaurantId = insertRestaurant("자정 경계 식당");
+        Long beforeSession = insertSessionAt(memberId, "SOLO", boundary.minusSeconds(1));
+        Long boundarySession = insertSessionAt(memberId, "SOLO", boundary);
+        Long beforePick = insertReviewedPick(memberId, restaurantId, beforeSession, boundary.minusSeconds(1));
+        Long boundaryPick = insertReviewedPick(memberId, restaurantId, boundarySession, boundary);
+        insertReviewAt(beforePick, memberId, restaurantId, boundary.minusSeconds(1));
+        insertReviewAt(boundaryPick, memberId, restaurantId, boundary);
+
+        AdminStats after = adminStatsService.stats(2);
+        AdminStats.Daily beforeDay = daily(before, firstDay);
+        AdminStats.Daily afterDay = daily(after, firstDay);
+        assertThat(after.summary().sessions() - before.summary().sessions()).isEqualTo(1);
+        assertThat(after.summary().picks() - before.summary().picks()).isEqualTo(1);
+        assertThat(after.summary().reviewedPicks() - before.summary().reviewedPicks()).isEqualTo(1);
+        assertThat(afterDay.sessions() - beforeDay.sessions()).isEqualTo(1);
+        assertThat(afterDay.picks() - beforeDay.picks()).isEqualTo(1);
+        assertThat(afterDay.reviews() - beforeDay.reviews()).isEqualTo(1);
     }
 
     @Test
@@ -119,6 +159,13 @@ class AdminStatsIntegrationTest {
 
     private static long count(List<AdminStats.LabelCount> counts, String label) {
         return counts.stream().filter(c -> c.label().equals(label)).mapToLong(AdminStats.LabelCount::count).sum();
+    }
+
+    private static AdminStats.Daily daily(AdminStats stats, LocalDate date) {
+        return stats.daily().stream()
+                .filter(day -> day.date().equals(date.toString()))
+                .findFirst()
+                .orElseThrow();
     }
 
     private Long insertMember() {
@@ -143,6 +190,33 @@ class AdminStatsIntegrationTest {
                 VALUES (?, ?, 37.58, 127.0, CURRENT_TIMESTAMP - CAST(? AS INTERVAL))
                 RETURNING id
                 """, Long.class, memberId, companionType, age);
+    }
+
+    private Long insertSessionAt(Long memberId, String companionType, OffsetDateTime createdAt) {
+        return jdbcTemplate.queryForObject("""
+                INSERT INTO recommendation_sessions (member_id, companion_type, latitude, longitude, created_at)
+                VALUES (?, ?, 37.58, 127.0, ?)
+                RETURNING id
+                """, Long.class, memberId, companionType, createdAt);
+    }
+
+    private Long insertReviewedPick(
+            Long memberId, Long restaurantId, Long sessionId, OffsetDateTime selectedAt
+    ) {
+        return jdbcTemplate.queryForObject("""
+                INSERT INTO picks (member_id, restaurant_id, recommendation_session_id, companion_type,
+                    status, selected_at, visited_at, updated_at)
+                VALUES (?, ?, ?, 'SOLO', 'REVIEWED', ?, ?, ?)
+                RETURNING id
+                """, Long.class, memberId, restaurantId, sessionId, selectedAt, selectedAt, selectedAt);
+    }
+
+    private void insertReviewAt(Long pickId, Long memberId, Long restaurantId, OffsetDateTime createdAt) {
+        jdbcTemplate.update("""
+                INSERT INTO reviews (pick_id, member_id, restaurant_id, content, food_category,
+                    companion_type, visibility, created_at, updated_at)
+                VALUES (?, ?, ?, '경계 테스트 후기', 'KOREAN', 'SOLO', 'PRIVATE', ?, ?)
+                """, pickId, memberId, restaurantId, createdAt, createdAt);
     }
 
     private void insertCandidate(Long sessionId, Long restaurantId, int rank) {
