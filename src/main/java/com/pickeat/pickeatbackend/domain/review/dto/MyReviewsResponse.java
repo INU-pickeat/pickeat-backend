@@ -23,6 +23,8 @@ public record MyReviewsResponse(List<Item> reviews) {
             CompanionType companionType,
             ReviewVisibility visibility,
             List<String> imageUrls,
+            List<CodeLabelResponse> keywords,
+            CodeLabelResponse spendPerPerson,
             Instant selectedAt,
             Instant createdAt,
             Instant updatedAt
@@ -38,6 +40,8 @@ public record MyReviewsResponse(List<Item> reviews) {
                     review.getCompanionType(),
                     review.getVisibility(),
                     review.getImageUrls(),
+                    CodeLabelResponse.fromKeywords(review.getSortedKeywords()),
+                    CodeLabelResponse.from(review.getSpendPerPerson()),
                     review.getPick().getSelectedAt(),
                     review.getCreatedAt(),
                     review.getUpdatedAt());
