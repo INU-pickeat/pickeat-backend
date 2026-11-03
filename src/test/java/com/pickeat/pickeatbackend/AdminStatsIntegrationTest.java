@@ -70,6 +70,7 @@ class AdminStatsIntegrationTest {
         AdminStats after = adminStatsService.stats(7);
         AdminStats.Summary b = before.summary();
         AdminStats.Summary a = after.summary();
+        assertThat(a.newMembers() - b.newMembers()).isEqualTo(1);
         assertThat(a.sessions() - b.sessions()).isEqualTo(2);
         assertThat(a.pickedSessions() - b.pickedSessions()).isEqualTo(1);
         assertThat(a.activePicks() - b.activePicks()).isEqualTo(1);
@@ -104,6 +105,16 @@ class AdminStatsIntegrationTest {
 
         // 트랜잭션 안의 now()는 고정이라 Pick 시각 - 첫 세션 시각은 정확히 10분이다.
         assertThat(adminStatsService.stats(7).summary().medianDecisionSeconds()).isEqualTo(600.0);
+    }
+
+    @Test
+    @DisplayName("회원 가입·수정 시각은 다른 테이블처럼 시간대가 있는 TIMESTAMPTZ다")
+    void storesMemberTimestampsWithTimeZone() {
+        assertThat(jdbcTemplate.queryForList("""
+                SELECT data_type FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'members'
+                  AND column_name IN ('created_at', 'updated_at')
+                """, String.class)).hasSize(2).containsOnly("timestamp with time zone");
     }
 
     private static long count(List<AdminStats.LabelCount> counts, String label) {
