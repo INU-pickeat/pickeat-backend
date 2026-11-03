@@ -19,7 +19,7 @@ public record UpdateReviewRequest(
         ReviewVisibility visibility,
         // 구버전 클라이언트가 보내도 조용히 무시하지 않고 400 REVIEW_007로 거부한다(ReviewService.update).
         @Schema(hidden = true) Object imageUrls,
-        // 보내면 1~5개로 통째로 교체한다. 빈 배열은 ReviewService에서 REVIEW_009로 거부한다.
+        // 보내면 통째로 교체한다(최대 5개). 빈 배열 허용 여부는 ReviewService.KEYWORDS_REQUIRED(지금은 허용).
         @Size(max = CreateReviewRequest.MAX_KEYWORDS) Set<@NotNull ReviewKeyword> keywords,
         SpendPerPerson spendPerPerson
 ) {

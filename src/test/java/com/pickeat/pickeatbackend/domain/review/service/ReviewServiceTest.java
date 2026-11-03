@@ -272,18 +272,18 @@ class ReviewServiceTest {
     }
 
     @Test
-    @DisplayName("키워드 없이 후기를 쓰면 REVIEW_009로 거부하고 Pick은 그대로 둔다")
-    void rejectsReviewWithoutKeywords() {
-        assertThatThrownBy(() -> reviewService.create(
-                createRequest("맛있어요", List.of(OWN_IMAGE), Set.of()), MEMBER_ID))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage(ReviewErrorCode.KEYWORD_REQUIRED.getMessage());
-        assertThatThrownBy(() -> reviewService.create(
-                createRequest("맛있어요", List.of(OWN_IMAGE), null), MEMBER_ID))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage(ReviewErrorCode.KEYWORD_REQUIRED.getMessage());
-        assertThat(pick.getStatus()).isEqualTo(PickStatus.SELECTED);
-        verifyNoInteractions(pickRepository, reviewRepository);
+    @DisplayName("키워드 필수가 꺼져 있으면 키워드 없이도 후기를 쓸 수 있다")
+    void createsReviewWithoutKeywordsWhileOptional() {
+        assertThat(ReviewService.KEYWORDS_REQUIRED).isFalse();
+        when(pickRepository.findByIdAndMemberId(30L, MEMBER_ID)).thenReturn(Optional.of(pick));
+        when(reviewRepository.existsByPickId(30L)).thenReturn(false);
+        when(reviewImageStorage.isUploadedBy(MEMBER_ID, OWN_IMAGE)).thenReturn(true);
+        when(reviewRepository.saveAndFlush(any(Review.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ReviewResponse response = reviewService.create(createRequest("맛있어요", List.of(OWN_IMAGE), null), MEMBER_ID);
+
+        assertThat(response.keywords()).isEmpty();
+        assertThat(pick.getStatus()).isEqualTo(PickStatus.REVIEWED);
     }
 
     @Test
@@ -306,7 +306,7 @@ class ReviewServiceTest {
     }
 
     @Test
-    @DisplayName("수정 시 보낸 키워드로 교체하고, 빈 배열이면 REVIEW_009로 거부한다")
+    @DisplayName("수정 시 보낸 키워드로 교체하고, 키워드 필수가 꺼져 있으면 빈 배열로 비울 수 있다")
     void replacesKeywordsOnUpdate() {
         Review review = ReviewFixtures.review(100L, pick, ReviewVisibility.PUBLIC, "맛있어요", List.of(OWN_IMAGE));
         when(reviewRepository.findByIdAndMemberId(100L, MEMBER_ID)).thenReturn(Optional.of(review));
@@ -317,11 +317,9 @@ class ReviewServiceTest {
         assertThat(response.content()).isNull();
         assertThat(response.keywords()).extracting(CodeLabelResponse::code).containsExactly("CLEAN");
         assertThat(response.spendPerPerson().code()).isEqualTo("UNDER_10000");
-        assertThatThrownBy(() -> reviewService.update(
-                100L, new UpdateReviewRequest(null, null, null, null, null, Set.of(), null), MEMBER_ID))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage(ReviewErrorCode.KEYWORD_REQUIRED.getMessage());
         assertThat(review.getSortedKeywords()).containsExactly(ReviewKeyword.CLEAN);
+        reviewService.update(100L, new UpdateReviewRequest(null, null, null, null, null, Set.of(), null), MEMBER_ID);
+        assertThat(review.getSortedKeywords()).isEmpty();
     }
 
     private CreateReviewRequest createRequest(List<String> imageUrls) {
