@@ -41,11 +41,12 @@ install -d -m 0750 -o "$DEPLOY_USER" -g "$DEPLOY_GROUP" /opt/pickeat
 install -d -m 0750 -o "$DEPLOY_USER" -g "$DEPLOY_GROUP" /opt/pickeat/releases
 install -d -m 0750 -o root -g "$DEPLOY_GROUP" /etc/pickeat
 
-# 최초 1회: DB 비밀번호와 JWT 비밀값을 무작위로 생성한다.
+# 최초 1회: DB 비밀번호, JWT 비밀값, 관리자 비밀번호를 무작위로 생성한다.
 if [[ ! -f "$ENV_FILE" ]]; then
   sed \
     -e "s/__DB_PASSWORD__/$(openssl rand -hex 24)/" \
     -e "s/__JWT_SECRET__/$(openssl rand -hex 48)/" \
+    -e "s/__ADMIN_PASSWORD__/$(openssl rand -hex 16)/" \
     "$SCRIPT_DIR/pickeat.env.example" > "$ENV_FILE"
   chown root:"$DEPLOY_GROUP" "$ENV_FILE"
   chmod 0640 "$ENV_FILE"

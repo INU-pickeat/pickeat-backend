@@ -44,7 +44,7 @@ sudoedit /etc/pickeat/pickeat.env   # GOOGLE_PLACES_API_KEY, MAIL_PASSWORD 입�
 
 회원가입 인증 메일은 기본 발신 계정 `cki08543@gmail.com`의 SMTP 앱 비밀번호를 `MAIL_PASSWORD`에 넣는다. Gmail 계정의 2단계 인증을 켠 뒤 발급한 앱 비밀번호를 쓴다.
 
-관리자 대시보드(`https://api.pickeat.kr/admin.html`)는 HTTP Basic으로 보호한다. 기본 계정은 `admin`/`admin123`이라 운영에서는 `/etc/pickeat/pickeat.env`에 `ADMIN_PASSWORD`(필요하면 `ADMIN_USERNAME`)를 넣고 재시작해 바꾼다. 집계 내용은 `docs/SERVICE_DECISIONS.md`의 "관리자 대시보드 구현 결과" 참고.
+관리자 대시보드(`https://api.pickeat.kr/admin.html`)는 HTTP Basic으로 보호한다. 계정 이름은 `ADMIN_USERNAME`(기본 `admin`)이고 비밀번호 `ADMIN_PASSWORD`는 기본값이 없어 **비어 있으면 앱이 기동하지 않는다.** 새 인스턴스는 bootstrap이 무작위 값을 만들고, 기존 인스턴스는 `/etc/pickeat/pickeat.env`에 직접 넣은 뒤 재시작한다. 이 설정이 없는 서버에 배포하면 헬스체크 실패로 자동 롤백되므로 **환경변수를 먼저 넣고 배포한다.** 로컬(`local` 프로필)은 `admin123`이다. 집계 내용은 `docs/SERVICE_DECISIONS.md`의 "관리자 대시보드 구현 결과" 참고.
 
 기존 Google 식당의 전화번호·영업시간 백필은 기본으로 꺼져 있다. 켜려면 `/etc/pickeat/pickeat.env`에 `CONTACT_BACKFILL_ENABLED=true`를 넣고 재시작한다. 매월 1일 18시(KST)에 최대 1,000곳(`CONTACT_BACKFILL_MONTHLY_LIMIT`)을 Place Details로 조회하며, 결과는 `연락처 백필 완료` 로그로 남는다. 로그의 대상 수가 0이 되면 다시 끈다. 같은 달에 Place Details Enterprise 사용량이 따로 있으면 무료 한도(월 1,000건)를 넘을 수 있으니 콘솔에서 먼저 확인한다.
 
