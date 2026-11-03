@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pick Eat 관리자</title>
+    <style>
+        :root { --ink: #1d1d1f; --muted: #6e6e73; --line: #e5e5ea; --bg: #f6f6f8; --accent: #e8590c; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; color: var(--ink); background: var(--bg); }
+        main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; }
+        header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        h1 { font-size: 20px; margin: 0; }
+        h2 { font-size: 15px; margin: 0 0 12px; }
+        .muted { color: var(--muted); font-size: 12px; }
+        select, button { font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+        button { cursor: pointer; }
+        .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 20px 0; }
+        .card, .panel { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+        .card .label { color: var(--muted); font-size: 12px; }
+        .card .value { font-size: 26px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+        .card .sub { color: var(--muted); font-size: 12px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+        th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+        th { color: var(--muted); font-weight: 500; font-size: 12px; }
+        td.num, th.num { text-align: right; }
+        .bar { height: 6px; background: var(--accent); border-radius: 3px; min-width: 2px; }
+        .tag { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: #fff0e6; color: var(--accent); }
+        #error { color: #c92a2a; }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <div>
+            <h1>Pick Eat 사용자 테스트 대시보드</h1>
+            <div class="muted" id="generatedAt"></div>
+        </div>
+        <div>
+            <select id="days" aria-label="조회 기간">
+                <option value="1">오늘</option>
+                <option value="7" selected>최근 7일</option>
+                <option value="14">최근 14일</option>
+                <option value="30">최근 30일</option>
+                <option value="90">최근 90일</option>
+            </select>
+            <button id="refresh" type="button">새로고침</button>
+        </div>
+    </header>
+    <p id="error" role="alert"></p>
+
+    <section class="cards" id="cards" aria-label="핵심 지표"></section>
+
+    <section class="grid">
+        <div class="panel"><h2>일별 추이</h2><table id="daily"></table></div>
+        <div class="panel"><h2>Pick한 후보의 순위</h2><p class="muted">6~10위는 제외 후 대체로 올라온 후보</p><table id="ranks"></table></div>
+    </section>
+    <section class="grid">
+        <div class="panel"><h2>제외 사유</h2><table id="exclusions"></table></div>
+        <div class="panel"><h2>동행 유형별 추천 세션</h2><table id="companions"></table></div>
+    </section>
+    <section class="panel">
+        <h2>많이 추천된 식당 TOP 20</h2>
+        <p class="muted">처음 노출된 1~5위 기준. 프랜차이즈 표시는 franchise-brands.txt 판정이며, 목록에 없는 브랜드는 직접 확인해야 합니다.</p>
+        <table id="restaurants"></table>
+    </section>
+</main>
+
+<script>
+    const LABELS = {
+        DISTANCE_TOO_FAR: "거리가 멀어요", PRICE_TOO_HIGH: "가격이 비싸요", MENU_UNSATISFACTORY: "메뉴가 별로예요",
+        ATMOSPHERE_MISMATCH: "분위기가 안 맞아요", WANT_DIFFERENT: "다른 곳을 원해요",
+        DATE: "데이트", FAMILY: "가족", CHILDREN: "아이", SOLO: "혼자", GROUP: "단체", DOG: "반려견"
+    };
+
+    const $ = (selector) => document.querySelector(selector);
+    const pct = (part, whole) => whole ? `${Math.round((part / whole) * 100)}%` : "-";
+    const duration = (seconds) => {
+        if (seconds == null) return "-";
+        const s = Math.round(seconds);
+        return s < 60 ? `${s}초` : `${Math.floor(s / 60)}분 ${s % 60}초`;
+    };
+
+    function el(tag, text, className) {
+        const node = document.createElement(tag);
+        if (text != null) node.textContent = text;
+        if (className) node.className = className;
+        return node;
+    }
+
+    function renderCards(s) {
+        const cards = [
+            ["결정 소요 시간 (중앙값)", duration(s.medianDecisionSeconds), "첫 추천 요청 → Pick (30분 안 재요청 포함)"],
+            ["Pick 전환율", pct(s.pickedSessions, s.sessions), `Pick ${s.pickedSessions} / 추천 세션 ${s.sessions}`],
+            ["후기 작성률", pct(s.reviewedPicks, s.activePicks), `후기 ${s.reviewedPicks} / Pick ${s.activePicks} (취소 제외)`],
+            ["재방문 회원", pct(s.returningMembers, s.activeMembers), `2일 이상 사용 ${s.returningMembers} / 활성 ${s.activeMembers}`],
+            ["데이트 추천 중 프랜차이즈", pct(s.dateShownFranchise, s.dateShownCandidates), `${s.dateShownFranchise} / ${s.dateShownCandidates} 노출 (0이어야 정상)`],
+            ["전체 추천 중 프랜차이즈", pct(s.shownFranchise, s.shownCandidates), `${s.shownFranchise} / ${s.shownCandidates} 노출`],
+            ["추천 제외", s.exclusions, `세션당 ${s.sessions ? (s.exclusions / s.sessions).toFixed(1) : "-"}회`],
+            ["지금 활성 (30분)", s.activeNow, `신규 가입 ${s.newMembers} · 전체 회원 ${s.totalMembers}`],
+            ["좋아요", s.likes, "기간 내 후기 좋아요"]
+        ];
+        $("#cards").replaceChildren(...cards.map(([label, value, sub]) => {
+            const card = el("div", null, "card");
+            card.append(el("div", label, "label"), el("div", String(value), "value"), el("div", sub, "sub"));
+            return card;
+        }));
+    }
+
+    function renderTable(table, headers, rows) {
+        const head = el("tr");
+        headers.forEach(([text, numeric]) => head.append(el("th", text, numeric ? "num" : null)));
+        const body = rows.length ? rows.map((cells) => {
+            const tr = el("tr");
+            cells.forEach((cell, i) => {
+                const td = el("td", null, headers[i]?.[1] ? "num" : null);
+                td.append(cell instanceof Node ? cell : document.createTextNode(String(cell)));
+                tr.append(td);
+            });
+            return tr;
+        }) : [Object.assign(el("tr"), { innerHTML: `<td class="muted" colspan="${headers.length}">데이터 없음</td>` })];
+        table.replaceChildren(el("thead"), el("tbody"));
+        table.tHead.append(head);
+        table.tBodies[0].append(...body);
+    }
+
+    function bar(count, max) {
+        const node = el("div", null, "bar");
+        node.style.width = `${max ? (count / max) * 100 : 0}%`;
+        return node;
+    }
+
+    function renderCounts(table, header, items) {
+        const max = Math.max(0, ...items.map((item) => item.count));
+        renderTable(table, [[header], ["건수", true], [""]],
+            items.map((item) => [LABELS[item.label] ?? item.label, item.count, bar(item.count, max)]));
+    }
+
+    function render(stats) {
+        $("#generatedAt").textContent = `기준 시각 ${new Date(stats.generatedAt).toLocaleString("ko-KR")} · 최근 ${stats.days}일 (한국 시간)`;
+        renderCards(stats.summary);
+        renderTable($("#daily"), [["날짜"], ["추천", true], ["활성 회원", true], ["Pick", true], ["후기", true]],
+            [...stats.daily].reverse().map((d) => [d.date, d.sessions, d.activeMembers, d.picks, d.reviews]));
+        renderCounts($("#ranks"), "순위", stats.pickedRanks.map((r) => ({ ...r, label: `${r.label}위` })));
+        renderCounts($("#exclusions"), "사유", stats.exclusionReasons);
+        renderCounts($("#companions"), "동행", stats.sessionsByCompanion);
+        renderTable($("#restaurants"), [["식당"], ["노출", true], ["Pick", true], ["Pick률", true], [""]],
+            stats.topRecommended.map((r) => {
+                const name = el("span", r.name);
+                if (r.franchise) name.append(" ", el("span", "프랜차이즈", "tag"));
+                return [name, r.shown, r.picked, pct(r.picked, r.shown), ""];
+            }));
+    }
+
+    async function load() {
+        $("#error").textContent = "";
+        try {
+            const response = await fetch(`/api/admin/stats?days=${$("#days").value}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            render(await response.json());
+        } catch (error) {
+            $("#error").textContent = `불러오지 못했습니다: ${error.message}`;
+        }
+    }
+
+    $("#refresh").addEventListener("click", load);
+    $("#days").addEventListener("change", load);
+    load();
+</script>
+</body>
+</html>

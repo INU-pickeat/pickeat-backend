@@ -17,8 +17,11 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -34,6 +37,31 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * 관리자 대시보드(/admin.html)와 집계 API는 회원 JWT와 별개로 HTTP Basic으로 보호한다.
+     * 계정은 이 체인에서만 쓰는 메모리 사용자 한 명이며 ADMIN_USERNAME/ADMIN_PASSWORD로 바꾼다.
+     */
+    @Bean
+    @Order(0)
+    public SecurityFilterChain adminFilterChain(
+            HttpSecurity http,
+            @Value("${admin.username}") String username,
+            @Value("${admin.password}") String password
+    ) throws Exception {
+        UserDetails admin = User.withUsername(username)
+                .password(passwordEncoder().encode(password))
+                .roles("ADMIN")
+                .build();
+        return http
+                .securityMatcher("/admin.html", "/api/admin/**")
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .userDetailsService(new InMemoryUserDetailsManager(admin))
+                .httpBasic(Customizer.withDefaults())
+                .authorizeHttpRequests(auth -> auth.anyRequest().hasRole("ADMIN"))
+                .build();
     }
 
     @Bean
