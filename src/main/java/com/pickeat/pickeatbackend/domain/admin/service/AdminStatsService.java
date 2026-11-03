@@ -82,8 +82,6 @@ public class AdminStatsService {
     }
 
     private AdminStats.Summary summary(OffsetDateTime from, List<RestaurantShown> shown) {
-        // members.created_at은 JVM 기본 시간대의 LocalDateTime으로 저장된다.
-        var memberFrom = from.atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime();
         Double medianDecision = jdbcTemplate.queryForObject(MEDIAN_DECISION_SQL, Double.class, from);
         return jdbcTemplate.queryForObject("""
                 SELECT
@@ -112,7 +110,7 @@ public class AdminStatsService {
                 shown.stream().filter(RestaurantShown::franchise).mapToLong(RestaurantShown::shown).sum(),
                 shown.stream().mapToLong(RestaurantShown::dateShown).sum(),
                 shown.stream().filter(RestaurantShown::franchise).mapToLong(RestaurantShown::dateShown).sum()
-        ), memberFrom, from, from, from, from, from, from, from, from, from);
+        ), from, from, from, from, from, from, from, from, from, from);
     }
 
     // 처음 노출된 1~5위 후보만 센다. 제외 후 대체로 올라온 6~10위는 노출 여부를 따로 저장하지 않는다.
