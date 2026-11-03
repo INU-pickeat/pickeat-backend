@@ -136,10 +136,11 @@ EC2 최초 설정, GitHub Secrets, systemd, 헬스체크와 롤백 절차는 [`d
 
 ## 브랜치 / PR 전략
 
-작업 단위마다 `main`에서 `feat/*`, `fix/*`, `docs/*`, `chore/*` 브랜치를 만들고 PR로 병합합니다(`main` 직접 커밋 금지). 자세한 컨벤션은 Notion의 [Git Branch Naming Convention](https://app.notion.com/p/d9f482bdb23e823da7da019c93d5c3ee), [Git Commit Message Convention](https://app.notion.com/p/b61482bdb23e82a5b8de010191af9500) 문서를 참고하세요.
+작업마다 `main`에서 `feat/*`, `fix/*`, `refactor/*`, `docs/*`, `chore/*` 브랜치를 만들고 PR로 병합합니다(`main` 직접 커밋 금지, squash merge, 병합 후 브랜치 자동 삭제). 자세한 규칙은 [docs/development-cycle.md](docs/development-cycle.md)에 있습니다.
 
 ## 문서
 
+- 개발 규칙(구조, 계층, API, 영속성, 테스트, 브랜치·커밋)은 [docs/README.md](docs/README.md)에서 시작합니다. AI 도구용 지침은 [AGENTS.md](AGENTS.md)입니다.
 - 코드/네이밍 컨벤션, ERD, API 명세, Backend Task는 Notion [BE](https://app.notion.com/p/3d4482bdb23e80038885edb637243716) 페이지에 정리되어 있습니다.
 - 제품 기획 원본은 Notion [Pick Eat 프로젝트 기획서](https://app.notion.com/p/3de482bdb23e8057a731f00d852cdb5f)입니다.
 - 운영 중 수동 작업(식당 신고 검토 등)은 [docs/OPERATIONS.md](docs/OPERATIONS.md)에 있습니다.
