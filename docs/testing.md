@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | 단위 | `{대상 클래스}Test` | 대상과 같은 패키지 | Entity, Service(저장소는 목), 점수 계산 등 |
 | API 계약 | `{도메인}ApiContractTest` | `domain/{도메인}/controller` | 요청 검증, 상태 코드, 응답 형식, 인증 여부 |
-| 통합 | `{기능}IntegrationTest` | `com.pickeat.pickeatbackend` 루트 | 실제 DB로 쿼리·마이그레이션·제약 조건 검증 |
+| 통합 | `{기능}IntegrationTest` | 스키마·여러 도메인을 검증하면 `com.pickeat.pickeatbackend` 루트, 한 도메인 기능이면 대상 패키지 | 실제 DB로 쿼리·마이그레이션·제약 조건 검증 |
 
 - 통합 테스트는 `@SpringBootTest` + `@Transactional`로 각 테스트를 롤백한다. 로컬 `localhost:5432` PostgreSQL(PostGIS)을 쓰며 CI도 같은 구성이다
 - 로컬 DB에 다른 데이터가 있을 수 있으므로 건수는 넣기 전후 차이로 검증하거나, 테스트에서 만든 회원·식당으로 범위를 좁힌다

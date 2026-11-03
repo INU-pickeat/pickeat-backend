@@ -1,7 +1,7 @@
 # Development Cycle
 
-브랜치, 커밋, PR, 병합 절차다.
-원본: Notion [Git Branch Naming Convention](https://app.notion.com/p/d9f482bdb23e823da7da019c93d5c3ee), [Git Commit Message Convention](https://app.notion.com/p/b61482bdb23e82a5b8de010191af9500).
+브랜치, 커밋, PR, 병합 절차의 저장소 정본이다.
+결정 배경: Notion [Git Branch Naming Convention](https://app.notion.com/p/d9f482bdb23e823da7da019c93d5c3ee), [Git Commit Message Convention](https://app.notion.com/p/b61482bdb23e82a5b8de010191af9500).
 
 ## 브랜치
 
