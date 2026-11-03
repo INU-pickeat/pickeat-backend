@@ -6,7 +6,9 @@ import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -24,7 +26,10 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -54,8 +59,14 @@ public class Review {
     @JoinColumn(name = "restaurant_id", nullable = false, updatable = false)
     private Restaurant restaurant;
 
-    @Column(nullable = false, length = 1000)
+    // 선택 입력(2026-11-03). 없으면 null이며 빈 문자열·공백은 null로 저장한다.
+    @Column(length = 1000)
     private String content;
+
+    // 선택 입력. 작성자가 고른 1인당 지출 구간이다.
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private SpendPerPerson spendPerPerson;
 
     // 추천 세션의 값이 아니라 후기 작성 화면에서 사용자가 직접 고른 값이다.
     @Enumerated(EnumType.STRING)
@@ -81,24 +92,43 @@ public class Review {
     @BatchSize(size = 50)
     private List<ReviewImage> images = new ArrayList<>();
 
+    // "이런 점이 좋았어요" 키워드 1~5개. 개수 검증은 요청 DTO와 ReviewService에서 한다.
+    @ElementCollection
+    @CollectionTable(name = "review_keywords", joinColumns = @JoinColumn(name = "review_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "keyword", nullable = false, length = 30)
+    @BatchSize(size = 50)
+    private Set<ReviewKeyword> keywords = new LinkedHashSet<>();
+
     @Builder
     public Review(Pick pick, String content, FoodCategory foodCategory,
-                  CompanionType companionType, ReviewVisibility visibility, List<String> imageUrls) {
+                  CompanionType companionType, ReviewVisibility visibility, List<String> imageUrls,
+                  Collection<ReviewKeyword> keywords, SpendPerPerson spendPerPerson) {
         this.pick = pick;
         this.member = pick.getMember();
         this.restaurant = pick.getRestaurant();
-        this.content = content.strip();
+        this.content = normalizeContent(content);
         this.foodCategory = foodCategory;
         this.companionType = companionType;
         this.visibility = visibility;
+        this.spendPerPerson = spendPerPerson;
         replaceImages(imageUrls);
+        replaceKeywords(keywords);
     }
 
     // null인 값은 건드리지 않는 부분 수정. 작성 시 등록한 이미지는 변경하지 않는다.
+    // content는 빈 문자열·공백을 보내면 본문을 지운다(null). keywords는 보내면 통째로 교체한다.
     public void update(String content, FoodCategory foodCategory, CompanionType companionType,
-                       ReviewVisibility visibility) {
+                       ReviewVisibility visibility, Collection<ReviewKeyword> keywords,
+                       SpendPerPerson spendPerPerson) {
         if (content != null) {
-            this.content = content.strip();
+            this.content = normalizeContent(content);
+        }
+        if (keywords != null) {
+            replaceKeywords(keywords);
+        }
+        if (spendPerPerson != null) {
+            this.spendPerPerson = spendPerPerson;
         }
         if (foodCategory != null) {
             this.foodCategory = foodCategory;
@@ -121,6 +151,22 @@ public class Review {
 
     public List<String> getImageUrls() {
         return images.stream().map(ReviewImage::getImageUrl).toList();
+    }
+
+    // 응답에는 enum 선언 순서로 내려준다.
+    public List<ReviewKeyword> getSortedKeywords() {
+        return keywords.stream().sorted().toList();
+    }
+
+    private static String normalizeContent(String content) {
+        return content == null || content.isBlank() ? null : content.strip();
+    }
+
+    private void replaceKeywords(Collection<ReviewKeyword> keywords) {
+        this.keywords.clear();
+        if (keywords != null) {
+            this.keywords.addAll(keywords);
+        }
     }
 
     private void replaceImages(List<String> imageUrls) {

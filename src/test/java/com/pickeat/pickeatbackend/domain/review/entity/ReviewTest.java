@@ -7,6 +7,7 @@ import com.pickeat.pickeatbackend.domain.recommendation.entity.CompanionType;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
 import com.pickeat.pickeatbackend.domain.review.ReviewFixtures;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -36,13 +37,44 @@ class ReviewTest {
     void keepsUnsetFieldsOnPartialUpdate() {
         Review review = ReviewFixtures.review(1L, pick, ReviewVisibility.PUBLIC, "맛있어요", List.of("https://img/a.jpg"));
 
-        review.update(null, null, CompanionType.FAMILY, ReviewVisibility.PRIVATE);
+        review.update(null, null, CompanionType.FAMILY, ReviewVisibility.PRIVATE, null, null);
 
         assertThat(review.getContent()).isEqualTo("맛있어요");
         assertThat(review.getFoodCategory()).isEqualTo(FoodCategory.KOREAN);
         assertThat(review.getCompanionType()).isEqualTo(CompanionType.FAMILY);
         assertThat(review.isPublic()).isFalse();
         assertThat(review.getImageUrls()).containsExactly("https://img/a.jpg");
+        assertThat(review.getSortedKeywords()).containsExactly(ReviewKeyword.TASTY);
+        assertThat(review.getSpendPerPerson()).isNull();
     }
 
+    @Test
+    @DisplayName("빈 문자열·공백 본문은 본문 없음(null)으로 저장한다")
+    void storesBlankContentAsNull() {
+        assertThat(ReviewFixtures.review(1L, pick, ReviewVisibility.PUBLIC, null, List.of()).getContent()).isNull();
+        assertThat(ReviewFixtures.review(1L, pick, ReviewVisibility.PUBLIC, "   ", List.of()).getContent()).isNull();
+    }
+
+    @Test
+    @DisplayName("키워드는 enum 선언 순서로 돌려준다")
+    void returnsKeywordsInDeclarationOrder() {
+        Review review = ReviewFixtures.review(1L, pick, ReviewVisibility.PUBLIC, null, List.of(),
+                List.of(ReviewKeyword.DOG_FRIENDLY, ReviewKeyword.TASTY, ReviewKeyword.CLEAN));
+
+        assertThat(review.getSortedKeywords())
+                .containsExactly(ReviewKeyword.TASTY, ReviewKeyword.CLEAN, ReviewKeyword.DOG_FRIENDLY);
+    }
+
+    @Test
+    @DisplayName("수정 시 키워드는 통째로 교체하고 빈 문자열 본문은 본문을 지운다")
+    void replacesKeywordsAndClearsContentOnUpdate() {
+        Review review = ReviewFixtures.review(1L, pick, ReviewVisibility.PUBLIC, "맛있어요", List.of(),
+                List.of(ReviewKeyword.TASTY, ReviewKeyword.CLEAN));
+
+        review.update("", null, null, null, Set.of(ReviewKeyword.KIND_SERVICE), SpendPerPerson.OVER_30000);
+
+        assertThat(review.getContent()).isNull();
+        assertThat(review.getSortedKeywords()).containsExactly(ReviewKeyword.KIND_SERVICE);
+        assertThat(review.getSpendPerPerson()).isEqualTo(SpendPerPerson.OVER_30000);
+    }
 }

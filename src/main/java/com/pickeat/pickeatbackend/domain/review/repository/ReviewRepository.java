@@ -54,13 +54,25 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     // 식당별 후기 요약은 공개 후기만 집계한다.
     long countByRestaurantIdAndVisibility(Long restaurantId, ReviewVisibility visibility);
 
-    // 식당마다 가장 최근 공개 후기 한 건. 대표 한줄평의 원본이다.
+    // 식당의 공개 후기에서 키워드별로 고른 건수. 상위 키워드 정렬은 ReviewSummaryService에서 한다.
+    @Query("""
+            SELECT new com.pickeat.pickeatbackend.domain.review.repository.ReviewKeywordCount(k, COUNT(r))
+            FROM Review r JOIN r.keywords k
+            WHERE r.restaurant.id = :restaurantId
+              AND r.visibility = com.pickeat.pickeatbackend.domain.review.entity.ReviewVisibility.PUBLIC
+            GROUP BY k
+            """)
+    List<ReviewKeywordCount> countPublicKeywordsByRestaurantId(@Param("restaurantId") Long restaurantId);
+
+    // 식당마다 본문이 있는 가장 최근 공개 후기 한 건. 대표 한줄평의 원본이다.
+    // 본문은 선택 입력(2026-11-03)이라 본문 없는 후기는 건너뛴다.
     @Query("""
             SELECT r FROM Review r
             WHERE r.id IN (
                 SELECT MAX(latest.id) FROM Review latest
                 WHERE latest.visibility = com.pickeat.pickeatbackend.domain.review.entity.ReviewVisibility.PUBLIC
                   AND latest.restaurant.id IN :restaurantIds
+                  AND latest.content IS NOT NULL
                 GROUP BY latest.restaurant.id
             )
             """)

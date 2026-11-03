@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class ReviewSchemaIntegrationTest {
 
+    private static final String INSERT_KEYWORD = "INSERT INTO review_keywords (review_id, keyword) VALUES (?, ?)";
+
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
@@ -88,6 +90,61 @@ class ReviewSchemaIntegrationTest {
                 "SELECT count(*) FROM review_likes WHERE review_id = ?", Long.class, reviewId)).isZero();
     }
 
+    @Test
+    @DisplayName("V34: 본문은 NULL을 허용하지만 공백 본문은 여전히 막는다")
+    void allowsNullContentButRejectsBlank() {
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT success FROM flyway_schema_history WHERE version = '34'", Boolean.class)).isTrue();
+        Long reviewId = insertReview(insertDependencies(), "PUBLIC", null);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT content FROM reviews WHERE id = ?", String.class, reviewId)).isNull();
+        assertThatThrownBy(() -> insertReview(insertDependencies(), "PUBLIC", "   "))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("V34: 정의되지 않은 1인당 지출 구간은 저장할 수 없다")
+    void rejectsUnknownSpendPerPerson() {
+        Long reviewId = insertReview(insertDependencies(), "PUBLIC");
+        String update = "UPDATE reviews SET spend_per_person = ? WHERE id = ?";
+
+        assertThat(jdbcTemplate.update(update, "FROM_20000_TO_30000", reviewId)).isEqualTo(1);
+        assertThatThrownBy(() -> jdbcTemplate.update(update, "OVER_50000", reviewId))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("V34: 키워드는 후기마다 한 번씩만 저장된다")
+    void rejectsDuplicateKeywordForReview() {
+        Long reviewId = insertReview(insertDependencies(), "PUBLIC");
+        jdbcTemplate.update(INSERT_KEYWORD, reviewId, "TASTY");
+
+        assertThatThrownBy(() -> jdbcTemplate.update(INSERT_KEYWORD, reviewId, "TASTY"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("V34: 정의되지 않은 키워드는 저장할 수 없다")
+    void rejectsUnknownKeyword() {
+        Long reviewId = insertReview(insertDependencies(), "PUBLIC");
+
+        assertThatThrownBy(() -> jdbcTemplate.update(INSERT_KEYWORD, reviewId, "SPICY"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("V34: 후기를 지우면 키워드도 함께 지워진다")
+    void cascadesKeywordsOnReviewDelete() {
+        Long reviewId = insertReview(insertDependencies(), "PUBLIC");
+        jdbcTemplate.update(INSERT_KEYWORD, reviewId, "TASTY");
+
+        jdbcTemplate.update("DELETE FROM reviews WHERE id = ?", reviewId);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM review_keywords WHERE review_id = ?", Long.class, reviewId)).isZero();
+    }
+
     private TestIds insertDependencies() {
         Long memberId = jdbcTemplate.queryForObject("""
                 INSERT INTO members (email, password, nickname, login_provider, created_at, updated_at)
@@ -113,12 +170,16 @@ class ReviewSchemaIntegrationTest {
     }
 
     private Long insertReview(TestIds ids, String visibility) {
+        return insertReview(ids, visibility, "맛있어요");
+    }
+
+    private Long insertReview(TestIds ids, String visibility, String content) {
         return jdbcTemplate.queryForObject("""
                 INSERT INTO reviews (pick_id, member_id, restaurant_id, content, food_category,
                                      companion_type, visibility)
-                VALUES (?, ?, ?, '맛있어요', 'KOREAN', 'SOLO', ?)
+                VALUES (?, ?, ?, ?, 'KOREAN', 'SOLO', ?)
                 RETURNING id
-                """, Long.class, ids.pickId(), ids.memberId(), ids.restaurantId(), visibility);
+                """, Long.class, ids.pickId(), ids.memberId(), ids.restaurantId(), content, visibility);
     }
 
     private record TestIds(Long memberId, Long restaurantId, Long pickId) {

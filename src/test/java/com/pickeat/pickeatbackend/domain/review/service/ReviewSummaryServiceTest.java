@@ -10,7 +10,9 @@ import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantReposit
 import com.pickeat.pickeatbackend.domain.review.ReviewFixtures;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewSummaryResponse;
 import com.pickeat.pickeatbackend.domain.review.entity.Review;
+import com.pickeat.pickeatbackend.domain.review.entity.ReviewKeyword;
 import com.pickeat.pickeatbackend.domain.review.entity.ReviewVisibility;
+import com.pickeat.pickeatbackend.domain.review.repository.ReviewKeywordCount;
 import com.pickeat.pickeatbackend.domain.review.repository.ReviewRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import java.util.List;
@@ -63,6 +65,29 @@ class ReviewSummaryServiceTest {
 
         assertThat(response.reviewCount()).isZero();
         assertThat(response.oneLineReview()).isEqualTo("후기가 없습니다.");
+        assertThat(response.topKeywords()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("상위 키워드는 건수 내림차순, 같으면 enum 선언 순서로 5개까지 돌려준다")
+    void ranksTopKeywordsByCountThenDeclarationOrder() {
+        when(restaurantRepository.existsById(10L)).thenReturn(true);
+        when(reviewRepository.countPublicKeywordsByRestaurantId(10L)).thenReturn(List.of(
+                new ReviewKeywordCount(ReviewKeyword.DOG_FRIENDLY, 1L),
+                new ReviewKeywordCount(ReviewKeyword.CLEAN, 3L),
+                new ReviewKeywordCount(ReviewKeyword.GOOD_VALUE, 2L),
+                new ReviewKeywordCount(ReviewKeyword.TASTY, 3L),
+                new ReviewKeywordCount(ReviewKeyword.KIND_SERVICE, 1L),
+                new ReviewKeywordCount(ReviewKeyword.FRESH_INGREDIENTS, 1L)));
+
+        ReviewSummaryResponse response = reviewSummaryService.getSummary(10L);
+
+        assertThat(response.topKeywords()).containsExactly(
+                new ReviewSummaryResponse.KeywordCount("TASTY", "음식이 맛있어요", 3),
+                new ReviewSummaryResponse.KeywordCount("CLEAN", "매장이 청결해요", 3),
+                new ReviewSummaryResponse.KeywordCount("GOOD_VALUE", "가성비가 좋아요", 2),
+                new ReviewSummaryResponse.KeywordCount("FRESH_INGREDIENTS", "재료가 신선해요", 1),
+                new ReviewSummaryResponse.KeywordCount("KIND_SERVICE", "친절해요", 1));
     }
 
     @Test
