@@ -310,7 +310,7 @@ class ReviewApiContractTest {
     }
 
     @Test
-    @DisplayName("키워드가 누락·null·빈 배열이면 공통 검증을 통과해 서비스에서 REVIEW_009로 거부된다")
+    @DisplayName("키워드가 누락·null·빈 배열이어도 공통 검증을 통과하고, 서비스가 REVIEW_009를 던지면 그대로 응답한다")
     void rejectsReviewWithoutKeywords() throws Exception {
         when(reviewService.create(any(CreateReviewRequest.class), eq(MEMBER_ID)))
                 .thenThrow(new BusinessException(ReviewErrorCode.KEYWORD_REQUIRED));

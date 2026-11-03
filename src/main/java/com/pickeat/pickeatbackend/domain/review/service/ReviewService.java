@@ -28,6 +28,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ReviewService {
 
+    // ponytail: 프론트가 키워드 화면을 배포하기 전까지 키워드를 선택(0~5개)으로 둔다(2026-11-03 운영 후기 작성 실패 대응).
+    // 프론트 배포 후 true로 바꾸면 다시 1개 이상 필수(REVIEW_009)가 된다.
+    static final boolean KEYWORDS_REQUIRED = false;
+
     private final ReviewRepository reviewRepository;
     private final ReviewLikeRepository reviewLikeRepository;
     private final PickRepository pickRepository;
@@ -41,8 +45,8 @@ public class ReviewService {
         if (request.imageUrls().isEmpty()) {
             throw new BusinessException(ReviewErrorCode.IMAGE_REQUIRED);
         }
-        // 키워드도 같은 이유로 공통 검증 대신 REVIEW_009로 거부한다(2026-11-03).
-        if (request.keywords().isEmpty()) {
+        // 키워드도 같은 이유로 공통 검증 대신 REVIEW_009로 거부한다(2026-11-03). 지금은 KEYWORDS_REQUIRED가 꺼져 있다.
+        if (KEYWORDS_REQUIRED && request.keywords().isEmpty()) {
             throw new BusinessException(ReviewErrorCode.KEYWORD_REQUIRED);
         }
         Pick pick = pickRepository.findByIdAndMemberId(request.pickId(), memberId)
@@ -93,7 +97,7 @@ public class ReviewService {
         if (request.imageUrls() != null) {
             throw new BusinessException(ReviewErrorCode.IMAGE_NOT_EDITABLE);
         }
-        if (request.keywords() != null && request.keywords().isEmpty()) {
+        if (KEYWORDS_REQUIRED && request.keywords() != null && request.keywords().isEmpty()) {
             throw new BusinessException(ReviewErrorCode.KEYWORD_REQUIRED);
         }
         Review review = reviewRepository.findByIdAndMemberId(reviewId, memberId)
