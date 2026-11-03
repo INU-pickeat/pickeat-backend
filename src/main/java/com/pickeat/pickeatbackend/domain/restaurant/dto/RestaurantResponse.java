@@ -29,6 +29,7 @@ public record RestaurantResponse(
         Boolean suitableForSolo,
         Boolean suitableForGroup,
         Boolean suitableForDogs,
+        Boolean parkingAvailable,
         String oneLineReview,
         List<String> imageUrls
 ) {
@@ -57,6 +58,7 @@ public record RestaurantResponse(
                 restaurant.getSuitableForSolo(),
                 restaurant.getSuitableForGroup(),
                 restaurant.getSuitableForDogs(),
+                restaurant.getParkingAvailable(),
                 oneLineReview,
                 imageUrls(restaurant)
         );

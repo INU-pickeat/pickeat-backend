@@ -89,7 +89,7 @@ public class RecommendationService {
 
         List<ScoredCandidate> topCandidates = candidates.stream()
                 .map(candidate -> score(candidate, request.companionType(), radiusMeters))
-                .sorted(Comparator.comparingDouble((ScoredCandidate c) -> c.breakdown().totalScore()).reversed())
+                .sorted(candidateOrder(request.requiresParking()))
                 .limit(STORED_CANDIDATE_COUNT)
                 .toList();
 
@@ -102,6 +102,7 @@ public class RecommendationService {
                 .priceRangeMin(priceRange == null ? null : priceRange.min())
                 .priceRangeMax(priceRange == null ? null : priceRange.max())
                 .radiusMeters(radiusMeters)
+                .parkingRequired(request.requiresParking())
                 .foodCategories(request.foodCategories())
                 .build());
 
@@ -141,6 +142,19 @@ public class RecommendationService {
                 + ":" + radiusMeters;
     }
 
+    // 점수 내림차순. 주차 조건을 켜면 주차 가능(TRUE) 식당을 점수와 관계없이 모름(NULL) 식당보다 앞에 둔다.
+    // 저장 순위(1~10위)가 이 순서라 제외 후 대체도 같은 순서를 따른다.
+    private Comparator<ScoredCandidate> candidateOrder(boolean parkingRequired) {
+        Comparator<ScoredCandidate> byScore =
+                Comparator.comparingDouble((ScoredCandidate c) -> c.breakdown().totalScore()).reversed();
+        if (!parkingRequired) {
+            return byScore;
+        }
+        return Comparator.comparing(
+                (ScoredCandidate c) -> !Boolean.TRUE.equals(c.restaurant().getParkingAvailable()))
+                .thenComparing(byScore);
+    }
+
     // 반경을 고르지 않았을 때의 지역 기본값. 선택지·검증은 SearchRadius 참고.
     static double searchRadiusMeters(double latitude, double longitude) {
         return SearchRadius.defaultMeters(latitude, longitude);
@@ -149,6 +163,7 @@ public class RecommendationService {
     // DB에서 반경 이내 후보를 조회한 뒤 카테고리·가격 조건을 통과한 후보만 남긴다.
     // 동행이 DATE면 프랜차이즈도 뺀다. 다른 동행 유형에는 적용하지 않는다.
     // 30분 뒤에 영업 중인 식당만 남긴다(마감 30분 전부터 제외, 30분 안에 열면 포함). 영업시간을 모르면 남긴다.
+    // 주차 조건을 켜면 주차 불가(FALSE)로 확인된 식당만 뺀다. 모름(NULL)은 남긴다.
     private List<RestaurantCandidate> findValidCandidates(RecommendationRequest request, double radiusMeters) {
         ZonedDateTime arrival = ZonedDateTime.now(SEOUL).plus(ARRIVAL_MARGIN);
         return restaurantRepository.findWithinRadius(request.latitude(), request.longitude(), radiusMeters)
@@ -158,6 +173,8 @@ public class RecommendationService {
                 .filter(candidate -> matchesPriceRange(candidate.restaurant(), request.priceRange()))
                 .filter(candidate -> request.companionType() != CompanionType.DATE
                         || !FranchiseBrands.isFranchise(candidate.restaurant().getName()))
+                .filter(candidate -> !request.requiresParking()
+                        || !Boolean.FALSE.equals(candidate.restaurant().getParkingAvailable()))
                 .toList();
     }
 
@@ -234,7 +251,7 @@ public class RecommendationService {
                 ? session.getRadiusMeters()
                 : SearchRadius.defaultMeters(latitude, longitude);
         return RecommendationResponse.of(session.getId(), radiusMeters, SearchRadius.options(latitude, longitude),
-                candidates, reviewSummaryService.getOneLineReviews(restaurantIds));
+                session.isParkingRequired(), candidates, reviewSummaryService.getOneLineReviews(restaurantIds));
     }
 
     private List<RecommendationCandidate> visibleCandidates(Long sessionId) {

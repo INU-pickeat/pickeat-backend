@@ -1,8 +1,10 @@
 package com.pickeat.pickeatbackend.domain.recommendation.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -20,6 +22,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -49,10 +52,10 @@ class RecommendationApiContractTest {
     @BeforeEach
     void setUp() {
         authorizationHeader = "Bearer " + jwtTokenProvider.createAccessToken(MEMBER_ID);
-        response = new RecommendationResponse(SESSION_ID, 1000, List.of(500, 1000, 2000), List.of(
+        response = new RecommendationResponse(SESSION_ID, 1000, List.of(500, 1000, 2000), true, List.of(
                 new RecommendationResponse.Item(
                         10L, "테스트 식당", FoodCategory.KOREAN, BigDecimal.valueOf(4.5), 320.5, 1, 0.914,
-                        "/images/discovery/sinsa_01_main.jpg", "후기가 없습니다.")
+                        "/images/discovery/sinsa_01_main.jpg", "후기가 없습니다.", true)
         ));
     }
 
@@ -88,9 +91,58 @@ class RecommendationApiContractTest {
                 .andExpect(jsonPath("$.items[0].rank").value(1))
                 .andExpect(jsonPath("$.items[0].score").value(0.914))
                 .andExpect(jsonPath("$.items[0].representativeImageUrl").value("/images/discovery/sinsa_01_main.jpg"))
-                .andExpect(jsonPath("$.items[0].oneLineReview").value("후기가 없습니다."));
+                .andExpect(jsonPath("$.items[0].oneLineReview").value("후기가 없습니다."))
+                .andExpect(jsonPath("$.parkingRequired").value(true))
+                .andExpect(jsonPath("$.items[0].parkingAvailable").value(true));
 
         verify(recommendationService).recommend(any(RecommendationRequest.class), eq(MEMBER_ID));
+    }
+
+    @Test
+    @DisplayName("추천 요청의 parkingRequired는 선택이며 생략하면 주차 조건을 켜지 않는다")
+    void passesOptionalParkingRequiredToService() throws Exception {
+        when(recommendationService.recommend(any(RecommendationRequest.class), eq(MEMBER_ID)))
+                .thenReturn(response);
+        ArgumentCaptor<RecommendationRequest> captor = ArgumentCaptor.forClass(RecommendationRequest.class);
+
+        mockMvc.perform(post("/api/v1/recommendations")
+                        .header("Authorization", authorizationHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequest()))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/v1/recommendations")
+                        .header("Authorization", authorizationHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "foodCategories": ["KOREAN"],
+                                  "companionType": "DATE",
+                                  "latitude": 37.5,
+                                  "longitude": 127.0,
+                                  "parkingRequired": true
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        verify(recommendationService, times(2)).recommend(captor.capture(), eq(MEMBER_ID));
+        assertThat(captor.getAllValues().get(0).requiresParking()).isFalse();
+        assertThat(captor.getAllValues().get(1).requiresParking()).isTrue();
+    }
+
+    @Test
+    @DisplayName("주차 정보를 모르는 후보는 parkingAvailable을 null로 내려준다")
+    void returnsNullParkingAvailableWhenUnknown() throws Exception {
+        when(recommendationService.getSession(SESSION_ID, MEMBER_ID)).thenReturn(
+                new RecommendationResponse(SESSION_ID, 1000, List.of(500, 1000, 2000), false, List.of(
+                        new RecommendationResponse.Item(
+                                10L, "테스트 식당", FoodCategory.KOREAN, BigDecimal.valueOf(4.5), 320.5, 1, 0.914,
+                                null, "후기가 없습니다.", null))));
+
+        mockMvc.perform(get("/api/v1/recommendations/{sessionId}", SESSION_ID)
+                        .header("Authorization", authorizationHeader))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.parkingRequired").value(false))
+                .andExpect(jsonPath("$.items[0].parkingAvailable").isEmpty());
     }
 
     @Test

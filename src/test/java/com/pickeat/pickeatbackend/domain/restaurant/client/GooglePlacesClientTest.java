@@ -154,6 +154,34 @@ class GooglePlacesClientTest {
         server.verify();
     }
 
+    @Test
+    @DisplayName("검색 필드 마스크에 parkingOptions를 요청하고 역직렬화한다")
+    void requestsAndParsesParkingOptions() {
+        assertThat(GooglePlacesClient.FIELD_MASK).contains("places.parkingOptions");
+        assertThat(GooglePlacesClient.CONTACT_FIELD_MASK).doesNotContain("parkingOptions");
+        server.expect(anything()).andRespond(withSuccess("""
+                {"places":[{"id":"place-1","parkingOptions":{"freeParkingLot":false,"valetParking":true}}]}
+                """, MediaType.APPLICATION_JSON));
+
+        GooglePlaceResponse place = client.findNearbyRestaurants(0, 0, 5000.0, GooglePlacesClient.RankPreference.DISTANCE, RESTAURANT_TYPE).getFirst();
+
+        assertThat(place.parkingOptions().freeParkingLot()).isFalse();
+        assertThat(place.parkingOptions().valetParking()).isTrue();
+        assertThat(place.parkingOptions().paidParkingLot()).isNull();
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("주차 옵션은 하나라도 true면 true, 받은 값이 모두 false면 false, 값이 없으면 null로 판정한다")
+    void judgesParkingAvailability() {
+        assertThat(new GooglePlaceResponse.ParkingOptions(false, null, null, null, null, null, true).available())
+                .isTrue();
+        assertThat(new GooglePlaceResponse.ParkingOptions(false, false, null, null, null, null, null).available())
+                .isFalse();
+        assertThat(new GooglePlaceResponse.ParkingOptions(null, null, null, null, null, null, null).available())
+                .isNull();
+    }
+
     @ParameterizedTest
     @ValueSource(ints = {400, 401, 403, 429, 500, 503})
     void propagatesHttpFailureWithoutRetryOrEmptyFallback(int status) {

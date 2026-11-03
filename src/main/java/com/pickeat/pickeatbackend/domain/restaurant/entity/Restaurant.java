@@ -121,6 +121,9 @@ public class Restaurant {
     private Boolean suitableForGroup;
     private Boolean suitableForDogs;
 
+    // Google parkingOptions로 판정한 주차 가능 여부. null이면 모른다. RestaurantService.upsertFromGoogle 참고.
+    private Boolean parkingAvailable;
+
     // 운영자가 신고를 확인해 추천 후보에서 뺀 시각. 앱에서는 읽기만 하고 SQL로 기록한다(docs/OPERATIONS.md).
     @Column(insertable = false, updatable = false)
     private Instant excludedAt;
@@ -150,7 +153,8 @@ public class Restaurant {
             Boolean suitableForChildren,
             Boolean suitableForSolo,
             Boolean suitableForGroup,
-            Boolean suitableForDogs
+            Boolean suitableForDogs,
+            Boolean parkingAvailable
     ) {
         this.dataProvider = dataProvider == null ? DataProvider.GOOGLE : dataProvider;
         this.googlePlaceId = googlePlaceId;
@@ -170,6 +174,7 @@ public class Restaurant {
         this.suitableForSolo = suitableForSolo;
         this.suitableForGroup = suitableForGroup;
         this.suitableForDogs = suitableForDogs;
+        this.parkingAvailable = parkingAvailable;
     }
 
     // 큐레이션 적합도 필드(suitableFor*)는 내부 편집 값이라 Google 갱신으로 덮어쓰지 않는다.
@@ -236,6 +241,14 @@ public class Restaurant {
         if (openingHoursText != null && !openingHoursText.isBlank()) {
             this.openingHoursText = openingHoursText;
         }
+    }
+
+    // CURATED 식당은 덮어쓰지 않는다. Google이 값을 주지 않으면(null) 기존 값을 유지한다.
+    public void updateParkingFromGoogle(Boolean parkingAvailable) {
+        if (dataProvider == DataProvider.CURATED || parkingAvailable == null) {
+            return;
+        }
+        this.parkingAvailable = parkingAvailable;
     }
 
     public void updateOpeningHours(int[] openingWeekMinutes) {

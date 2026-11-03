@@ -21,7 +21,8 @@ public class GooglePlacesClient {
     static final String FIELD_MASK = "places.id,places.displayName,places.formattedAddress,"
         + "places.location,places.rating,places.userRatingCount,places.googleMapsUri,places.attributions,"
         + "places.primaryType,places.types,places.priceRange,places.goodForChildren,places.goodForGroups,"
-        + "places.menuForChildren,places.allowsDogs,places.regularOpeningHours,places.nationalPhoneNumber";
+        + "places.menuForChildren,places.allowsDogs,places.regularOpeningHours,places.nationalPhoneNumber,"
+        + "places.parkingOptions";
 
     static final String PHOTO_FIELD_MASK = "photos";
 

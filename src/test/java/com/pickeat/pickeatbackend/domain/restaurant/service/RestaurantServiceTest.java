@@ -346,4 +346,65 @@ class RestaurantServiceTest {
         assertThat(updated.getPhoneNumber()).isEqualTo("02-000-0000");
         assertThat(updated.getOpeningHoursText()).isEqualTo("매일 17:00~22:00");
     }
+
+    private GooglePlaceResponse placeWithParking(GooglePlaceResponse.ParkingOptions parkingOptions) {
+        return new GooglePlaceResponse(
+                "place-1",
+                new GooglePlaceResponse.DisplayName("맛있는 식당", "ko"),
+                "서울시 강남구",
+                new GooglePlaceResponse.Location(37.5, 127.0),
+                4.5, 42, "https://maps.google.com/place-1", List.of(), "korean_restaurant",
+                List.of(), null, null, null, null, null, null, null, parkingOptions);
+    }
+
+    @Test
+    @DisplayName("Google parkingOptions로 주차 가능 여부를 저장하고, 값이 없으면 기존 값을 지우지 않는다")
+    void storesParkingAvailableAndKeepsExistingWhenGoogleOmitsIt() {
+        when(restaurantRepository.save(any(Restaurant.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        Restaurant existing = Restaurant.builder()
+                .googlePlaceId("place-1").name("맛있는 식당").latitude(37.5).longitude(127.0).build();
+        when(restaurantRepository.findByGooglePlaceId("place-1")).thenReturn(Optional.of(existing));
+
+        restaurantService.upsertFromGoogle(placeWithParking(
+                new GooglePlaceResponse.ParkingOptions(false, null, null, null, true, null, null)));
+        assertThat(existing.getParkingAvailable()).isTrue();
+
+        restaurantService.upsertFromGoogle(placeWithParking(null));
+        assertThat(existing.getParkingAvailable()).isTrue();
+
+        restaurantService.upsertFromGoogle(placeWithParking(
+                new GooglePlaceResponse.ParkingOptions(null, null, null, null, null, null, null)));
+        assertThat(existing.getParkingAvailable()).isTrue();
+
+        restaurantService.upsertFromGoogle(placeWithParking(
+                new GooglePlaceResponse.ParkingOptions(false, false, null, null, null, null, null)));
+        assertThat(existing.getParkingAvailable()).isFalse();
+    }
+
+    @Test
+    @DisplayName("CURATED 식당의 주차 가능 여부는 Google 값으로 덮어쓰지 않는다")
+    void doesNotOverwriteCuratedParkingAvailable() {
+        when(restaurantRepository.save(any(Restaurant.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        Restaurant curated = Restaurant.builder()
+                .dataProvider(DataProvider.CURATED)
+                .googlePlaceId("place-1").name("맛있는 식당").latitude(37.5).longitude(127.0)
+                .parkingAvailable(false)
+                .build();
+        when(restaurantRepository.findByGooglePlaceId("place-1")).thenReturn(Optional.of(curated));
+
+        restaurantService.upsertFromGoogle(placeWithParking(
+                new GooglePlaceResponse.ParkingOptions(true, null, null, null, null, null, null)));
+
+        assertThat(curated.getParkingAvailable()).isFalse();
+    }
+
+    @Test
+    @DisplayName("식당 상세에 주차 가능 여부를 담는다")
+    void returnsParkingAvailableInRestaurantDetail() {
+        Restaurant restaurant = Restaurant.builder()
+                .name("테스트 식당").latitude(37.58).longitude(127.0).parkingAvailable(true).build();
+        when(restaurantRepository.findById(1L)).thenReturn(Optional.of(restaurant));
+
+        assertThat(restaurantService.getRestaurant(1L).parkingAvailable()).isTrue();
+    }
 }
