@@ -14,7 +14,7 @@ public enum FoodCategory {
     PUB_BAR,
     OTHER;
 
-    // 연남·한남·서촌·신사·논현 100개 표본 검증(2026-09-20) 기준 매핑. 표는 docs/SERVICE_DECISIONS.md와 동일하게 유지한다.
+    // 연남·한남·서촌·신사·논현 100개 표본 검증(2026-09-20) 기준 매핑. 표는 docs/domains/restaurant.md와 동일하게 유지한다.
     private static final Map<String, FoodCategory> GOOGLE_PRIMARY_TYPE_MAPPING = Map.ofEntries(
             Map.entry("korean_restaurant", KOREAN),
             Map.entry("korean_barbecue_restaurant", KOREAN),

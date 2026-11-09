@@ -119,7 +119,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 
 ## 진행 현황
 
-진행 현황과 다음 작업 순서는 [`docs/progress.md`](docs/progress.md), 기능별 구현 기록은 [`docs/history.md`](docs/history.md)에 있습니다.
+진행 현황과 다음 작업 순서는 [`docs/progress.md`](docs/progress.md), 도메인별 결정과 구현 기록은 [`docs/domains/`](docs/domains/)에 있습니다.
 
 ## 운영
 
@@ -127,7 +127,7 @@ CI는 `.github/workflows/ci.yml`, CD는 `.github/workflows/deploy.yml`에서 실
 
 EC2 최초 설정, GitHub Secrets, systemd, 헬스체크와 롤백 절차는 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)를 참고하세요.
 
-지금 유효한 제품·기술 결정은 [`docs/SERVICE_DECISIONS.md`](docs/SERVICE_DECISIONS.md), 결정이 바뀐 경위는 [`docs/history.md`](docs/history.md)에 기록합니다.
+제품·기술 결정은 도메인별로 [`docs/domains/`](docs/domains/)에 기록합니다.
 
 ## 브랜치 / PR 전략
 

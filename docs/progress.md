@@ -1,6 +1,6 @@
 # 진행 현황
 
-작업을 시작하면 `- [ ]` 항목을 추가하고, 끝나면 `- [x]`로 체크한다(PR 번호 포함). 결정 내용은 [SERVICE_DECISIONS.md](SERVICE_DECISIONS.md), 기능별 구현 기록은 [history.md](history.md)에 있다.
+작업을 시작하면 `- [ ]` 항목을 추가하고, 끝나면 `- [x]`로 체크한다(PR 번호 포함). 결정과 구현 기록은 도메인별 문서 [domains/](domains/)에 있다.
 
 ## 다음 작업 순서
 
@@ -20,29 +20,29 @@
 - 기반 구현 완료: Member 회원가입·로그인, JWT 필터, Restaurant 영속성 모델, PostGIS 위치 컬럼과 인덱스, 기존 동행 적합도 플래그, CI 데이터베이스 서비스, 식당 상세 조회 API, Google Places 클라이언트, Google Restaurant upsert·갱신 정책, PostGIS 반경 후보 조회, 외부 지도 링크 API. 기존 **M1 Restaurant 마일스톤은 2026-09-20 완료**했으며, 2026-09-22 기획의 카테고리·동행 신호·가격 필드 확장은 별도 후속 작업으로 다시 열었다.
 - M2 작업은 아래 순서로 진행한다. 완료된 항목은 체크하고, 항목을 마칠 때마다 이 목록을 갱신한다.
   1. [x] 문서 계약 정리: Notion API 상태, README 로컬 실행법, 초기 탐색 스팟 정책을 동기화한다. (PR #24)
-  2. [x] M2 ADR 확정: 추천 후보 조회 방식과 평점 보정·거리 정규화·동행 가산점 수치를 결정한다. 현재 공식은 [history.md](history.md) "점수 공식 2차 조정 결과" 참고.
+  2. [x] M2 ADR 확정: 추천 후보 조회 방식과 평점 보정·거리 정규화·동행 가산점 수치를 결정한다. 현재 공식은 [domains/recommendation.md](domains/recommendation.md) "점수 공식 2차 조정 결과" 참고.
   3. [x] M2-1: 추천 요청 DTO와 음식 카테고리·동행·위경도 입력 검증을 구현한다. (PR #25)
   4. [x] M2-2: RecommendationSession과 후보·점수 구성 요소 스키마를 설계하고 마이그레이션한다. (PR #27)
   5. [x] M2-3: ADR에 따른 점수 계산기와 경계값 테스트를 구현한다. (PR #26)
   6. [x] M2-4~5: Top 5 추천 서비스와 추천 생성·세션 조회 API를 완성한다. (PR #28)
   7. [ ] **M2 계약 개편.** 7개 음식 카테고리, 6개 동행 유형, 가격대 필터, 새 점수 공식, 재추천·제외 사유, 응답 계약을 반영한다.
-     - [x] 가격대 필터 + DB 우선·Google 보충 하이브리드 조회. → [history.md](history.md) "M2 가격 필터 + DB 우선 하이브리드 구현 결과" 참고.
-     - [x] 새 점수 공식(평점 정규화 3.0~5.0 클램프, 0.7/0.3, 가산점 0.1). → [history.md](history.md) "M2 점수 공식 재구현 결과" 참고.
-     - [x] 재추천(다시 추천) + 제외 사유. → [history.md](history.md) "M2 재추천 + 제외 사유 구현 결과" 참고.
-     - [x] 데이트 프랜차이즈 제외(2026-10-04). → [history.md](history.md) "데이트 프랜차이즈 제외 구현 결과" 참고.
+     - [x] 가격대 필터 + DB 우선·Google 보충 하이브리드 조회. → [domains/recommendation.md](domains/recommendation.md) "M2 가격 필터 + DB 우선 하이브리드 구현 결과" 참고.
+     - [x] 새 점수 공식(평점 정규화 3.0~5.0 클램프, 0.7/0.3, 가산점 0.1). → [domains/recommendation.md](domains/recommendation.md) "M2 점수 공식 재구현 결과" 참고.
+     - [x] 재추천(다시 추천) + 제외 사유. → [domains/recommendation.md](domains/recommendation.md) "M2 재추천 + 제외 사유 구현 결과" 참고.
+     - [x] 데이트 프랜차이즈 제외(2026-10-04). → [domains/recommendation.md](domains/recommendation.md) "데이트 프랜차이즈 제외 구현 결과" 참고.
      - [ ] 제네릭 `restaurant` 보완 분류
-  8. [x] **M3 계약 개편.** Pick 동행 스냅샷, 기간별 식당 집계 목록, REVIEWED 전용 지도를 반영했다. 기존 생성·상태 전이·권한 검증은 유지한다. Pick 캘린더는 2026-10-04에 구현했다(#39). → [history.md](history.md) "M3 계약 개편 구현 결과", "Pick 캘린더 구현 결과" 참고.
+  8. [x] **M3 계약 개편.** Pick 동행 스냅샷, 기간별 식당 집계 목록, REVIEWED 전용 지도를 반영했다. 기존 생성·상태 전이·권한 검증은 유지한다. Pick 캘린더는 2026-10-04에 구현했다(#39). → [domains/pick.md](domains/pick.md) "M3 계약 개편 구현 결과", "Pick 캘린더 구현 결과" 참고.
   9. [x] **M2.5: 초기 탐색 스팟.** V13에서 최종 5개 지역, 지역-식당 관계 스키마와 공개 탐색 조회 API를 구현했다. Google Places Text Search로 25개 식당의 Place ID·좌표를 검증하고 V14로 Restaurant와 지역별 고정 순서를 시드했다. 사진은 JPG 수령 후 URL만 후속 반영한다.
-  10. [x] **배포/CD.** GitHub Actions CD·systemd·헬스체크·자동 롤백 구성, t3.micro 단일 인스턴스 구성(swap·PostGIS Docker·Nginx·백업 cron·JVM 힙 제한), EC2 생성, Secrets 등록, 최초 실배포(2026-10-01), DNS·HTTPS 연결(2026-10-04)을 마쳤다. 자동 롤백을 실제 실패 배포로 검증하는 일만 남았다. → [history.md](history.md) "운영 배포 결과" 참고.
+  10. [x] **배포/CD.** GitHub Actions CD·systemd·헬스체크·자동 롤백 구성, t3.micro 단일 인스턴스 구성(swap·PostGIS Docker·Nginx·백업 cron·JVM 힙 제한), EC2 생성, Secrets 등록, 최초 실배포(2026-10-01), DNS·HTTPS 연결(2026-10-04)을 마쳤다. 자동 롤백을 실제 실패 배포로 검증하는 일만 남았다. → "운영 배포 결과" 참고.
   11. [ ] 프론트엔드 연동 MVP E2E를 검증한다. 백엔드 단독 E2E(회원가입 → 추천 → 다시 추천 → Pick → 로그아웃)는 운영 HTTPS 기준으로 통과했다(2026-10-04).
-  12. [x] **Refresh Token.** 로그인 시 refresh token을 함께 발급하고, 재발급(rotation)·로그아웃(폐기) API를 추가했다. → [history.md](history.md) "Refresh Token 구현 결과" 참고.
+  12. [x] **Refresh Token.** 로그인 시 refresh token을 함께 발급하고, 재발급(rotation)·로그아웃(폐기) API를 추가했다. → [domains/member.md](domains/member.md) "Refresh Token 구현 결과" 참고.
   13. [x] **프로필 이미지 업로드.** 후기 이미지와 같은 S3 presigned URL 방식이다. `POST /api/v1/me/profile-image/upload-url`로 받은 `uploadUrl`에 PUT한 뒤 `imageUrl`을 `PATCH /api/v1/me`의 `profileImageUrl`로 보낸다(#55).
-  14. [x] **지역별 검색 반경.** 수도권·부산은 1km, 그 외 지역은 5km로 바꿨다. → [history.md](history.md) "지역별 검색 반경 구현 결과" 참고.
+  14. [x] **지역별 검색 반경.** 수도권·부산은 1km, 그 외 지역은 5km로 바꿨다. → [domains/recommendation.md](domains/recommendation.md) "지역별 검색 반경 구현 결과" 참고.
   15. [x] **S3 도입 범위 결정.** (B) 사용자 업로드를 골랐고 후기 이미지부터 presigned URL로 도입했다(2026-10-04). 탐색 스팟 JPG 25장은 계속 JAR에서 제공한다. 버킷·IAM·CORS 설정은 `docs/DEPLOYMENT.md` 참고.
   16. [ ] **(보류) 반경 판정 정확도.** 사각형 근사로 생기는 경계 오판(춘천 서부·철원·김해·양산 일부는 1km, 양평·가평·여주 동쪽 끝과 인천 먼 섬은 5km)이 실제 문제가 되면 행정구역 폴리곤이나 역지오코딩으로 교체한다.
-  17. [x] **1km 반경 거리 가중치 + 리뷰 수 보정.** 1km 반경은 평점 0.8·거리 0.2로 바꾸고, 평점을 리뷰 수로 베이지안 보정한다(2026-10-07). → [history.md](history.md) "점수 공식 2차 조정 결과" 참고.
+  17. [x] **1km 반경 거리 가중치 + 리뷰 수 보정.** 1km 반경은 평점 0.8·거리 0.2로 바꾸고, 평점을 리뷰 수로 베이지안 보정한다(2026-10-07). → [domains/recommendation.md](domains/recommendation.md) "점수 공식 2차 조정 결과" 참고.
 
-  18. [x] **Review·공개 피드·좋아요·후기 요약.** 후기 작성·조회·수정·삭제, 이미지 업로드 URL, 공개 피드, 공개 후기 좋아요, 식당별 후기 요약을 구현했다(V19). → [history.md](history.md) "Review·피드 구현 결과" 참고.
+  18. [x] **Review·공개 피드·좋아요·후기 요약.** 후기 작성·조회·수정·삭제, 이미지 업로드 URL, 공개 피드, 공개 후기 좋아요, 식당별 후기 요약을 구현했다(V19). → [domains/review.md](domains/review.md) "Review·피드 구현 결과" 참고.
   19. [ ] **(보류) 동적 지역별 인기맛집.** 후기·좋아요 데이터가 쌓인 뒤 진행한다. 그 전까지 탐색 스팟은 운영자 선정 25곳을 유지한다.
   20. [x] **(제외) 카테고리·동행 유형 조회 API.** 별도 조회 API를 만들지 않는다. 후기 작성 화면에서 사용자가 고른 값을 후기 저장 요청에 함께 받는다(2026-10-04).
   21. [ ] **후기 한줄평 선정 규칙 확정.** 최종 목표는 사용자 후기들을 내부 로직으로 변환해 만든 한줄 소개다. 출시 초기에는 사용자가 적어 후기가 거의 없고 변환 로직도 정해지지 않아 아래 단계로 운영한다(2026-10-21).
@@ -50,18 +50,18 @@
       - 1단계(후기 쌓이는 중, 현재 규칙): 식당별 가장 최근 공개 후기의 첫 줄(최대 50자). 공개 후기가 있으면 운영자 한줄평보다 우선한다.
       - 2단계(최종): 후기들을 내부 로직(요약·키워드 분석 등)으로 변환한 한줄 소개. 분석 방식·생성 시점(작성 시 갱신/배치)·최소 후기 수·적용 범위를 정한 뒤 `ReviewSummaryService`의 1단계 규칙만 교체하고, 운영자 한줄평 대체 흐름은 유지한다.
       - 적용 위치: 탐색 스팟 `oneLineIntro`, 식당 상세 `oneLineReview`, 후기 요약 `oneLineReview`, 추천 결과 `oneLineReview`. 운영자 한줄평 대체는 앞의 두 곳만 적용한다.
-  22. [x] **회원가입 이메일 인증.** 인증번호 발송·확인 API를 추가하고 인증을 마친 이메일만 가입할 수 있게 했다(V20, #43). → [history.md](history.md) "이메일 인증 구현 결과" 참고.
+  22. [x] **회원가입 이메일 인증.** 인증번호 발송·확인 API를 추가하고 인증을 마친 이메일만 가입할 수 있게 했다(V20, #43). → [domains/member.md](domains/member.md) "이메일 인증 구현 결과" 참고.
   23. [x] **이메일 인증 운영 발송 검증.** 운영 서버에 `MAIL_PASSWORD`(Gmail 앱 비밀번호)를 설정하고, 운영 API로 인증번호 발송 → 실제 메일 수신 → 인증번호 확인까지 통과했다(2026-10-07).
-  24. [x] **영업시간 필터.** 30분 뒤에 영업 중인 식당만 추천한다(V21). → [history.md](history.md) "영업시간 필터 구현 결과" 참고.
-  25. [x] **공통 예외 응답 통일.** 401·404·405·깨진 JSON·예상하지 못한 500도 `{code, message}` 형식으로 응답한다. → [history.md](history.md) "공통 예외 응답 구현 결과" 참고.
+  24. [x] **영업시간 필터.** 30분 뒤에 영업 중인 식당만 추천한다(V21). → [domains/recommendation.md](domains/recommendation.md) "영업시간 필터 구현 결과" 참고.
+  25. [x] **공통 예외 응답 통일.** 401·404·405·깨진 JSON·예상하지 못한 500도 `{code, message}` 형식으로 응답한다. → "공통 예외 응답 구현 결과" 참고.
   26. [ ] **후기 이미지 S3 운영 설정.** 버킷·IAM 역할·CORS·환경변수를 설정하고 업로드부터 피드 표시까지 운영에서 확인한다.
-  27. [x] **비밀번호 찾기.** 이메일 인증번호로 본인을 확인한 뒤 새 비밀번호를 저장한다(2026-10-12). → [history.md](history.md) "비밀번호 찾기 구현 결과" 참고.
+  27. [x] **비밀번호 찾기.** 이메일 인증번호로 본인을 확인한 뒤 새 비밀번호를 저장한다(2026-10-12). → [domains/member.md](domains/member.md) "비밀번호 찾기 구현 결과" 참고.
   28. [x] **Google 식당 연락처·영업시간 텍스트 저장.** 이전에는 탐색 스팟(CURATED) 25곳만 `phoneNumber`·`openingHoursText`가 있었고 Google 식당은 항상 null이었다. 필드 마스크에 `nationalPhoneNumber`를 추가하고 `regularOpeningHours.weekdayDescriptions`(요일별 7줄, `\n` 구분)를 저장한다. CURATED 식당은 덮어쓰지 않고, Google이 값을 주지 않으면 기존 값을 유지한다. 두 필드 모두 이미 쓰던 `regularOpeningHours`와 같은 Enterprise SKU라 호출 단가는 그대로다(2026-10-12).
   29. [ ] **기존 Google 식당 연락처 백필.** 약 2,170곳(2026-10-12 운영 최대 ID 기준). 한 번에 하면 약 $23(Place Details Enterprise, 월 1,000건 무료 후 1,000건당 $20)이라 `RestaurantContactBackfillJob`으로 매월 1일 1,000곳씩 무료 한도 안에서 채운다. `contact_fetched_at`(V29)이 비어 있는 GOOGLE 식당이 대상이고, Google이 값을 주지 않은 식당도 시각을 기록해 다시 조회하지 않는다. 운영에서 `CONTACT_BACKFILL_ENABLED=true`로 켜고, 대상이 0이 되면 끄고 체크한다. → `docs/DEPLOYMENT.md` 참고.
   30. [x] **좋아요 알림.** `GET /api/v1/me/notifications` — 내 후기에 다른 사람이 누른 좋아요를 최신순 50건까지 `"{닉네임}님이 회원님의 기록을 좋아해요"` 문구와 함께 돌려준다. 별도 알림 테이블 없이 `review_likes`에서 읽으므로 좋아요를 취소하거나 후기를 지우면 알림도 사라지고, 같은 사람이 여러 번 눌러도 한 건이다. 내가 내 후기에 누른 좋아요는 제외한다. 푸시(FCM)와 읽음 표시는 없다(2026-10-13).
   31. [x] **최근 Pick 삭제.** `DELETE /api/v1/me/picks/restaurants/{restaurantId}`(204) — 최근 Pick 카드(식당 단위)를 지우면 그 식당의 내 `SELECTED` Pick을 기간과 관계없이 모두 `CANCELED`로 바꾼다. 행을 지우지 않으므로 마이그레이션은 없다. `REVIEWED` Pick은 후기·지도·캘린더와 묶여 있어 건드리지 않으며, 남은 Pick이 `REVIEWED`뿐이면 `PICK_006`(409)으로 거부한다. 이때는 후기를 먼저 지우면(→ `SELECTED`) 삭제할 수 있다. 지울 Pick이 없으면 `PICK_001`(404)이다(2026-10-13).
-  32. [x] **추천 반경 선택.** 요청 `radiusMeters`(선택)와 응답 `radiusMeters`·`radiusOptions`를 추가했다(V30, 2026-10-13). → [history.md](history.md) "추천 반경 선택 구현 결과" 참고.
-  33. [x] **사용자 테스트용 관리자 대시보드.** 기존 테이블(추천 세션·Pick·제외·후기)만 집계해 결정 시간·Pick 전환율·추천 품질·기록 사용률을 `/admin.html`에서 본다. 이벤트 로그 테이블은 만들지 않는다.(#70) → [history.md](history.md) "관리자 대시보드 구현 결과" 참고.
+  32. [x] **추천 반경 선택.** 요청 `radiusMeters`(선택)와 응답 `radiusMeters`·`radiusOptions`를 추가했다(V30, 2026-10-13). → [domains/recommendation.md](domains/recommendation.md) "추천 반경 선택 구현 결과" 참고.
+  33. [x] **사용자 테스트용 관리자 대시보드.** 기존 테이블(추천 세션·Pick·제외·후기)만 집계해 결정 시간·Pick 전환율·추천 품질·기록 사용률을 `/admin.html`에서 본다. 이벤트 로그 테이블은 만들지 않는다.(#70) → [domains/admin.md](domains/admin.md) "관리자 대시보드 구현 결과" 참고.
   34. [ ] **사용자 테스트 실행.** 운영 `ADMIN_PASSWORD` 설정 후 테스터 8~15명 과제형(15분)·자유 사용(3~7일)을 진행하고 대시보드 지표와 인터뷰를 정리한다.
   35. [x] **개발 규칙 문서화.** toggle-me의 문서 구조(`AGENTS.md`, `docs/` 주제별 규칙, PR 템플릿)를 가져오고 내용은 pick-eat 코드 기준으로 쓴다. `develop` 없이 `main` 기반, `@Builder` 허용, ErrorCode 번호 형식 유지, 시간은 `Instant`/`TIMESTAMPTZ`(#71). 머지된 원격 브랜치 45개를 정리하고 머지 후 자동 삭제를 켰다(2026-11-03, #72, 코드 관례 보정 #75).
   36. [x] **후기 키워드·1인당 지출(네이버 영수증 리뷰 참고).** 후기에 "이런 점이 좋았어요" 키워드(17개 중 최대 5개. 프론트 키워드 화면 배포 전까지 임시로 선택, #78)와 1인당 지출 구간(선택)을 추가하고 본문은 선택으로 바꾼다. 식당 후기 요약에 키워드 상위 5개를 집계한다. 키워드로 동행 적합도·가격대를 채우는 일은 2단계로 미룬다(#76).
@@ -74,7 +74,7 @@
   43. [ ] **Google 출처 표시(2026-11-09).** Places API 정책상 Google 데이터·사진을 보여줄 때 "Google Maps"와 사진 촬영자 이름·프로필 링크를 함께 표시해야 한다. 식당 상세·추천 결과 항목에 `dataAttribution`(GOOGLE 식당은 `"Google Maps"`, CURATED는 null)을, `GET /api/v1/restaurants/{id}/photo/attributions?index=`로 사진 촬영자(`authors[].displayName`, `uri`)를 내려준다. 촬영자는 사진 주소와 같은 30분 캐시를 써서 Google 호출이 늘지 않는다. 프론트 표시 작업이 따라와야 완료다. 데이터 원본 이전(공공데이터) 논의의 첫 단계다(#80).
   44. [ ] **(보류) 식당 데이터 원본을 공공데이터로 이전.** Google Places 영구 저장(약관상 place ID만 영구, 좌표 30일)을 벗어나기 위한 후보 조사 결과다(2026-11-09). 기본 정보는 소상공인시장진흥공단 상가(상권)정보 API(data.go.kr 15012005, 상호·지점명·업종 대중소·WGS84 위경도, 반경 2km 조회, 이용 제한 없음, 폐업은 변경분 조회의 삭제로만 확인), 폐업 교차 확인은 행정안전부 식품 일반음식점·휴게음식점 조회서비스(일간 갱신, 영업상태코드, 좌표 EPSG:5174, 사업장명은 법적 상호)를 쓴다. 평점·영업시간·사진은 공공데이터에 없어 후기·팀 입력으로 채운다. 착수 전 5개 탐색 지역 표본으로 커버리지·폐업 반영 속도·Kakao ID 매칭률을 검증하고, Kakao ID 매칭 배치 허용을 서면 확인한다. 전환은 공급자 ID 매핑·출처 컬럼 추가 → 적재·병합 → 추천 필터·점수 전환 → Google 저장 중단 → Google 파생 컬럼·점수 정리 순서로 한다.
   45. [ ] **추천 구조 개편: 식당 DB 제거 + 실시간 검색 + 랜덤 추천(2026-11-09 결정, 구현 전).** Google 저장 약관 위반을 없애려고 식당 정보를 매번 Google에서 조회하고, 동행별 장소 유형 묶음 + 검색어로 후보를 받아 최소 기준을 통과한 후보 중 랜덤 20개를 세션에 저장한다(5개 노출). 44(공공데이터)는 사용자가 늘어 비용이 커질 때의 대안으로 둔다. → "추천 구조 개편 결정" 참고.
-  46. [x] **docs 정리(2026-11-09).** `SERVICE_DECISIONS.md` 한 파일에 섞여 있던 결정·진행 현황·구현 기록을 `SERVICE_DECISIONS.md`(지금 유효한 결정)·`progress.md`(이 문서)·`history.md`(구현 기록, 최신순)로 나눴다. 폐기된 M2 ADR, 완료된 2026-09-22 백로그, M2.5 진행 기준은 지웠다(백로그의 "세션 ID 유지"는 결정 문서로 옮김). README의 다음 할 일·작업 순서는 이 문서로 합쳤다.
+  46. [x] **docs 도메인별 정리(2026-11-09).** 512줄짜리 `SERVICE_DECISIONS.md`에 섞여 있던 결정·진행 현황·구현 기록을 나눴다. 진행 현황은 이 문서, 결정과 구현 기록은 `docs/domains/{도메인}.md`(현재 규칙 + 결정 기록 최신순), 도메인 폴더마다 핵심 규칙만 담은 `AGENTS.md`(Claude Code용 `CLAUDE.md`는 `@AGENTS.md`)를 두었다. 폐기·중복 내용(M2 ADR, 끝난 2026-09-22 백로그, M2.5 진행 기준, M2-4~5 결과, 공통 예외 응답·운영 배포 결과·배포 결정·API 인증 목록 — api-conventions·DEPLOYMENT·코드에 이미 있음)은 지웠다. "세션 ID는 Long 유지"는 추천 기본 정책으로 옮겼다.
 
 ## 운영 장애 기록
 
