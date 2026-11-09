@@ -13,7 +13,9 @@
 | [testing.md](testing.md) | 테스트 종류와 네이밍, 로컬 DB |
 | [development-cycle.md](development-cycle.md) | 브랜치, 커밋, PR, 병합 절차의 정본 |
 | [quality-gates.md](quality-gates.md) | PR 전 확인 기준 |
-| [SERVICE_DECISIONS.md](SERVICE_DECISIONS.md) | 제품·기술 결정, 구현 현황 체크리스트, 기능별 구현 결과 |
+| [SERVICE_DECISIONS.md](SERVICE_DECISIONS.md) | 지금 유효한 제품·기술 결정 |
+| [progress.md](progress.md) | 다음 작업 순서, 구현 현황 체크리스트, 운영 장애 기록 |
+| [history.md](history.md) | 기능별 구현 결과와 결정이 바뀐 경위(최신순) |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | EC2 배포, 환경변수, 롤백 |
 | [OPERATIONS.md](OPERATIONS.md) | 운영 중 수동 작업(식당 신고 검토 등) |
 | [workflows/](workflows/README.md) | 반복하는 개발 절차 |
