@@ -7,7 +7,7 @@ AI 개발 도구(Claude Code, Codex 등)가 작업 전에 확인할 공통 지�
 1. [README.md](README.md)에서 실행 방법과 현재 구현 범위를 확인한다
 2. [docs/README.md](docs/README.md)에서 작업별로 읽을 문서를 확인한다
 3. 현재 작업과 관련된 문서만 골라 읽는다
-4. 결정 배경이 필요하면 [docs/SERVICE_DECISIONS.md](docs/SERVICE_DECISIONS.md)의 구현 결과를 확인한다
+4. 코드를 고칠 때는 그 도메인 폴더(`src/main/java/.../domain/{도메인}/`)의 `AGENTS.md`를 먼저 본다. 자세한 결정과 배경은 [docs/domains/](docs/domains/)에 있다
 
 ## 공통 지침
 
@@ -22,7 +22,7 @@ AI 개발 도구(Claude Code, Codex 등)가 작업 전에 확인할 공통 지�
 
 ## 작업 시작·완료 형식
 
-작업을 시작하기 전에 아래 항목을 적고, `docs/SERVICE_DECISIONS.md`의 "구현 현황"에 `- [ ]` 항목을 추가한다.
+작업을 시작하기 전에 아래 항목을 적고, [docs/progress.md](docs/progress.md)의 "구현 현황"에 `- [ ]` 항목을 추가한다.
 
 | 항목 | 내용 |
 | --- | --- |

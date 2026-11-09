@@ -79,4 +79,4 @@ docs: 관리자 대시보드 로드맵 체크
 - PR 제목의 설명과 본문은 한국어로 쓰고 [PR 템플릿](../.github/pull_request_template.md)을 따른다
 - API를 추가하거나 계약을 바꾸면 Notion API SPECIFICATION 항목도 고친다. 머지 전에는 개발현황을 "진행 중"으로 두고 참고사항에 PR 번호를 적는다
 - 병합된 브랜치는 GitHub 설정(`delete_branch_on_merge`)으로 자동 삭제된다
-- 작업을 시작할 때와 끝낼 때 `docs/SERVICE_DECISIONS.md`의 "구현 현황"을 갱신한다 ([AGENTS.md](../AGENTS.md#작업-시작완료-형식))
+- 작업을 시작할 때와 끝낼 때 `docs/progress.md`의 "구현 현황"을 갱신한다 ([AGENTS.md](../AGENTS.md#작업-시작완료-형식))

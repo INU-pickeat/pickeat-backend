@@ -109,7 +109,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - 관리자 대시보드 (`/admin.html`, `GET /api/admin/stats?days=7`) — HTTP Basic 인증. 사용자 테스트용으로 결정 소요 시간, Pick 전환율, Pick한 순위, 제외 사유, 프랜차이즈 노출, 후기 작성률, 재방문 회원을 기존 테이블에서 집계한다
 - 초기 탐색 스팟 조회 API (`GET /api/v1/discovery-spots`) — 인증 없이 신사·혜화·서촌·한남·종로와 지역별 고정 노출 식당을 순서대로 조회
 
-**다음 할 일:** 프론트 키워드 화면 배포 후 후기 키워드 필수 복귀, 리뷰 없이 머지된 #76·#77·#78의 사후 리뷰, 사용자 테스트(8~15명) 실행이 우선입니다. 운영으로는 후기 이미지용 S3 설정, 프론트엔드 연동 E2E, CD 자동 롤백 실검증이 남아 있습니다. 기능으로는 후기 한줄평 선정 규칙 확정, 제네릭 `restaurant` 분류가 남아 있고, 동적 지역별 인기맛집과 후기 데이터로 식당 정보 보강은 데이터가 쌓인 뒤 진행합니다. 전체 진행 현황은 [`docs/SERVICE_DECISIONS.md`](docs/SERVICE_DECISIONS.md)의 "구현 현황"이 정본입니다.
+추천 세션당 Pick은 하나만 허용하고, 다른 세션에서는 같은 식당을 다시 선택할 수 있습니다. 지도와 캘린더는 후기를 작성한(REVIEWED) Pick만 보여 줍니다.
 
 초기 탐색 스팟은 신사·혜화·서촌·한남·종로 5개 지역과 지역별 5곳(총 25곳)의 운영자 선정 `CURATED` 데이터입니다. 실제 Picker 행동 데이터가 쌓이기 전까지 자동 인기 집계나 실시간 순위는 구현하지 않습니다.
 
@@ -117,28 +117,17 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 
 가짜 식당과 임의 좌표는 운영 DB용 Flyway 시드에 넣지 않습니다. 확정 목록은 [`src/main/resources/curated/discovery-spots.csv`](src/main/resources/curated/discovery-spots.csv)에 정리했고, Google Places에서 검증한 좌표·Place ID로 V14 실제 탐색 시드를 작성했고, 2026-10-08 V25에서 사진과 어긋난 식당·순서를 정정했습니다.
 
-## 향후 작업 순서
+## 진행 현황
 
-최신 순서와 체크 상태는 [`docs/SERVICE_DECISIONS.md`](docs/SERVICE_DECISIONS.md) "구현 현황"을 기준으로 하며, 아래는 요약입니다(2026-11-03 갱신).
+진행 현황과 다음 작업 순서는 [`docs/progress.md`](docs/progress.md), 도메인별 결정과 구현 기록은 [`docs/domains/`](docs/domains/)에 있습니다.
 
-1. 후기 키워드 필수 복귀 — 프론트 키워드 화면 배포 후 (구현 현황 38)
-2. #76·#77·#78 사후 리뷰 (39)
-3. 사용자 테스트 실행, 관리자 대시보드로 지표 확인 (34)
-4. Spring 기본 계정 경고 정리 (40)
-5. 후기 이미지 S3 운영 설정 (26), 프론트엔드 연동 E2E (11), CD 자동 롤백 실검증
-6. 후기 한줄평 선정 규칙 확정 (21), 제네릭 `restaurant` 보완 분류
-7. 데이터가 쌓인 뒤: 동적 지역별 인기맛집 (19), 주차 조건 A안 전환 검토 (41), 후기 데이터로 식당 정보 보강 (42)
-8. Google 출처 표시 (43) — 프론트 표시 작업과 함께
-9. 추천 구조 개편: 식당 DB 제거 + 실시간 검색 + 랜덤 추천 (45) — 결정 완료, 구현 전
-10. (보류) 식당 데이터 원본을 공공데이터로 이전 (44) — 사용자 증가로 비용이 커질 때의 대안
-
-추천 세션당 Pick은 하나만 허용하고, 다른 세션에서는 같은 식당을 다시 선택할 수 있습니다. 지도와 캘린더는 후기를 작성한(REVIEWED) Pick만 보여 줍니다.
+## 운영
 
 CI는 `.github/workflows/ci.yml`, CD는 `.github/workflows/deploy.yml`에서 실행합니다. `main`의 CI가 성공하면 EC2에 실행 JAR를 배포하고 헬스체크 실패 시 직전 릴리스로 롤백합니다. 운영은 EC2 t3.micro 한 대에 앱(systemd)·PostGIS(Docker)·Nginx를 함께 올린 구성이며, 2026-10-04부터 `https://api.pickeat.kr`로 서비스합니다.
 
 EC2 최초 설정, GitHub Secrets, systemd, 헬스체크와 롤백 절차는 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)를 참고하세요.
 
-제품 범위와 데이터 원본 결정, 결정 이력은 [`docs/SERVICE_DECISIONS.md`](docs/SERVICE_DECISIONS.md)에 기록합니다.
+제품·기술 결정은 도메인별로 [`docs/domains/`](docs/domains/)에 기록합니다.
 
 ## 브랜치 / PR 전략
 
