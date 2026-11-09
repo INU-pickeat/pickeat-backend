@@ -12,6 +12,7 @@ import com.pickeat.pickeatbackend.domain.restaurant.exception.RestaurantErrorCod
 import com.pickeat.pickeatbackend.domain.restaurant.repository.RestaurantRepository;
 import com.pickeat.pickeatbackend.global.exception.BusinessException;
 import com.pickeat.pickeatbackend.global.exception.GlobalErrorCode;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,9 @@ import org.springframework.web.client.ResourceAccessException;
 class RestaurantPhotoServiceTest {
 
     private static final String PHOTO_URI = "https://lh3.googleusercontent.com/test-photo";
+    private static final GooglePlacesClient.AuthorAttribution AUTHOR =
+            new GooglePlacesClient.AuthorAttribution("홍길동", "https://maps.google.com/maps/contrib/1");
+    private static final GooglePlacesClient.PlacePhoto PHOTO = new GooglePlacesClient.PlacePhoto(PHOTO_URI, List.of(AUTHOR));
 
     @Mock
     private RestaurantRepository restaurantRepository;
@@ -44,8 +48,8 @@ class RestaurantPhotoServiceTest {
     @DisplayName("Google에서 받은 사진 주소를 돌려준다")
     void returnsPhotoUriFromGoogle() {
         stubRestaurant();
-        when(googlePlacesClient.findPhotoUri("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX))
-                .thenReturn(Optional.of(PHOTO_URI));
+        when(googlePlacesClient.findPhoto("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX))
+                .thenReturn(Optional.of(PHOTO));
 
         assertThat(restaurantPhotoService.getPhotoUri(1L)).isEqualTo(PHOTO_URI);
     }
@@ -54,20 +58,20 @@ class RestaurantPhotoServiceTest {
     @DisplayName("같은 식당을 다시 요청하면 Google을 다시 부르지 않는다")
     void reusesCachedPhotoUri() {
         stubRestaurant();
-        when(googlePlacesClient.findPhotoUri("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX))
-                .thenReturn(Optional.of(PHOTO_URI));
+        when(googlePlacesClient.findPhoto("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX))
+                .thenReturn(Optional.of(PHOTO));
 
         restaurantPhotoService.getPhotoUri(1L);
         restaurantPhotoService.getPhotoUri(1L);
 
-        verify(googlePlacesClient, times(1)).findPhotoUri("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX);
+        verify(googlePlacesClient, times(1)).findPhoto("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX);
     }
 
     @Test
     @DisplayName("사진이 없는 식당은 PHOTO_NOT_FOUND이고 그 결과도 기억한다")
     void throwsAndCachesWhenRestaurantHasNoPhoto() {
         stubRestaurant();
-        when(googlePlacesClient.findPhotoUri("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX))
+        when(googlePlacesClient.findPhoto("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> restaurantPhotoService.getPhotoUri(1L))
@@ -75,16 +79,16 @@ class RestaurantPhotoServiceTest {
                         e -> assertThat(e.getErrorCode()).isEqualTo(RestaurantErrorCode.PHOTO_NOT_FOUND));
         assertThatThrownBy(() -> restaurantPhotoService.getPhotoUri(1L)).isInstanceOf(BusinessException.class);
 
-        verify(googlePlacesClient, times(1)).findPhotoUri("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX);
+        verify(googlePlacesClient, times(1)).findPhoto("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX);
     }
 
     @Test
     @DisplayName("Google 통신 오류는 PHOTO_NOT_FOUND로 응답하되 기억하지 않는다")
     void doesNotCacheGoogleFailure() {
         stubRestaurant();
-        when(googlePlacesClient.findPhotoUri("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX))
+        when(googlePlacesClient.findPhoto("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX))
                 .thenThrow(new ResourceAccessException("timeout"))
-                .thenReturn(Optional.of(PHOTO_URI));
+                .thenReturn(Optional.of(PHOTO));
 
         assertThatThrownBy(() -> restaurantPhotoService.getPhotoUri(1L)).isInstanceOf(BusinessException.class);
 
@@ -105,16 +109,16 @@ class RestaurantPhotoServiceTest {
     @DisplayName("사진 순번마다 따로 조회하고 따로 기억한다")
     void fetchesAndCachesEachPhotoIndexSeparately() {
         stubRestaurant();
-        when(googlePlacesClient.findPhotoUri("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX))
-                .thenReturn(Optional.of(PHOTO_URI));
-        when(googlePlacesClient.findPhotoUri("place-1", 2, RestaurantPhotoService.MAX_WIDTH_PX))
-                .thenReturn(Optional.of(PHOTO_URI + "-third"));
+        when(googlePlacesClient.findPhoto("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX))
+                .thenReturn(Optional.of(PHOTO));
+        when(googlePlacesClient.findPhoto("place-1", 2, RestaurantPhotoService.MAX_WIDTH_PX))
+                .thenReturn(Optional.of(new GooglePlacesClient.PlacePhoto(PHOTO_URI + "-third", List.of())));
 
         assertThat(restaurantPhotoService.getPhotoUri(1L, 0)).isEqualTo(PHOTO_URI);
         assertThat(restaurantPhotoService.getPhotoUri(1L, 2)).isEqualTo(PHOTO_URI + "-third");
         assertThat(restaurantPhotoService.getPhotoUri(1L, 2)).isEqualTo(PHOTO_URI + "-third");
 
-        verify(googlePlacesClient, times(1)).findPhotoUri("place-1", 2, RestaurantPhotoService.MAX_WIDTH_PX);
+        verify(googlePlacesClient, times(1)).findPhoto("place-1", 2, RestaurantPhotoService.MAX_WIDTH_PX);
     }
 
     @Test
@@ -124,5 +128,18 @@ class RestaurantPhotoServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class,
                         e -> assertThat(e.getErrorCode()).isEqualTo(GlobalErrorCode.INVALID_INPUT));
         assertThatThrownBy(() -> restaurantPhotoService.getPhotoUri(1L, -1)).isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("촬영자 정보는 사진 주소와 같은 캐시를 써서 Google을 다시 부르지 않는다")
+    void returnsPhotoAuthorsFromSameCache() {
+        stubRestaurant();
+        when(googlePlacesClient.findPhoto("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX))
+                .thenReturn(Optional.of(PHOTO));
+
+        restaurantPhotoService.getPhotoUri(1L, 0);
+
+        assertThat(restaurantPhotoService.getPhotoAuthors(1L, 0)).containsExactly(AUTHOR);
+        verify(googlePlacesClient, times(1)).findPhoto("place-1", 0, RestaurantPhotoService.MAX_WIDTH_PX);
     }
 }

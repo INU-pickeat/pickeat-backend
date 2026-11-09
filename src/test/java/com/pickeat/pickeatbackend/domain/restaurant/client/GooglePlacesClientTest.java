@@ -1,6 +1,7 @@
 package com.pickeat.pickeatbackend.domain.restaurant.client;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -235,14 +236,16 @@ class GooglePlacesClientTest {
     }
 
     @Test
-    @DisplayName("사진 이름을 Place Details로 새로 받은 뒤 Place Photo로 임시 주소를 받는다")
+    @DisplayName("사진 이름을 Place Details로 새로 받은 뒤 Place Photo로 임시 주소를 받고 촬영자도 함께 돌려준다")
     void findsPhotoUriThroughDetailsAndMedia() {
         server.expect(requestTo("https://places.googleapis.com/v1/places/test-place"))
             .andExpect(method(HttpMethod.GET))
             .andExpect(header("X-Goog-Api-Key", "test-key"))
             .andExpect(header("X-Goog-FieldMask", "photos"))
             .andRespond(withSuccess("""
-                {"photos":[{"name":"places/test-place/photos/first-ref","widthPx":4000,"heightPx":3000},
+                {"photos":[{"name":"places/test-place/photos/first-ref","widthPx":4000,"heightPx":3000,
+                            "authorAttributions":[{"displayName":"홍길동","uri":"https://maps.google.com/maps/contrib/1",
+                                                   "photoUri":"https://lh3.googleusercontent.com/a/profile"}]},
                            {"name":"places/test-place/photos/second-ref"}]}
                 """, MediaType.APPLICATION_JSON));
         server.expect(requestTo(
@@ -254,7 +257,9 @@ class GooglePlacesClientTest {
                 {"name":"places/test-place/photos/first-ref/media","photoUri":"https://lh3.googleusercontent.com/photo"}
                 """, MediaType.APPLICATION_JSON));
 
-        assertThat(client.findPhotoUri("test-place", 800)).contains("https://lh3.googleusercontent.com/photo");
+        assertThat(client.findPhoto("test-place", 0, 800)).contains(new GooglePlacesClient.PlacePhoto(
+            "https://lh3.googleusercontent.com/photo",
+            List.of(new GooglePlacesClient.AuthorAttribution("홍길동", "https://maps.google.com/maps/contrib/1"))));
         server.verify();
     }
 
@@ -264,15 +269,15 @@ class GooglePlacesClientTest {
         server.expect(requestTo("https://places.googleapis.com/v1/places/test-place"))
             .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
-        assertThat(client.findPhotoUri("test-place", 800)).isEmpty();
+        assertThat(client.findPhoto("test-place", 0, 800)).isEmpty();
         server.verify();
     }
 
     @Test
     @DisplayName("API 키나 장소 ID가 없으면 Google을 부르지 않고 빈 값을 돌려준다")
     void returnsEmptyPhotoWithoutApiKeyOrPlaceId() {
-        assertThat(new GooglePlacesClient(RestClient.builder(), "").findPhotoUri("test-place", 800)).isEmpty();
-        assertThat(client.findPhotoUri(null, 800)).isEmpty();
+        assertThat(new GooglePlacesClient(RestClient.builder(), "").findPhoto("test-place", 0, 800)).isEmpty();
+        assertThat(client.findPhoto(null, 0, 800)).isEmpty();
         server.verify();
     }
 
@@ -291,7 +296,8 @@ class GooglePlacesClientTest {
                 {"name":"places/test-place/photos/second-ref/media","photoUri":"https://lh3.googleusercontent.com/second"}
                 """, MediaType.APPLICATION_JSON));
 
-        assertThat(client.findPhotoUri("test-place", 1, 800)).contains("https://lh3.googleusercontent.com/second");
+        assertThat(client.findPhoto("test-place", 1, 800)).contains(
+            new GooglePlacesClient.PlacePhoto("https://lh3.googleusercontent.com/second", List.of()));
         server.verify();
     }
 
@@ -303,7 +309,7 @@ class GooglePlacesClientTest {
                 {"photos":[{"name":"places/test-place/photos/first-ref"}]}
                 """, MediaType.APPLICATION_JSON));
 
-        assertThat(client.findPhotoUri("test-place", 2, 800)).isEmpty();
+        assertThat(client.findPhoto("test-place", 2, 800)).isEmpty();
         server.verify();
     }
 

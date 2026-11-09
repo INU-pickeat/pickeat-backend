@@ -88,15 +88,12 @@ public class GooglePlacesClient {
         return response.places() == null ? List.of() : List.copyOf(response.places());
     }
 
-    // 식당 대표 사진의 임시 주소를 얻는다. Google 약관상 사진 이름(photos[].name)은 저장할 수 없고 만료되므로,
-    // 매번 Place Details로 사진 이름을 새로 받은 뒤(photos 필드만 요청) Place Photo로 주소를 받는다.
-    // 사진이 없는 장소이거나 API 키가 없으면 빈 값을 돌려준다. 통신 오류는 RestClientException으로 던진다.
-    public Optional<String> findPhotoUri(String placeId, int maxWidthPx) {
-        return findPhotoUri(placeId, 0, maxWidthPx);
-    }
-
-    // photoIndex: Google이 돌려준 사진 순서(0부터). 그 순번의 사진이 없으면 빈 값을 돌려준다.
-    public Optional<String> findPhotoUri(String placeId, int photoIndex, int maxWidthPx) {
+    // 식당 사진의 임시 주소와 촬영자 표시 정보를 얻는다. Google 약관상 사진 이름(photos[].name)은 저장할 수 없고
+    // 만료되므로, 매번 Place Details로 사진 이름을 새로 받은 뒤(photos 필드만 요청) Place Photo로 주소를 받는다.
+    // 사진을 보여줄 때는 촬영자(authorAttributions)를 함께 표시해야 한다(Places API 정책).
+    // photoIndex: Google이 돌려준 사진 순서(0부터). 그 순번의 사진이 없거나 API 키가 없으면 빈 값을 돌려준다.
+    // 통신 오류는 RestClientException으로 던진다.
+    public Optional<PlacePhoto> findPhoto(String placeId, int photoIndex, int maxWidthPx) {
         if (placeId == null || placeId.isBlank() || apiKey == null || apiKey.isBlank() || photoIndex < 0) {
             return Optional.empty();
         }
@@ -110,22 +107,25 @@ public class GooglePlacesClient {
         if (details == null || details.photos() == null || details.photos().size() <= photoIndex) {
             return Optional.empty();
         }
-        String photoName = details.photos().get(photoIndex).name();
-        if (photoName == null || !photoName.startsWith("places/")) {
+        PhotosResponse.Photo photo = details.photos().get(photoIndex);
+        if (photo.name() == null || !photo.name().startsWith("places/")) {
             return Optional.empty();
         }
 
         PhotoMedia media = restClient.get()
-            .uri(uriBuilder -> uriBuilder.path("/v1/" + photoName + "/media")
+            .uri(uriBuilder -> uriBuilder.path("/v1/" + photo.name() + "/media")
                 .queryParam("maxWidthPx", maxWidthPx)
                 .queryParam("skipHttpRedirect", true)
                 .build())
             .header("X-Goog-Api-Key", apiKey)
             .retrieve()
             .body(PhotoMedia.class);
-        return media == null || media.photoUri() == null || media.photoUri().isBlank()
-            ? Optional.empty()
-            : Optional.of(media.photoUri());
+        if (media == null || media.photoUri() == null || media.photoUri().isBlank()) {
+            return Optional.empty();
+        }
+        List<AuthorAttribution> authors = photo.authorAttributions() == null
+            ? List.of() : List.copyOf(photo.authorAttributions());
+        return Optional.of(new PlacePhoto(media.photoUri(), authors));
     }
 
     // 전화번호·정기 영업시간만 담긴 응답을 돌려준다. 나머지 필드는 null이다.
@@ -166,8 +166,15 @@ public class GooglePlacesClient {
     }
 
     record PhotosResponse(List<Photo> photos) {
-        record Photo(String name) {
+        record Photo(String name, List<AuthorAttribution> authorAttributions) {
         }
+    }
+
+    // 사진 촬영자. displayName과 프로필 링크(uri)를 사진과 함께 보여줘야 한다.
+    public record AuthorAttribution(String displayName, String uri) {
+    }
+
+    public record PlacePhoto(String uri, List<AuthorAttribution> authors) {
     }
 
     record PhotoMedia(String name, String photoUri) {

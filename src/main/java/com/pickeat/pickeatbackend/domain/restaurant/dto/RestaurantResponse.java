@@ -1,5 +1,6 @@
 package com.pickeat.pickeatbackend.domain.restaurant.dto;
 
+import com.pickeat.pickeatbackend.domain.restaurant.entity.DataProvider;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.Restaurant;
 import com.pickeat.pickeatbackend.domain.restaurant.service.RestaurantPhotoService;
@@ -31,7 +32,8 @@ public record RestaurantResponse(
         Boolean suitableForDogs,
         Boolean parkingAvailable,
         String oneLineReview,
-        List<String> imageUrls
+        List<String> imageUrls,
+        String dataAttribution
 ) {
 
     // oneLineReview: 공개 사용자 후기 한줄평 → 탐색 스팟 운영자 한줄평 → ReviewOneLiner.NO_REVIEW 순으로 호출한 쪽이 정해 넘긴다.
@@ -60,8 +62,14 @@ public record RestaurantResponse(
                 restaurant.getSuitableForDogs(),
                 restaurant.getParkingAvailable(),
                 oneLineReview,
-                imageUrls(restaurant)
+                imageUrls(restaurant),
+                dataAttribution(restaurant)
         );
+    }
+
+    // Google에서 받은 식당 정보(이름·평점·영업시간 등)를 보여줄 때 함께 표시할 출처. 운영자가 직접 넣은 식당은 null.
+    public static String dataAttribution(Restaurant restaurant) {
+        return restaurant.getDataProvider() == DataProvider.GOOGLE ? RestaurantPhotoAttributionResponse.GOOGLE_MAPS : null;
     }
 
     // 상세 화면용 이미지 목록(최대 3장). 첫 번째는 representativeImageUrl과 같다. 자체 이미지가 있으면 그것을
