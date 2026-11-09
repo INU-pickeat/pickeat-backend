@@ -1,6 +1,7 @@
 package com.pickeat.pickeatbackend.domain.restaurant.controller;
 
 import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantNavigationLinksResponse;
+import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantPhotoAttributionResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantReportRequest;
 import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantReportResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantResponse;
@@ -47,6 +48,16 @@ public class RestaurantController {
                 .location(URI.create(restaurantPhotoService.getPhotoUri(restaurantId, index)))
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(30)).cachePrivate())
                 .build();
+    }
+
+    // 사진과 함께 보여줘야 하는 촬영자 표시 정보(Google Places 정책). 사진 API와 같은 index를 쓴다.
+    @GetMapping("/{restaurantId}/photo/attributions")
+    public ResponseEntity<RestaurantPhotoAttributionResponse> getPhotoAttributions(
+            @PathVariable Long restaurantId,
+            @RequestParam(defaultValue = "0") int index
+    ) {
+        return ResponseEntity.ok(RestaurantPhotoAttributionResponse.from(
+                restaurantPhotoService.getPhotoAuthors(restaurantId, index)));
     }
 
     @GetMapping("/{restaurantId}/navigation-links")

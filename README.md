@@ -102,6 +102,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - 좋아요 알림 API (`GET /api/v1/me/notifications`) — 내 후기에 다른 사람이 누른 좋아요를 최신순 50건까지 반환. 항목마다 `actorNickname`과 `"{닉네임}님이 회원님의 기록을 좋아해요"` 형태의 `message`를 담는다. 좋아요를 취소하면 알림도 사라진다
 - 식당 상세(`GET /api/v1/restaurants/{id}`)와 추천 결과 항목에 한줄평(`oneLineReview`) 포함 — 후기가 없으면 `"후기가 없습니다."`. 추천 결과 항목에는 `representativeImageUrl`도 포함(이미지가 없으면 `null`). 식당 상세와 추천 결과 항목에는 주차 가능 여부(`parkingAvailable`, 모르면 `null`)도 포함
 - 식당 사진 API (`GET /api/v1/restaurants/{id}/photo`) — 인증 불필요. Google Places 사진 주소로 302 리다이렉트하며 `<img src>`에 바로 쓸 수 있다. 사진이 없으면 404 `RESTAURANT_002`. `?index=0~2`로 다른 순번의 사진을 받을 수 있고, 식당 상세 응답의 `imageUrls`(최대 3장)에 이 주소들이 담긴다. 자체 이미지가 없는 Google 출처 식당은 `representativeImageUrl`이 이 주소로 내려간다
+- 식당 사진 출처 API (`GET /api/v1/restaurants/{id}/photo/attributions?index=0~2`) — 인증 불필요. Google 사진과 함께 표시할 `provider`("Google Maps")와 촬영자 `authors[]`(`displayName`, `uri`)를 돌려준다. 사진 API와 같은 30분 캐시를 써서 Google 호출이 늘지 않는다. 식당 상세와 추천 결과 항목의 `dataAttribution`은 Google 출처 식당이면 "Google Maps", 운영자가 넣은 식당이면 `null`이다
 - 식당 신고 API (`POST /api/v1/restaurants/{id}/reports`) — 인증 필요. 폐업(`CLOSED`)·정보 오류(`WRONG_INFO`)·음식 종류 오류(`WRONG_CATEGORY`)·기타(`OTHER`)와 선택 메모(300자)를 받아 `PENDING`으로 저장. 검토 전 중복 신고는 409 `RESTAURANT_003`. 운영자가 확인해 받아들이면 식당에 `excluded_at`을 기록해 추천 후보에서 뺀다(절차: [docs/OPERATIONS.md](docs/OPERATIONS.md))
 - 식당별 후기 요약 API (`GET /api/v1/restaurants/{id}/review-summary`) — 인증 불필요. 공개 후기 수·대표 한줄평(본문 있는 가장 최근 공개 후기)·많이 고른 키워드 상위 5개(`topKeywords: [{code, label, count}]`)
 - 탐색 스팟 한줄평(`oneLineIntro`)은 앱 내 사용자 후기 기반 — 식당별 가장 최근 공개 후기의 첫 줄(최대 50자), 후기가 없으면 `"후기가 없습니다."`
@@ -127,6 +128,8 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 5. 후기 이미지 S3 운영 설정 (26), 프론트엔드 연동 E2E (11), CD 자동 롤백 실검증
 6. 후기 한줄평 선정 규칙 확정 (21), 제네릭 `restaurant` 보완 분류
 7. 데이터가 쌓인 뒤: 동적 지역별 인기맛집 (19), 주차 조건 A안 전환 검토 (41), 후기 데이터로 식당 정보 보강 (42)
+8. Google 출처 표시 (43) — 프론트 표시 작업과 함께
+9. (보류) 식당 데이터 원본을 공공데이터로 이전 (44)
 
 추천 세션당 Pick은 하나만 허용하고, 다른 세션에서는 같은 식당을 다시 선택할 수 있습니다. 지도와 캘린더는 후기를 작성한(REVIEWED) Pick만 보여 줍니다.
 

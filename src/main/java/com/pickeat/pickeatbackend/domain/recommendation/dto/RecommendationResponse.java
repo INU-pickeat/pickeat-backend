@@ -2,6 +2,7 @@ package com.pickeat.pickeatbackend.domain.recommendation.dto;
 
 import com.pickeat.pickeatbackend.domain.recommendation.entity.RecommendationCandidate;
 import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantImageUrl;
+import com.pickeat.pickeatbackend.domain.restaurant.dto.RestaurantResponse;
 import com.pickeat.pickeatbackend.domain.restaurant.entity.FoodCategory;
 import com.pickeat.pickeatbackend.domain.review.dto.ReviewOneLiner;
 import java.math.BigDecimal;
@@ -36,7 +37,8 @@ public record RecommendationResponse(
             double score,
             String representativeImageUrl,
             String oneLineReview,
-            Boolean parkingAvailable
+            Boolean parkingAvailable,
+            String dataAttribution
     ) {
         public static Item from(RecommendationCandidate candidate, int rank, Map<Long, String> oneLineReviews) {
             String oneLineReview = oneLineReviews.get(candidate.getRestaurant().getId());
@@ -50,7 +52,8 @@ public record RecommendationResponse(
                     candidate.getTotalScore(),
                     RestaurantImageUrl.of(candidate.getRestaurant()),
                     oneLineReview == null || oneLineReview.isBlank() ? ReviewOneLiner.NO_REVIEW : oneLineReview,
-                    candidate.getRestaurant().getParkingAvailable()
+                    candidate.getRestaurant().getParkingAvailable(),
+                    RestaurantResponse.dataAttribution(candidate.getRestaurant())
             );
         }
     }

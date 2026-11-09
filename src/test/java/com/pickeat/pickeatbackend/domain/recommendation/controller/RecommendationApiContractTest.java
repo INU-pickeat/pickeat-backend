@@ -55,7 +55,7 @@ class RecommendationApiContractTest {
         response = new RecommendationResponse(SESSION_ID, 1000, List.of(500, 1000, 2000), true, List.of(
                 new RecommendationResponse.Item(
                         10L, "테스트 식당", FoodCategory.KOREAN, BigDecimal.valueOf(4.5), 320.5, 1, 0.914,
-                        "/images/discovery/sinsa_01_main.jpg", "후기가 없습니다.", true)
+                        "/images/discovery/sinsa_01_main.jpg", "후기가 없습니다.", true, "Google Maps")
         ));
     }
 
@@ -136,7 +136,7 @@ class RecommendationApiContractTest {
                 new RecommendationResponse(SESSION_ID, 1000, List.of(500, 1000, 2000), false, List.of(
                         new RecommendationResponse.Item(
                                 10L, "테스트 식당", FoodCategory.KOREAN, BigDecimal.valueOf(4.5), 320.5, 1, 0.914,
-                                null, "후기가 없습니다.", null))));
+                                null, "후기가 없습니다.", null, null))));
 
         mockMvc.perform(get("/api/v1/recommendations/{sessionId}", SESSION_ID)
                         .header("Authorization", authorizationHeader))
