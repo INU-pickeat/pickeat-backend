@@ -99,7 +99,7 @@
 - 인증 없이 접근 가능한 엔드포인트는 `/api/v1/auth/email-verifications`, `/api/v1/auth/email-verifications/confirm`, `/api/v1/auth/signup`, `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/logout`, `GET /api/v1/discovery-spots`, `GET /images/discovery/**`이다.
 - 그 외 모든 비즈니스 엔드포인트는 명시적으로 문서화되지 않는 한 인증(bearer token)이 필요하다.
 - 예외: `GET /api/v1/restaurants/**`는 인증 없이 접근 가능하다. 식당 상세는 민감 정보가 아니고, 공유 링크는 비로그인 사용자도 열 수 있어야 한다. 식당별 후기 요약(`GET /api/v1/restaurants/{id}/review-summary`)도 이 경로 아래라 인증 없이 조회한다. 식당 관련 쓰기/변경 작업은 여전히 인증이 필요하다.
-- OpenAPI와 Swagger UI는 `local` Spring 프로필에서만 활성화된다.
+- OpenAPI와 Swagger UI는 `local` 프로필에서 인증 없이 켜진다. 운영은 프론트 요청으로 2026-11-09부터 `SWAGGER_ENABLED=true`일 때 문서 전용 HTTP Basic 계정(`DOCS_USERNAME`/`DOCS_PASSWORD`)으로 연다.
 - 스키마 변경은 기존 Member 마이그레이션 이력 다음부터 이어간다: Restaurant는 Flyway V5·V6, Recommendation은 V7, Pick은 V8을 사용한다. 2026-09-22 계약 변경은 V9부터 사용하고 초기 탐색 스팟은 V13~V15, Refresh Token은 V18, Review·이미지·좋아요는 V19를 사용한다.
 
 ## 배포 결정

@@ -44,7 +44,7 @@ PickEat 프로젝트의 백엔드 서버입니다.
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-Swagger UI는 `local` 프로필에서만 활성화됩니다. API 문서 없이 기본 프로필로 실행하려면 `./gradlew bootRun`을 사용합니다.
+Swagger UI는 `local` 프로필에서 인증 없이 켜지고, 운영은 `SWAGGER_ENABLED=true`일 때 문서 계정(HTTP Basic)으로 열립니다(`docs/DEPLOYMENT.md`). API 문서 없이 기본 프로필로 실행하려면 `./gradlew bootRun`을 사용합니다.
 
 ### 3. API 테스트 (Swagger UI)
 

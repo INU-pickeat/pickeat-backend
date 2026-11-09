@@ -46,6 +46,8 @@ sudoedit /etc/pickeat/pickeat.env   # GOOGLE_PLACES_API_KEY, MAIL_PASSWORD 입�
 
 관리자 대시보드(`https://api.pickeat.kr/admin.html`)는 HTTP Basic으로 보호한다. 계정 이름은 `ADMIN_USERNAME`(기본 `admin`)이고 비밀번호 `ADMIN_PASSWORD`는 기본값이 없어 **없거나 빈 값이면 앱이 기동하지 않는다.** 새 인스턴스는 bootstrap이 무작위 값을 만들고, 기존 인스턴스는 `/etc/pickeat/pickeat.env`에 직접 넣은 뒤 재시작한다. 이 설정이 없는 서버에 배포하면 헬스체크 실패로 자동 롤백되므로 **환경변수를 먼저 넣고 배포한다.** 로컬(`local` 프로필)은 `admin123`이다. 집계 내용은 `docs/SERVICE_DECISIONS.md`의 "관리자 대시보드 구현 결과" 참고.
 
+Swagger UI(`https://api.pickeat.kr/swagger-ui/index.html`)는 기본으로 꺼져 있다. 켜려면 `/etc/pickeat/pickeat.env`에 `SWAGGER_ENABLED=true`와 `DOCS_PASSWORD`를 넣고 재시작한다. 계정 이름은 `DOCS_USERNAME`(기본 `admin`)이고, 관리자 대시보드와 별개인 HTTP Basic 계정이다. `SWAGGER_ENABLED=true`인데 `DOCS_PASSWORD`가 비어 있으면 앱이 기동하지 않으니 **값을 먼저 넣고 재시작한다.** 프론트에는 이 문서 계정만 공유한다(2026-11-09).
+
 기존 Google 식당의 전화번호·영업시간 백필은 기본으로 꺼져 있다. 켜려면 `/etc/pickeat/pickeat.env`에 `CONTACT_BACKFILL_ENABLED=true`를 넣고 재시작한다. 매월 1일 18시(KST)에 최대 1,000곳(`CONTACT_BACKFILL_MONTHLY_LIMIT`)을 Place Details로 조회하며, 결과는 `연락처 백필 완료` 로그로 남는다. 로그의 대상 수가 0이 되면 다시 끈다. 같은 달에 Place Details Enterprise 사용량이 따로 있으면 무료 한도(월 1,000건)를 넘을 수 있으니 콘솔에서 먼저 확인한다.
 
 추천용 Nearby Search 필드 마스크에 `places.parkingOptions`를 더했다(2026-11-03). 이미 `goodForChildren`·`allowsDogs` 같은 Atmosphere 필드를 요청하고 있어 같은 과금 등급(Nearby Search Enterprise + Atmosphere)으로 판단하지만, 배포 후 Google Cloud 콘솔에서 SKU별 사용량이 바뀌지 않았는지 확인한다.

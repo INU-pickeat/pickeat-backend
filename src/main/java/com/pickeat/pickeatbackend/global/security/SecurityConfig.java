@@ -4,6 +4,7 @@ import com.pickeat.pickeatbackend.global.security.jwt.JwtAuthenticationFilter;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -51,7 +52,7 @@ public class SecurityConfig {
             @Value("${admin.password}") String password
     ) throws Exception {
         UserDetails admin = User.withUsername(username)
-                .password(passwordEncoder().encode(requireAdminPassword(password)))
+                .password(passwordEncoder().encode(requirePassword("ADMIN_PASSWORD", password)))
                 .roles("ADMIN")
                 .build();
         return http
@@ -67,11 +68,40 @@ public class SecurityConfig {
     }
 
     // ADMIN_PASSWORD가 아예 없으면 설정 해석 단계에서 실패하지만, "ADMIN_PASSWORD="처럼 빈 값은 통과하므로 여기서 막는다.
-    static String requireAdminPassword(String password) {
+    static String requirePassword(String envName, String password) {
         if (password == null || password.isBlank()) {
-            throw new IllegalStateException("ADMIN_PASSWORD가 비어 있습니다. 관리자 비밀번호를 설정해야 기동합니다.");
+            throw new IllegalStateException(envName + "가 비어 있습니다. 비밀번호를 설정해야 기동합니다.");
         }
         return password;
+    }
+
+    /**
+     * 운영 Swagger UI·OpenAPI 문서. SWAGGER_ENABLED=true일 때만 생기고, 관리자와 다른 문서 전용 계정으로
+     * HTTP Basic 보호한다(프론트에 관리자 비밀번호를 주지 않으려고). local 프로필은 아래 체인이 인증 없이 연다.
+     */
+    @Bean
+    @Order(1)
+    @Profile("!local")
+    @ConditionalOnProperty(name = "springdoc.swagger-ui.enabled", havingValue = "true")
+    public SecurityFilterChain documentationFilterChain(
+            HttpSecurity http,
+            @Value("${docs.username}") String username,
+            @Value("${docs.password}") String password
+    ) throws Exception {
+        UserDetails docs = User.withUsername(username)
+                .password(passwordEncoder().encode(requirePassword("DOCS_PASSWORD", password)))
+                .roles("DOCS")
+                .build();
+        return http
+                .securityMatcher("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**")
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .userDetailsService(new InMemoryUserDetailsManager(docs))
+                .httpBasic(Customizer.withDefaults())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET, "/**").hasRole("DOCS")
+                        .anyRequest().denyAll())
+                .build();
     }
 
     @Bean

@@ -61,11 +61,16 @@ storage:
   # 이미지를 제공하는 주소(CloudFront 도메인 등). 비어 있으면 S3 버킷 주소를 그대로 쓴다.
   public-base-url: ${REVIEW_IMAGE_BASE_URL:}
 
+# 운영에서는 SWAGGER_ENABLED=true일 때만 켜고, 문서 전용 계정(DOCS_USERNAME/DOCS_PASSWORD)으로 HTTP Basic 보호한다.
 springdoc:
   api-docs:
-    enabled: false
+    enabled: ${SWAGGER_ENABLED:false}
   swagger-ui:
-    enabled: false
+    enabled: ${SWAGGER_ENABLED:false}
+
+docs:
+  username: ${DOCS_USERNAME:admin}
+  password: ${DOCS_PASSWORD:}
 
 management:
   endpoints:

@@ -1,6 +1,6 @@
 # API Conventions
 
-API URL, 인증, 응답, 오류 규칙이다. 개별 API 명세는 Notion BE > API SPECIFICATION이 원본이고, 로컬에서는 Swagger UI(`/swagger-ui.html`, `local` 프로필만)로 확인한다.
+API URL, 인증, 응답, 오류 규칙이다. 개별 API 명세는 Notion BE > API SPECIFICATION이 원본이고, Swagger UI(`/swagger-ui.html`)로도 확인한다. 로컬은 인증 없이, 운영은 문서 계정으로 연다(`docs/DEPLOYMENT.md`).
 
 ## URL
 
