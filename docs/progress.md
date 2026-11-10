@@ -7,7 +7,7 @@
 1. 후기 키워드 필수 복귀 — 프론트 키워드 화면 배포 후 (38)
 2. #76·#77·#78 사후 리뷰 (39)
 3. 사용자 테스트 실행, 관리자 대시보드로 지표 확인 (34)
-4. 후기 이미지 S3 운영 설정 (26), 프론트엔드 연동 E2E (11), CD 자동 롤백 실검증
+4. 프론트엔드 연동 E2E (11)
 5. 후기 한줄평 선정 규칙 확정 (21), 제네릭 `restaurant` 보완 분류
 6. 데이터가 쌓인 뒤: 동적 지역별 인기맛집 (19), 주차 조건 A안 전환 검토 (41), 후기 데이터로 식당 정보 보강 (42)
 7. Google 출처 표시 (43) — 프론트 표시 작업과 함께
@@ -32,7 +32,7 @@
      - [ ] 제네릭 `restaurant` 보완 분류
   8. [x] **M3 계약 개편.** Pick 동행 스냅샷, 기간별 식당 집계 목록, REVIEWED 전용 지도를 반영했다. 기존 생성·상태 전이·권한 검증은 유지한다. Pick 캘린더는 2026-10-04에 구현했다(#39). → [domains/pick.md](domains/pick.md) "M3 계약 개편 구현 결과", "Pick 캘린더 구현 결과" 참고.
   9. [x] **M2.5: 초기 탐색 스팟.** V13에서 최종 5개 지역, 지역-식당 관계 스키마와 공개 탐색 조회 API를 구현했다. Google Places Text Search로 25개 식당의 Place ID·좌표를 검증하고 V14로 Restaurant와 지역별 고정 순서를 시드했다. 사진은 JPG 수령 후 URL만 후속 반영한다.
-  10. [x] **배포/CD.** GitHub Actions CD·systemd·헬스체크·자동 롤백 구성, t3.micro 단일 인스턴스 구성(swap·PostGIS Docker·Nginx·백업 cron·JVM 힙 제한), EC2 생성, Secrets 등록, 최초 실배포(2026-10-01), DNS·HTTPS 연결(2026-10-04)을 마쳤다. 자동 롤백을 실제 실패 배포로 검증하는 일만 남았다. → "운영 배포 결과" 참고.
+  10. [x] **배포/CD.** GitHub Actions CD·systemd·헬스체크·자동 롤백 구성, t3.micro 단일 인스턴스 구성(swap·PostGIS Docker·Nginx·백업 cron·JVM 힙 제한), EC2 생성, Secrets 등록, 최초 실배포(2026-10-01), DNS·HTTPS 연결(2026-10-04)을 마쳤다. 자동 롤백도 2026-11-10 운영에서 깨진 jar로 검증했다(복구까지 약 87초). → "운영 배포 결과" 참고.
   11. [ ] 프론트엔드 연동 MVP E2E를 검증한다. 백엔드 단독 E2E(회원가입 → 추천 → 다시 추천 → Pick → 로그아웃)는 운영 HTTPS 기준으로 통과했다(2026-10-04).
   12. [x] **Refresh Token.** 로그인 시 refresh token을 함께 발급하고, 재발급(rotation)·로그아웃(폐기) API를 추가했다. → [domains/member.md](domains/member.md) "Refresh Token 구현 결과" 참고.
   13. [x] **프로필 이미지 업로드.** 후기 이미지와 같은 S3 presigned URL 방식이다. `POST /api/v1/me/profile-image/upload-url`로 받은 `uploadUrl`에 PUT한 뒤 `imageUrl`을 `PATCH /api/v1/me`의 `profileImageUrl`로 보낸다(#55).
@@ -53,7 +53,7 @@
   23. [x] **이메일 인증 운영 발송 검증.** 운영 서버에 `MAIL_PASSWORD`(Gmail 앱 비밀번호)를 설정하고, 운영 API로 인증번호 발송 → 실제 메일 수신 → 인증번호 확인까지 통과했다(2026-10-07).
   24. [x] **영업시간 필터.** 30분 뒤에 영업 중인 식당만 추천한다(V21). → [domains/recommendation.md](domains/recommendation.md) "영업시간 필터 구현 결과" 참고.
   25. [x] **공통 예외 응답 통일.** 401·404·405·깨진 JSON·예상하지 못한 500도 `{code, message}` 형식으로 응답한다. → "공통 예외 응답 구현 결과" 참고.
-  26. [ ] **후기 이미지 S3 운영 설정.** 버킷·IAM 역할·CORS·환경변수를 설정하고 업로드부터 피드 표시까지 운영에서 확인한다.
+  26. [x] **후기 이미지 S3 운영 설정.** 버킷·IAM 역할·CORS·환경변수를 설정하고 업로드부터 피드 표시까지 운영에서 확인한다. 2026-11-10 업로드 URL 발급 → S3 PUT(200) → CloudFront 조회(200), `www.pickeat.kr` CORS 허용을 확인했다. 화면의 피드 표시는 프론트 연동 E2E(11)에서 본다.
   27. [x] **비밀번호 찾기.** 이메일 인증번호로 본인을 확인한 뒤 새 비밀번호를 저장한다(2026-10-12). → [domains/member.md](domains/member.md) "비밀번호 찾기 구현 결과" 참고.
   28. [x] **Google 식당 연락처·영업시간 텍스트 저장.** 이전에는 탐색 스팟(CURATED) 25곳만 `phoneNumber`·`openingHoursText`가 있었고 Google 식당은 항상 null이었다. 필드 마스크에 `nationalPhoneNumber`를 추가하고 `regularOpeningHours.weekdayDescriptions`(요일별 7줄, `\n` 구분)를 저장한다. CURATED 식당은 덮어쓰지 않고, Google이 값을 주지 않으면 기존 값을 유지한다. 두 필드 모두 이미 쓰던 `regularOpeningHours`와 같은 Enterprise SKU라 호출 단가는 그대로다(2026-10-12).
   29. [ ] **기존 Google 식당 연락처 백필.** 약 2,170곳(2026-10-12 운영 최대 ID 기준). 한 번에 하면 약 $23(Place Details Enterprise, 월 1,000건 무료 후 1,000건당 $20)이라 `RestaurantContactBackfillJob`으로 매월 1일 1,000곳씩 무료 한도 안에서 채운다. `contact_fetched_at`(V29)이 비어 있는 GOOGLE 식당이 대상이고, Google이 값을 주지 않은 식당도 시각을 기록해 다시 조회하지 않는다. 운영에서 `CONTACT_BACKFILL_ENABLED=true`로 켜고, 대상이 0이 되면 끄고 체크한다. → `docs/DEPLOYMENT.md` 참고.

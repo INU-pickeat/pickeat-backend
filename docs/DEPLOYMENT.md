@@ -8,7 +8,7 @@ Pick Eat 백엔드는 EC2에서 실행 JAR를 systemd로 관리하고, GitHub Ac
 - EC2 생성, bootstrap, GitHub Secrets 등록, 최초 배포, DNS·HTTPS 연결까지 완료했다. 아래 1~3번은 새 인스턴스를 만들 때 따르는 절차다.
 - `main`의 CI가 성공하면 자동 CD가 배포한다.
 - 인증서 만료일은 2027-01-02이며 certbot 타이머가 자동 갱신한다.
-- 아직 하지 않은 것: 자동 롤백 실검증, 후기 이미지용 S3 버킷·IAM 역할 생성.
+- 후기 이미지 S3: 버킷 `pickeat-review-images-prod`, EC2 역할 `pickeat-backend-ec2`, CloudFront 제공. 업로드 URL 발급 → PUT → CloudFront 조회, `www.pickeat.kr` CORS를 운영에서 확인했다(2026-11-10).
 
 ## 확정 구조
 
@@ -146,4 +146,4 @@ curl --fail https://api.pickeat.kr/api/v1/discovery-spots
 
 ## 롤백
 
-자동 헬스체크 실패 시 배포 스크립트가 직전 릴리스로 되돌린다. 이 자동 롤백은 아직 실제 실패 배포로 검증하지 않았다. 수동 롤백은 `/opt/pickeat/releases`의 정상 릴리스를 `/opt/pickeat/current`가 가리키도록 바꾼 뒤 서비스를 재시작한다.
+자동 헬스체크 실패 시 배포 스크립트가 직전 릴리스로 되돌린다. 2026-11-10 운영에서 깨진 jar로 `deploy.sh`를 돌려 검증했다. 헬스체크 60초 실패 후 직전 릴리스로 되돌아갔고, 다시 정상 응답하기까지 약 87초 걸렸다(그동안 API 응답 없음). 수동 롤백은 `/opt/pickeat/releases`의 정상 릴리스를 `/opt/pickeat/current`가 가리키도록 바꾼 뒤 서비스를 재시작한다.
