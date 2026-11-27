@@ -75,7 +75,8 @@ if ! docker container inspect pickeat-postgres > /dev/null 2>&1; then
     -c effective_cache_size=256MB \
     -c work_mem=4MB \
     -c maintenance_work_mem=32MB \
-    -c max_connections=20
+    -c max_connections=20 \
+    -c shared_preload_libraries=pg_stat_statements
 fi
 
 for attempt in {1..30}; do

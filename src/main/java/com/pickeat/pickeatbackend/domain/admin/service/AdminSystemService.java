@@ -21,10 +21,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
- * 관리자 운영 상태. 별도 모니터링 서버 없이 앱 안에 쌓이는 Micrometer 지표와 최근 오류를 읽는다.
+ * 관리자 운영 상태. 별도 모니터링 서버 없이 앱 안에 쌓이는 Micrometer 지표, 최근 오류, pg_stat_statements를 읽는다.
  * ponytail: 재시작하면 0부터 센다. 기간 비교·알림이 필요하면 외부 수집기가 /actuator/prometheus를 읽게 한다.
  */
 @Service
@@ -42,8 +44,25 @@ public class AdminSystemService {
             new GoogleSku(CONTACT_DETAILS, "Place Details Enterprise (연락처 백필)", 20.0)
     );
 
+    // 평균 실행 시간이 긴 순. 마이그레이션 DDL·JDBC 드라이버 메타데이터 조회는 빼고 조회·변경 문장만 본다.
+    // Hibernate SELECT는 컬럼 목록이 길어 테이블이 안 보이므로 첫 FROM 앞을 "…"로 줄인다.
+    // 통계는 DB에 쌓이므로 앱을 재시작해도 남고, DB를 재시작하거나 pg_stat_statements_reset()을 부르면 비워진다.
+    private static final String SLOW_QUERIES_SQL = """
+            SELECT left(regexp_replace(regexp_replace(query, '\\s+', ' ', 'g'), '^select .+? from ', 'select … from ', 'i'), 300),
+                   calls, mean_exec_time, max_exec_time,
+                   total_exec_time, rows
+            FROM pg_stat_statements
+            WHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
+              AND query ~* '^\\s*(select|insert|update|delete|with)\\s'
+              AND query NOT ILIKE '%pg_stat_statements%'
+              AND query NOT ILIKE '%pg_catalog.%'
+            ORDER BY mean_exec_time DESC
+            LIMIT 10
+            """;
+
     private final MeterRegistry meterRegistry;
     private final RecentErrors recentErrors;
+    private final JdbcTemplate jdbcTemplate;
 
     public AdminSystemStatus status() {
         Instant now = Instant.now();
@@ -62,8 +81,20 @@ public class AdminSystemService {
                 endpoints(),
                 googleApis,
                 round(googleApis.stream().mapToDouble(AdminSystemStatus.GoogleApi::estimatedUsd).sum()),
-                recentErrors.list()
+                recentErrors.list(),
+                slowQueries()
         );
+    }
+
+    // 확장이 없거나 shared_preload_libraries에 안 올라가 있으면(로컬 Postgres.app 등) 꺼짐으로 응답한다.
+    private AdminSystemStatus.SlowQueries slowQueries() {
+        try {
+            return new AdminSystemStatus.SlowQueries(true, jdbcTemplate.query(SLOW_QUERIES_SQL, (rs, rowNum) ->
+                    new AdminSystemStatus.SlowQuery(rs.getString(1), rs.getLong(2), round(rs.getDouble(3)),
+                            round(rs.getDouble(4)), round(rs.getDouble(5)), rs.getLong(6))));
+        } catch (DataAccessException e) {
+            return new AdminSystemStatus.SlowQueries(false, List.of());
+        }
     }
 
     // 같은 경로라도 상태 코드별로 타이머가 따로 있어 메서드+경로로 합친다.

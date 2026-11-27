@@ -3,7 +3,7 @@ package com.pickeat.pickeatbackend.domain.admin.dto;
 import com.pickeat.pickeatbackend.global.exception.RecentErrors;
 import java.util.List;
 
-/** 관리자 운영 상태. 값은 모두 이번 기동 이후 서버 메모리 기준이며 재시작하면 0부터 다시 센다. */
+/** 관리자 운영 상태. 느린 쿼리를 뺀 값은 이번 기동 이후 서버 메모리 기준이며 재시작하면 0부터 다시 센다. */
 public record AdminSystemStatus(
         String generatedAt,
         String startedAt,
@@ -13,8 +13,17 @@ public record AdminSystemStatus(
         List<Endpoint> endpoints,
         List<GoogleApi> googleApis,
         double googleEstimatedUsd,
-        List<RecentErrors.Entry> recentErrors
+        List<RecentErrors.Entry> recentErrors,
+        SlowQueries slowQueries
 ) {
+
+    /** enabled=false면 DB에 pg_stat_statements가 올라가 있지 않다. 이 값만 DB 기준이라 앱 재시작과 상관없이 쌓인다. */
+    public record SlowQueries(boolean enabled, List<SlowQuery> top) {
+    }
+
+    /** 시간 단위는 ms. 쿼리 문장은 공백을 합쳐 300자까지, 바인딩 값은 $1처럼 가려진다. */
+    public record SlowQuery(String query, long calls, double meanMs, double maxMs, double totalMs, long rows) {
+    }
 
     public record Jvm(long heapUsedMb, long heapMaxMb) {
     }
