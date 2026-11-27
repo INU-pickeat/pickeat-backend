@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.pickeat.pickeatbackend.domain.admin.dto.AdminStats;
@@ -49,6 +50,11 @@ class AdminStatsIntegrationTest {
                 .andExpect(status().isOk());
         mockMvc.perform(get("/admin.html").with(httpBasic("admin", "admin123")))
                 .andExpect(status().isOk());
+        mockMvc.perform(get("/api/admin/system")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/admin/system").with(httpBasic("admin", "admin123")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.googleApis.length()").value(4))
+                .andExpect(jsonPath("$.jvm.heapMaxMb").isNumber());
     }
 
     @Test

@@ -6,6 +6,14 @@
 
 구현 당시의 판단과 결과다. 현재 규칙과 다르면 현재 규칙이 우선이다.
 
+### 운영 상태 화면 (2026-11-27)
+
+- 별도 모니터링 서버(Grafana·Sentry·Datadog) 대신 관리자 대시보드 아래에 "운영 상태"를 붙였다. t3.micro 메모리가 빠듯하고(908MB, 스왑 사용 중) 지금 규모에는 앱 안의 지표로 충분하다. 외부 모니터링은 다른 서비스에서 따로 운영한다.
+- `GET /api/admin/system`: 가동 시간, JVM 힙, Hikari 커넥션(활성·유휴·대기·최대), 경로별 호출 수·5xx·평균·최대 응답 시간(호출 많은 순 20개, `/actuator` 제외), Google API 호출 수와 예상 비용, 최근 500 오류 50건.
+- Google 비용: `GooglePlacesClient`가 과금 단위마다 `google.places.calls{api}` 카운터를 올리고, 1,000건당 단가(Nearby Search Enterprise+Atmosphere $40, Place Photo $7, Place Details Enterprise $20, 사진 이름 조회는 IDs Only라 $0)를 곱한다. 월 무료 한도는 빼지 않은 단순 환산이라 실제 청구는 Google Cloud 콘솔에서 확인한다. 사진 이름 조회의 IDs Only 등급 판단도 콘솔 SKU로 확인이 필요하다.
+- 최근 오류: `GlobalExceptionHandler`의 500 처리에서 `RecentErrors`(메모리, 최신 50건, 메시지 300자)에 남긴다. 응답에는 여전히 내부 정보를 숨긴다.
+- 한계: 값이 모두 서버 메모리에 있어 배포·재시작하면 0부터 센다. 기간 비교 그래프와 알림이 없다. 필요해지면 외부 수집기가 `/actuator/prometheus`를 읽게 한다(지금은 회원 인증 체인에 걸려 401).
+
 ### 관리자 대시보드 구현 결과 (2026-11-03)
 
 - 사용자 테스트(8~15명)의 검증 질문 세 가지, 즉 결정이 빨라지는지, 추천 5곳이 만족스러운지, 기록·피드를 쓸 이유가 있는지를 보기 위한 화면이다. `GET /api/admin/stats?days=7`(1~90, 범위 밖은 맞춤)과 이를 그리는 `/admin.html` 한 장이다.

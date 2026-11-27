@@ -9,6 +9,7 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpMethod;
@@ -329,5 +330,20 @@ class GooglePlacesClientTest {
         assertThat(response.nationalPhoneNumber()).isEqualTo("02-123-4567");
         assertThat(response.regularOpeningHours().weekdayDescriptions()).containsExactly("월요일: 휴무일");
         server.verify();
+    }
+
+    @Test
+    void countsEachBillableCallForAdminCostEstimate() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer mock = MockRestServiceServer.bindTo(builder).build();
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        GooglePlacesClient counted = new GooglePlacesClient(builder, "test-key", registry);
+        mock.expect(requestTo("https://places.googleapis.com/v1/places:searchNearby"))
+            .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        counted.findNearbyRestaurants(37.58, 127.0, 1000.0, GooglePlacesClient.RankPreference.POPULARITY, RESTAURANT_TYPE);
+
+        assertThat(registry.find(GooglePlacesClient.CALLS_METRIC).tag("api", GooglePlacesClient.NEARBY_SEARCH)
+            .counter().count()).isEqualTo(1.0);
     }
 }

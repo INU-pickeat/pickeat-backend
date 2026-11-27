@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.pickeat.pickeatbackend.global.security.jwt.JwtTokenProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -67,11 +68,15 @@ class GlobalErrorResponseTest {
     @Test
     @DisplayName("예상하지 못한 예외는 내부 정보 없이 500 GLOBAL_500으로 응답한다")
     void hidesUnexpectedExceptionDetails() {
-        ResponseEntity<ErrorResponse> response =
-                new GlobalExceptionHandler().handleUnexpected(new IllegalStateException("DB 비밀번호 노출"));
+        RecentErrors recentErrors = new RecentErrors();
+        ResponseEntity<ErrorResponse> response = new GlobalExceptionHandler(recentErrors)
+                .handleUnexpected(new IllegalStateException("DB 비밀번호 노출"), new MockHttpServletRequest("GET", "/api/v1/x"));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         assertThat(response.getBody().code()).isEqualTo("GLOBAL_500");
         assertThat(response.getBody().message()).doesNotContain("DB");
+        // 응답에는 숨기지만 관리자 운영 상태 화면에서 볼 수 있게 남긴다.
+        assertThat(recentErrors.list()).singleElement()
+                .satisfies(entry -> assertThat(entry.path()).isEqualTo("/api/v1/x"));
     }
 }
