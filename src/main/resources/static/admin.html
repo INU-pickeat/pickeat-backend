@@ -78,6 +78,11 @@
         <p class="muted">최대는 최근 몇 분 안의 값</p>
         <table id="endpoints"></table>
     </section>
+    <section class="panel" style="margin-top:12px">
+        <h2>느린 쿼리 TOP 10 (평균 실행 시간 순)</h2>
+        <p class="muted" id="slowNote">pg_stat_statements 기준. DB에 쌓여 앱을 재시작해도 남고, DB를 재시작하면 비워집니다.</p>
+        <table id="slowQueries"></table>
+    </section>
 </main>
 
 <script>
@@ -189,6 +194,12 @@
                 `${e.type.split(".").pop()}: ${e.message ?? ""}`]));
         renderTable($("#endpoints"), [["요청"], ["호출", true], ["5xx", true], ["평균 ms", true], ["최대 ms", true]],
             sys.endpoints.map((e) => [`${e.method} ${e.uri}`, e.count, e.serverErrors, e.meanMs, e.maxMs]));
+        if (!sys.slowQueries.enabled) {
+            $("#slowNote").textContent = "꺼짐: DB에 pg_stat_statements가 올라가 있지 않습니다 (docs/DEPLOYMENT.md 참고).";
+        }
+        renderTable($("#slowQueries"), [["쿼리"], ["호출", true], ["평균 ms", true], ["최대 ms", true], ["합계 ms", true], ["행", true]],
+            sys.slowQueries.top.map((q) => [Object.assign(el("code", q.query), { style: "font-size:12px;word-break:break-all" }),
+                q.calls, q.meanMs, q.maxMs, q.totalMs, q.rows]));
     }
 
     async function loadSystem() {

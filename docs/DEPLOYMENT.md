@@ -52,6 +52,13 @@ Swagger UI(`https://api.pickeat.kr/swagger-ui/index.html`)는 기본으로 꺼�
 
 추천용 Nearby Search 필드 마스크에 `places.parkingOptions`를 더했다(2026-11-03). 이미 `goodForChildren`·`allowsDogs` 같은 Atmosphere 필드를 요청하고 있어 같은 과금 등급(Nearby Search Enterprise + Atmosphere)으로 판단하지만, 배포 후 Google Cloud 콘솔에서 SKU별 사용량이 바뀌지 않았는지 확인한다.
 
+관리자 운영 상태의 느린 쿼리 TOP 10은 PostgreSQL `pg_stat_statements`를 쓴다. 새 인스턴스는 bootstrap이 컨테이너를 `-c shared_preload_libraries=pg_stat_statements`로 띄운다. bootstrap 이전에 만든 기존 컨테이너는 아래처럼 켠다(DB가 몇 초 멈춘다). 설정은 데이터 볼륨의 `postgresql.auto.conf`에 남는다.
+
+```bash
+sudo docker exec -it pickeat-postgres psql -U pick_eat -d pick_eat -c "ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements'"
+sudo docker restart pickeat-postgres
+```
+
 bootstrap은 swap, Java·Docker·Nginx·certbot 설치, PostGIS 컨테이너 실행, Nginx 설정, 백업 cron, systemd 서비스 등록을 한 번에 처리한다. 여러 번 실행해도 기존 환경변수 파일과 DB 볼륨은 유지된다. 단, Nginx 설정 파일은 템플릿으로 덮어쓰므로 **HTTPS 발급 뒤에 다시 실행하면 certbot이 넣은 SSL 설정이 사라진다.** 그때는 `sudo certbot --nginx -d api.pickeat.kr`를 다시 실행한다. 환경변수 파일은 Git에 커밋하지 않는다.
 
 ### 도메인과 HTTPS

@@ -54,7 +54,9 @@ class AdminStatsIntegrationTest {
         mockMvc.perform(get("/api/admin/system").with(httpBasic("admin", "admin123")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.googleApis.length()").value(4))
-                .andExpect(jsonPath("$.jvm.heapMaxMb").isNumber());
+                .andExpect(jsonPath("$.jvm.heapMaxMb").isNumber())
+                // 로컬 Postgres.app은 pg_stat_statements를 미리 올리지 않아 꺼짐이어도 응답은 정상이어야 한다.
+                .andExpect(jsonPath("$.slowQueries.enabled").isBoolean());
     }
 
     @Test
