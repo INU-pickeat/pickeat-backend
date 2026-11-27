@@ -1,6 +1,8 @@
 package com.pickeat.pickeatbackend.global.exception;
 
 import jakarta.validation.ConstraintViolationException;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -15,7 +17,10 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 @Slf4j
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final RecentErrors recentErrors;
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e) {
@@ -65,8 +70,9 @@ public class GlobalExceptionHandler {
 
     // 예상하지 못한 오류(Google Places·S3·DB 장애 포함)는 내부 정보를 숨기고 같은 형식의 500으로 응답한다.
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleUnexpected(Exception e) {
+    public ResponseEntity<ErrorResponse> handleUnexpected(Exception e, HttpServletRequest request) {
         log.error("처리하지 못한 예외", e);
+        recentErrors.record(request.getMethod(), request.getRequestURI(), e);
         return respond(GlobalErrorCode.INTERNAL_ERROR);
     }
 

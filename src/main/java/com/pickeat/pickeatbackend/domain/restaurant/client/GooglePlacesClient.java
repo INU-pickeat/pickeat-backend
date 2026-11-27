@@ -8,6 +8,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -29,17 +31,35 @@ public class GooglePlacesClient {
     // Place Details Enterprise SKU. 다른 필드를 더하면 등급이 올라갈 수 있으니 이 두 개만 요청한다.
     static final String CONTACT_FIELD_MASK = "nationalPhoneNumber,regularOpeningHours";
 
+    // 관리자 운영 상태 화면이 호출 수 × 단가로 비용을 환산한다(AdminSystemService). 과금 단위(SKU)마다 하나씩 센다.
+    public static final String CALLS_METRIC = "google.places.calls";
+    public static final String NEARBY_SEARCH = "nearby_search";
+    public static final String PHOTO_DETAILS = "photo_details";
+    public static final String PHOTO_MEDIA = "photo_media";
+    public static final String CONTACT_DETAILS = "contact_details";
+
     private final RestClient restClient;
     private final String apiKey;
+    private final MeterRegistry meterRegistry;
 
     @Autowired
-    public GooglePlacesClient(@Value("${google.places.api-key:}") String apiKey) {
-        this(createBuilder(), apiKey);
+    public GooglePlacesClient(@Value("${google.places.api-key:}") String apiKey, MeterRegistry meterRegistry) {
+        this(createBuilder(), apiKey, meterRegistry);
     }
 
     GooglePlacesClient(RestClient.Builder builder, String apiKey) {
+        this(builder, apiKey, new SimpleMeterRegistry());
+    }
+
+    GooglePlacesClient(RestClient.Builder builder, String apiKey, MeterRegistry meterRegistry) {
         this.restClient = builder.baseUrl("https://places.googleapis.com").build();
         this.apiKey = apiKey;
+        this.meterRegistry = meterRegistry;
+    }
+
+    // 요청을 보내기 직전에 센다. Google은 오류 응답도 과금할 수 있어 성공 여부와 상관없이 센다.
+    private void count(String api) {
+        meterRegistry.counter(CALLS_METRIC, "api", api).increment();
     }
 
     // 카테고리에 매핑된 구체적인 Google 주 유형을 넘겨 Google 서버에서 선처리시킨다.
@@ -72,6 +92,7 @@ public class GooglePlacesClient {
             ))
         );
 
+        count(NEARBY_SEARCH);
         NearbyResponse response = restClient.post()
             .uri("/v1/places:searchNearby")
             .header("X-Goog-Api-Key", apiKey)
@@ -98,6 +119,7 @@ public class GooglePlacesClient {
             return Optional.empty();
         }
 
+        count(PHOTO_DETAILS);
         PhotosResponse details = restClient.get()
             .uri(uriBuilder -> uriBuilder.path("/v1/places/" + placeId).build())
             .header("X-Goog-Api-Key", apiKey)
@@ -112,6 +134,7 @@ public class GooglePlacesClient {
             return Optional.empty();
         }
 
+        count(PHOTO_MEDIA);
         PhotoMedia media = restClient.get()
             .uri(uriBuilder -> uriBuilder.path("/v1/" + photo.name() + "/media")
                 .queryParam("maxWidthPx", maxWidthPx)
@@ -136,6 +159,7 @@ public class GooglePlacesClient {
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("GOOGLE_PLACES_API_KEY 설정이 필요합니다.");
         }
+        count(CONTACT_DETAILS);
         GooglePlaceResponse response = restClient.get()
             .uri(uriBuilder -> uriBuilder.path("/v1/places/" + placeId).queryParam("languageCode", "ko").build())
             .header("X-Goog-Api-Key", apiKey)
