@@ -107,6 +107,7 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 - 식당별 후기 요약 API (`GET /api/v1/restaurants/{id}/review-summary`) — 인증 불필요. 공개 후기 수·대표 한줄평(본문 있는 가장 최근 공개 후기)·많이 고른 키워드 상위 5개(`topKeywords: [{code, label, count}]`)
 - 탐색 스팟 한줄평(`oneLineIntro`)은 앱 내 사용자 후기 기반 — 식당별 가장 최근 공개 후기의 첫 줄(최대 50자), 후기가 없으면 `"후기가 없습니다."`
 - 관리자 대시보드 (`/admin.html`, `GET /api/admin/stats?days=7`) — HTTP Basic 인증. 사용자 테스트용으로 결정 소요 시간, Pick 전환율, Pick한 순위, 제외 사유, 프랜차이즈 노출, 후기 작성률, 재방문 회원을 기존 테이블에서 집계한다
+- 관리자 운영 상태 (`/admin.html` 아래쪽, `GET /api/admin/system`) — 같은 관리자 인증. 별도 모니터링 서버 대신 API 경로별 호출 수·5xx·응답 시간, Google API 호출 수와 예상 비용, DB 커넥션, JVM 힙, 최근 500 오류 50건, 느린 쿼리 TOP 10(`pg_stat_statements`)을 보여준다. 느린 쿼리를 뺀 값은 서버 메모리에 있어 배포·재시작하면 0부터 센다
 - 초기 탐색 스팟 조회 API (`GET /api/v1/discovery-spots`) — 인증 없이 신사·혜화·서촌·한남·종로와 지역별 고정 노출 식당을 순서대로 조회
 
 추천 세션당 Pick은 하나만 허용하고, 다른 세션에서는 같은 식당을 다시 선택할 수 있습니다. 지도와 캘린더는 후기를 작성한(REVIEWED) Pick만 보여 줍니다.
@@ -124,6 +125,10 @@ PostGIS가 설치되어 있어야 하며, CI에서는 별도의 PostGIS 서비�
 ## 운영
 
 CI는 `.github/workflows/ci.yml`, CD는 `.github/workflows/deploy.yml`에서 실행합니다. `main`의 CI가 성공하면 EC2에 실행 JAR를 배포하고 헬스체크 실패 시 직전 릴리스로 롤백합니다. 운영은 EC2 t3.micro 한 대에 앱(systemd)·PostGIS(Docker)·Nginx를 함께 올린 구성이며, 2026-10-04부터 `https://api.pickeat.kr`로 서비스합니다.
+
+자동 롤백은 2026-11-10 운영에서 깨진 JAR로 검증했습니다(복구까지 약 87초).
+
+운영 상태는 관리자 대시보드(`https://api.pickeat.kr/admin.html`, 계정 `ADMIN_USERNAME`/`ADMIN_PASSWORD`)에서 봅니다. 로컬은 `admin`/`admin123`이며, 로컬 Postgres.app은 `pg_stat_statements`를 미리 올리지 않아 느린 쿼리가 "꺼짐"으로 나옵니다.
 
 EC2 최초 설정, GitHub Secrets, systemd, 헬스체크와 롤백 절차는 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)를 참고하세요.
 
